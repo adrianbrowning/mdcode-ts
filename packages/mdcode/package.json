@@ -1,0 +1,72 @@
+{
+  "name": "@gcm/mdcode-ts",
+  "version": "0.0.1",
+  "description": "TypeScript port of mdcode - Markdown code block authoring tool",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "zshy",
+    "dev": "zshy --watch",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "prepublishOnly": "pnpm build"
+  },
+  "keywords": [
+    "markdown",
+    "code-blocks",
+    "documentation",
+    "authoring"
+  ],
+  "author": "Adrian Elton-Browning",
+  "license": "ISC",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "zshy": {
+    "cjs": false,
+    "exports": {
+      ".": "./src/index.ts",
+      "./cli": "./src/cli.ts"
+    },
+    "bin": "./src/main.ts"
+  },
+  "devDependencies": {
+    "@types/mdast": "^4.0.4",
+    "@types/node": "^24.9.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.2",
+    "zshy": "^0.1.0"
+  },
+  "dependencies": {
+    "@std/tar": "npm:@jsr/std__tar@^0.1.9",
+    "commander": "^14.0.1",
+    "mdast-util-to-string": "^4.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-stringify": "^11.0.0",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.0.0"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.cts",
+  "bin": "./dist/main.cjs",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.cts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./cli": {
+      "types": "./dist/cli.d.cts",
+      "import": "./dist/cli.js",
+      "require": "./dist/cli.cjs"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adrianbrowning/mdcode-ts"
+  }
+}

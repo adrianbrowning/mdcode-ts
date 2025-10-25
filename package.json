@@ -1,0 +1,28 @@
+{
+  "name": "@gcm/mdcode-ts-workspace",
+  "version": "0.0.1",
+  "description": "TypeScript port of mdcode - Markdown code block authoring tool workspace",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm --filter @gcm/mdcode-ts build",
+    "dev": "pnpm --filter @gcm/mdcode-ts dev",
+    "test": "pnpm --filter @gcm/mdcode-ts test",
+    "test:watch": "pnpm --filter @gcm/mdcode-ts test:watch",
+    "test:usage": "pnpm --filter @gcm/mdcode-ts-usage test",
+    "test:usage:watch": "pnpm --filter @gcm/mdcode-ts-usage test:watch",
+    "test:all": "pnpm test && pnpm test:usage"
+  },
+  "keywords": [
+    "markdown",
+    "code-blocks",
+    "documentation",
+    "authoring"
+  ],
+  "author": "Adrian Elton-Browning",
+  "license": "ISC",
+  "packageManager": "pnpm@10.17.1",
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

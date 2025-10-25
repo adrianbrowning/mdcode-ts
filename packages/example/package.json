@@ -1,0 +1,26 @@
+{
+  "name": "@gcm/mdcode-ts-example",
+  "version": "0.0.1",
+  "description": "Example usage of @gcm/mdcode-ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "example:extract": "mdcode-ts extract examples/sample.md",
+    "example:list": "mdcode-ts list examples/sample.md",
+    "example:update": "mdcode-ts update examples/sample.md",
+    "example:transform": "mdcode-ts update --transform examples/transforms/uppercase-sql.ts examples/test-transform.md"
+  },
+  "keywords": [
+    "mdcode-ts",
+    "mdcode",
+    "example"
+  ],
+  "author": "Adrian Elton-Browning",
+  "license": "ISC",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@gcm/mdcode-ts": "workspace:*"
+  }
+}
