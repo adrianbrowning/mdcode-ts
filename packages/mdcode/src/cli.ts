@@ -31,7 +31,7 @@ async function readInput(filePath?: string): Promise<string> {
 /**
  * Parse filter options from command-line flags
  */
-function parseFilterOptions(options: any): FilterOptions | undefined {
+function parseFilterOptions(options: { lang?: string; file?: string; meta?: Record<string, string>; }): FilterOptions | undefined {
   const filter: FilterOptions = {};
 
   if (options.lang) {
@@ -87,8 +87,9 @@ export async function Execute(
         const output = list({ source, filter });
         stdout.write(output + "\n");
       }
-      catch (error: any) {
-        stderr.write(`Error: ${error.message}\n`);
+      catch (error: unknown) {
+        if (error instanceof Error) stderr.write(`Error: ${error.message}\n`);
+        // eslint-disable-next-line no-process-exit
         process.exit(1);
       }
     });
@@ -108,8 +109,9 @@ export async function Execute(
         const filter = parseFilterOptions(options);
         await extract({ source, filter, outputDir: options.output });
       }
-      catch (error: any) {
-        stderr.write(`Error: ${error.message}\n`);
+      catch (error: unknown) {
+        if(error instanceof Error) stderr.write(`Error: ${error.message}\n`);
+        // eslint-disable-next-line no-process-exit
         process.exit(1);
       }
     });
@@ -129,8 +131,9 @@ export async function Execute(
         const filter = parseFilterOptions(options);
         await run({ source, command, filter });
       }
-      catch (error: any) {
-        stderr.write(`Error: ${error.message}\n`);
+      catch (error: unknown) {
+        if (error instanceof Error)stderr.write(`Error: ${error.message}\n`);
+        // eslint-disable-next-line no-process-exit
         process.exit(1);
       }
     });
@@ -156,15 +159,17 @@ export async function Execute(
             // Resolve to absolute path and convert to file URL
             const absolutePath = resolve(process.cwd(), options.transform);
             const fileUrl = pathToFileURL(absolutePath).href;
-            const transformModule = await import(fileUrl);
+            const transformModule = await import(fileUrl); // eslint-disable-line node/no-unsupported-features/es-syntax
             if (!transformModule.default || typeof transformModule.default !== "function") {
               stderr.write("Error: Transform file must export a default function\n");
+              // eslint-disable-next-line no-process-exit
               process.exit(1);
             }
             transformer = transformModule.default;
           }
-          catch (error: any) {
-            stderr.write(`Error loading transform file: ${error.message}\n`);
+          catch (error: unknown) {
+            if(error instanceof Error) stderr.write(`Error loading transform file: ${error.message}\n`);
+            // eslint-disable-next-line no-process-exit
             process.exit(1);
           }
         }
@@ -172,8 +177,9 @@ export async function Execute(
         const output = await update({ source, filter, transformer });
         stdout.write(output);
       }
-      catch (error: any) {
-        stderr.write(`Error: ${error.message}\n`);
+      catch (error: unknown) {
+        if (error instanceof Error) stderr.write(`Error: ${error.message}\n`);
+        // eslint-disable-next-line no-process-exit
         process.exit(1);
       }
     });
@@ -193,8 +199,9 @@ export async function Execute(
         const tarData = await dump({ source, filter });
         stdout.write(tarData);
       }
-      catch (error: any) {
-        stderr.write(`Error: ${error.message}\n`);
+      catch (error: unknown) {
+        if (error instanceof Error)stderr.write(`Error: ${error.message}\n`);
+        // eslint-disable-next-line no-process-exit
         process.exit(1);
       }
     });

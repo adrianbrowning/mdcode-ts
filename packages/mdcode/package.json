@@ -1,5 +1,5 @@
 {
-  "name": "@gcm/mdcode-ts",
+  "name": "@mdcode-ts/mdcode",
   "version": "0.0.1",
   "description": "TypeScript port of mdcode - Markdown code block authoring tool",
   "type": "module",

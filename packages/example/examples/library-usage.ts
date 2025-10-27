@@ -2,12 +2,12 @@
  * Library Usage Example
  *
  * This demonstrates how to use mdcode-ts programmatically in your TypeScript/JavaScript projects.
- * Import functions from '@gcm/mdcode-ts' and use them to parse, transform, and manipulate
+ * Import functions from '@mdcode-ts/mdcode' and use them to parse, transform, and manipulate
  * code blocks in markdown documents.
  */
 
-// In a real project, you would import from '@gcm/mdcode-ts':
-// import mdcode, { parse, walk, update, defineTransform, type Block, type TransformerFunction } from '@gcm/mdcode-ts';
+// In a real project, you would import from '@mdcode-ts/mdcode':
+// import mdcode, { parse, walk, update, defineTransform, type Block, type TransformerFunction } from '@mdcode-ts/mdcode';
 
 // For this example, we import from the built dist folder:
 import { unlink, writeFile } from "node:fs/promises";
@@ -75,10 +75,10 @@ const simpleResult = await mdcode(tempFile, (tag, meta, code) => {
 
 console.log("Transformed with default export:");
 const sqlBlocks1 = parse({ source: simpleResult, filter: { lang: "sql" } });
-console.log("SQL block:", sqlBlocks1[0].code);
+console.log("SQL block:", sqlBlocks1?.[0]?.code);
 
 const testBlocks1 = parse({ source: simpleResult, filter: { file: "app.test.js" } });
-console.log("Test file:", testBlocks1[0].code.split("\n")[0]); // First line
+console.log("Test file:", testBlocks1?.[0]?.code.split("\n")[0]); // First line
 
 await unlink(tempFile);
 
@@ -106,7 +106,7 @@ jsBlocks.forEach(block => {
 // -----------------
 console.log("\n\n=== Example 2: Simple Transformation ===\n");
 
-const uppercaseTransformer = defineTransform((tag, meta, code) => {
+const uppercaseTransformer = defineTransform((tag, _meta, code) => {
   if (tag === "sql") {
     return code.toUpperCase();
   }
@@ -120,7 +120,7 @@ const result1 = await update({
 
 console.log("SQL blocks have been transformed to uppercase:");
 const sqlBlocks = parse({ source: result1, filter: { lang: "sql" } });
-console.log(sqlBlocks[0].code);
+console.log(sqlBlocks?.[0]?.code);
 
 // -----------------
 // Example 3: Conditional Transformation Based on Metadata
@@ -159,7 +159,7 @@ const appJsBlocks = parse({
   filter: { lang: "js", file: "app.js" },
 });
 console.log("\napp.js (with strict mode):");
-console.log(appJsBlocks[0].code);
+console.log(appJsBlocks?.[0]?.code);
 
 // Show test file with auto-generated comment
 const testBlocks = parse({
@@ -167,7 +167,7 @@ const testBlocks = parse({
   filter: { file: "app.test.js" },
 });
 console.log("\napp.test.js (with auto-generated comment):");
-console.log(testBlocks[0].code);
+console.log(testBlocks?.[0]?.code);
 
 // Show Python with docstring
 const pythonBlocks = parse({
@@ -175,7 +175,7 @@ const pythonBlocks = parse({
   filter: { lang: "python" },
 });
 console.log("\nPython (with docstring):");
-console.log(pythonBlocks[0].code);
+console.log(pythonBlocks?.[0]?.code);
 
 // -----------------
 // Example 4: Async Transformation
@@ -209,7 +209,7 @@ const result3 = await update({
 
 console.log("JavaScript code has been formatted (async):");
 const formattedJsBlocks = parse({ source: result3, filter: { lang: "js" } });
-console.log(formattedJsBlocks[0].code);
+console.log(formattedJsBlocks?.[0]?.code);
 
 // -----------------
 // Example 5: Custom Walker for Advanced Processing
@@ -272,10 +272,10 @@ console.log("Modified:", result4.modified);
 console.log("\n\n=== Example 7: Chaining Transformations ===\n");
 
 // First transformer: Add comments
-const addCommentsTransformer = defineTransform((tag, meta, code) => `// Language: ${tag}\n${code}`);
+const addCommentsTransformer = defineTransform((tag, _meta, code) => `// Language: ${tag}\n${code}`);
 
 // Second transformer: Add line numbers
-const addLineNumbersTransformer = defineTransform((tag, meta, code) => {
+const addLineNumbersTransformer = defineTransform((_tag,_meta, code) => {
   const lines = code.split("\n");
   const numbered = lines.map((line, i) => `${i + 1}: ${line}`).join("\n");
   return numbered;
@@ -297,7 +297,7 @@ chainedResult = await update({
 
 console.log("Chained transformation result (first JS block):");
 const chainedBlocks = parse({ source: chainedResult, filter: { lang: "js" } });
-console.log(chainedBlocks[0].code);
+console.log(chainedBlocks?.[0]?.code);
 
 // -----------------
 // Example 8: Real-World Use Case - Documentation Generator

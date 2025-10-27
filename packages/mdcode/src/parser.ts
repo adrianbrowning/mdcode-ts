@@ -22,6 +22,7 @@ function parseInfoString(info: string | null | undefined): { lang: string; meta:
 
   for (let i = 1; i < parts.length; i++) {
     const part = parts[i];
+    if (!part) continue;
     const equalIndex = part.indexOf("=");
     if (equalIndex > 0) {
       const key = part.substring(0, equalIndex);
@@ -183,9 +184,9 @@ export async function walk(options: WalkOptions): Promise<WalkResult> {
 async function visitAsync(
   tree: Root,
   type: string,
-  visitor: (node: any, index: number | undefined, parent: any) => Promise<void>
+  visitor: (node: any, index: number | undefined, parent: any) => Promise<void> // eslint-disable-line @typescript-eslint/no-explicit-any
 ): Promise<void> {
-  const visit = async (node: any, index?: number, parent?: any): Promise<void> => {
+  const visit = async (node: any, index?: number, parent?: any): Promise<void> => { // eslint-disable-line @typescript-eslint/no-explicit-any
     if (node.type === type) {
       await visitor(node, index, parent);
     }

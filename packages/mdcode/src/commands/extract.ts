@@ -24,7 +24,7 @@ export async function extract(options: ExtractOptions): Promise<Array<string>> {
   }
 
   // Group blocks by file path
-  const fileMap = new Map<string, Array<{ block: any; index: number; }>>();
+  const fileMap = new Map<string, Array<{ block: { meta: Record<string, string>; lang: string; code: string; }; index: number; }>>();
 
   for (const [ index, block ] of blocks.entries()) {
     let filePath: string;
@@ -57,7 +57,9 @@ export async function extract(options: ExtractOptions): Promise<Array<string>> {
 
     if (allHaveRegions && items.length > 1) {
       // Combine multiple regions into one file
-      const commentStyle = getCommentStyle(items[0].block.lang);
+      const lang = items?.[0]?.block.lang || "text";
+
+      const commentStyle = getCommentStyle(lang);
       const parts: Array<string> = [];
 
       for (const { block } of items) {
@@ -70,7 +72,7 @@ export async function extract(options: ExtractOptions): Promise<Array<string>> {
       await writeFile(filePath, parts.join("\n").trim() + "\n", "utf-8");
       console.log(styleText("green", `✓ Extracted ${items.length} region(s) to ${filePath}`));
     }
-    else if (items.length === 1 && items[0].block.meta.region) {
+    else if (items.length === 1 && items[0]?.block.meta.region) {
       // Single region - wrap with markers
       const { block } = items[0];
       const commentStyle = getCommentStyle(block.lang);
@@ -85,7 +87,7 @@ export async function extract(options: ExtractOptions): Promise<Array<string>> {
     }
     else {
       // No regions or mixed - write the first block's code
-      await writeFile(filePath, items[0].block.code, "utf-8");
+      await writeFile(filePath, items[0]?.block.code || "", "utf-8");
       console.log(styleText("green", `✓ Extracted to ${filePath}`));
     }
 

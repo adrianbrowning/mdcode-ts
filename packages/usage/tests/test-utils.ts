@@ -4,10 +4,10 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 
-import type { Block } from "@gcm/mdcode-ts";
-import { extract } from "@gcm/mdcode-ts";
-import { update } from "@gcm/mdcode-ts";
-import { parse } from "@gcm/mdcode-ts";
+import type { Block } from "@mdcode-ts/mdcode";
+import { extract } from "@mdcode-ts/mdcode";
+import { update } from "@mdcode-ts/mdcode";
+import { parse } from "@mdcode-ts/mdcode";
 
 const execAsync = promisify(exec);
 

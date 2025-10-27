@@ -1,7 +1,7 @@
 {
-  "name": "@gcm/mdcode-ts-example",
+  "name": "@mdcode-ts/example",
   "version": "0.0.1",
-  "description": "Example usage of @gcm/mdcode-ts",
+  "description": "Example usage of @mdcode-ts/mdcode",
   "type": "module",
   "private": true,
   "scripts": {
@@ -25,6 +25,6 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "@gcm/mdcode-ts": "workspace:*"
+    "@mdcode-ts/mdcode": "workspace:*"
   }
 }

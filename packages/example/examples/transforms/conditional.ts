@@ -1,4 +1,4 @@
-import { defineTransform } from "../../src/types.js";
+import {defineTransform} from "@mdcode-ts/mdcode";
 
 /**
  * Example transformer that demonstrates conditional transformation

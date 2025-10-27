@@ -1,4 +1,5 @@
-import { defineTransform } from "../../src/types.js";
+import {defineTransform} from "@mdcode-ts/mdcode";
+
 
 /**
  * Example transformer that adds file header comments based on metadata

@@ -3,6 +3,7 @@ lockfileVersion: '9.0'
 settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
+  injectWorkspacePackages: true
 
 importers:
 
@@ -14,9 +15,6 @@ importers:
       '@commitlint/config-conventional':
         specifier: ^19.5.0
         version: 19.8.1
-      '@prisma/client':
-        specifier: ^6.8.2
-        version: 6.18.0(typescript@5.9.3)
       '@stylistic/eslint-plugin':
         specifier: ^1.5.4
         version: 1.8.1(eslint@8.57.1)(typescript@5.9.3)
@@ -74,15 +72,15 @@ importers:
 
   packages/example:
     dependencies:
-      '@gcm/mdcode-ts':
+      '@mdcode-ts/mdcode':
         specifier: workspace:*
         version: link:../mdcode
 
   packages/mdcode:
     dependencies:
-      '@std/tar':
-        specifier: npm:@jsr/std__tar@^0.1.9
-        version: '@jsr/std__tar@0.1.9'
+      '@jsr/std__tar':
+        specifier: ^0.1.9
+        version: 0.1.9
       commander:
         specifier: ^14.0.1
         version: 14.0.1
@@ -120,7 +118,7 @@ importers:
 
   packages/usage:
     dependencies:
-      '@gcm/mdcode-ts':
+      '@mdcode-ts/mdcode':
         specifier: workspace:*
         version: link:../mdcode
     devDependencies:
@@ -534,18 +532,6 @@ packages:
     resolution: {integrity: sha512-OtUpzpStS5bgVGXV7eaBr7Spot9lXu/wyd0yWEyoG2tyzm/bwdRKCwJQzxWIhlecRxMDGA+qlLRRicTNOejkSQ==}
     cpu: [x64]
     os: [win32]
-
-  '@prisma/client@6.18.0':
-    resolution: {integrity: sha512-jnL2I9gDnPnw4A+4h5SuNn8Gc+1mL1Z79U/3I9eE2gbxJG1oSA+62ByPW4xkeDgwE0fqMzzpAZ7IHxYnLZ4iQA==}
-    engines: {node: '>=18.18'}
-    peerDependencies:
-      prisma: '*'
-      typescript: '>=5.1.0'
-    peerDependenciesMeta:
-      prisma:
-        optional: true
-      typescript:
-        optional: true
 
   '@rollup/rollup-android-arm-eabi@4.52.5':
     resolution: {integrity: sha512-8c1vW4ocv3UOMp9K+gToY5zL2XiiVw3k7f1ksf4yO1FlDFQ1C2u72iACFnSOceJFsWskc2WZNqeRhFRPzv+wtQ==}
@@ -2685,10 +2671,6 @@ snapshots:
 
   '@oxc-resolver/binding-win32-x64-msvc@11.11.1':
     optional: true
-
-  '@prisma/client@6.18.0(typescript@5.9.3)':
-    optionalDependencies:
-      typescript: 5.9.3
 
   '@rollup/rollup-android-arm-eabi@4.52.5':
     optional: true

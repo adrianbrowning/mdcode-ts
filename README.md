@@ -2,7 +2,7 @@
 
 A TypeScript port of [szkiba/mdcode](https://github.com/szkiba/mdcode) - a Markdown code block authoring tool for extracting, updating, and managing code blocks within markdown documents.
 
-[![npm version](https://badge.fury.io/js/@gcm%2Fmdcode-ts.svg)](https://www.npmjs.com/package/@gcm/mdcode-ts)
+[![npm version](https://badge.fury.io/js/@gcm%2Fmdcode-ts.svg)](https://www.npmjs.com/package/@mdcode-ts/mdcode)
 
 ## Features
 
@@ -71,7 +71,7 @@ node dist/main.js update --lang sql --transform dist/uppercase-sql.js examples/s
 
 ```typescript
 // my-transform.ts
-import { defineTransform } from '@gcm/mdcode-ts';
+import { defineTransform } from '@mdcode-ts/mdcode';
 
 export default defineTransform((tag, meta, code) => {
   // tag: language (e.g., 'js', 'sql', 'python')
@@ -97,7 +97,7 @@ See `examples/transforms/` for more examples including async transformers.
 You can use mdcode-ts programmatically in your Node.js or TypeScript projects:
 
 ```bash
-pnpm add @gcm/mdcode-ts
+pnpm add @mdcode-ts/mdcode
 ```
 
 ### Simple API (Default Export)
@@ -105,7 +105,7 @@ pnpm add @gcm/mdcode-ts
 The simplest way to use mdcode-ts is with the default export:
 
 ```typescript
-import mdcode from '@gcm/mdcode-ts';
+import mdcode from '@mdcode-ts/mdcode';
 
 // Transform a markdown file
 const result = await mdcode('/path/to/file.md', (tag, meta, code) => {
@@ -151,13 +151,13 @@ import {
   type Block,
   type TransformerFunction,
   type FilterOptions,
-} from '@gcm/mdcode-ts';
+} from '@mdcode-ts/mdcode';
 ```
 
 ### Parse and Extract Code Blocks
 
 ```typescript
-import { parse } from '@gcm/mdcode-ts';
+import { parse } from '@mdcode-ts/mdcode';
 
 const markdown = `
 # Example
@@ -185,7 +185,7 @@ const jsBlocks = parse({
 ### Transform Code Blocks
 
 ```typescript
-import { update, defineTransform } from '@gcm/mdcode-ts';
+import { update, defineTransform } from '@mdcode-ts/mdcode';
 
 const markdown = `
 \`\`\`sql
@@ -220,7 +220,7 @@ console.log(result); // Transformed markdown
 ### Async Transformers
 
 ```typescript
-import { update, defineTransform } from '@gcm/mdcode-ts';
+import { update, defineTransform } from '@mdcode-ts/mdcode';
 
 const transformer = defineTransform(async (tag, meta, code) => {
   // Fetch from API, read files, etc.
@@ -234,7 +234,7 @@ const result = await update({ source: markdown, transformer });
 ### Custom Walker for Advanced Processing
 
 ```typescript
-import { walk, type Block } from '@gcm/mdcode-ts';
+import { walk, type Block } from '@mdcode-ts/mdcode';
 
 const result = await walk({
   source: markdown,

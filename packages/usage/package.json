@@ -1,7 +1,7 @@
 {
-  "name": "@gcm/mdcode-ts-usage",
+  "name": "@mdcode-ts/usage",
   "version": "0.0.1",
-  "description": "End-to-end tests for @gcm/mdcode-ts",
+  "description": "End-to-end tests for @mdcode-ts/mdcode",
   "type": "module",
   "private": true,
   "scripts": {
@@ -29,6 +29,6 @@
     "vitest": "^4.0.2"
   },
   "dependencies": {
-    "@gcm/mdcode-ts": "workspace:*"
+    "@mdcode-ts/mdcode": "workspace:*"
   }
 }
