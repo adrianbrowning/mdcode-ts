@@ -11,7 +11,11 @@
     "test:watch": "pnpm --filter @gcm/mdcode-ts test:watch",
     "test:usage": "pnpm --filter @gcm/mdcode-ts-usage test",
     "test:usage:watch": "pnpm --filter @gcm/mdcode-ts-usage test:watch",
-    "test:all": "pnpm test && pnpm test:usage"
+    "test:all": "pnpm test && pnpm test:usage",
+    "_lint:ts": "pnpm -r lint:ts",
+    "_lint": "pnpm -r lint",
+    "_lint:s": "pnpm -r lint:s",
+    "_lint:fix": "pnpm -r lint:fix"
   },
   "keywords": [
     "markdown",
@@ -24,5 +28,28 @@
   "packageManager": "pnpm@10.17.1",
   "engines": {
     "node": ">=22.0.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.5.0",
+    "@commitlint/config-conventional": "^19.5.0",
+    "@prisma/client": "^6.8.2",
+    "@stylistic/eslint-plugin": "^1.5.4",
+    "@total-typescript/ts-reset": "^0.5.1",
+    "@types/node": "22.18.12",
+    "@typescript-eslint/eslint-plugin": "^6.19.1",
+    "@typescript-eslint/parser": "^6.19.1",
+    "eslint": "^8.47.0",
+    "eslint-plugin-deprecation": "^3.0.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.2.0",
+    "eslint-plugin-simple-import-sort": "^9.0.0",
+    "eslint-plugin-unicorn": "^54.0.0",
+    "eslint-plugin-unused-imports": "^3.0.0",
+    "humanize-duration": "^3.30.0",
+    "husky": "9.0.6",
+    "knip": "^5.64.2",
+    "lint-staged": "^15.2.10",
+    "typescript": "^5.9.3",
+    "zshy": "^0.4.2"
   }
 }

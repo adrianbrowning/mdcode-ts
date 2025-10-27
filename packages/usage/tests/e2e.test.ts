@@ -1,28 +1,30 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { join } from 'node:path';
+import { join } from "node:path";
+
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
 import {
-  createTempDir,
   cleanupTempDir,
   copyFixtures,
+  createTempDir,
+  readFileContent,
+  runDiff,
   runExtract,
   runUpdate,
-  readFileContent,
-  writeFileContent,
-  runDiff,
-} from './test-utils.ts';
+  writeFileContent
+} from "./test-utils.ts";
 
-describe('End-to-End Extract and Update', () => {
+describe("End-to-End Extract and Update", () => {
   let tempDir: string;
   let testMdPath: string;
   let workingMdPath: string;
-  const fixturesDir = new URL('../fixtures/', import.meta.url).pathname;
+  const fixturesDir = new URL("../fixtures/", import.meta.url).pathname;
 
   beforeEach(async () => {
     // Create temp directory and copy fixtures
     tempDir = await createTempDir();
     await copyFixtures(tempDir);
-    testMdPath = join(tempDir, 'test.md');
-    workingMdPath = join(tempDir, 'working.md');
+    testMdPath = join(tempDir, "test.md");
+    workingMdPath = join(tempDir, "working.md");
   });
 
   afterEach(async () => {
@@ -30,7 +32,7 @@ describe('End-to-End Extract and Update', () => {
     await cleanupTempDir(tempDir);
   });
 
-  it('should extract code blocks to files and preserve regions', async () => {
+  it("should extract code blocks to files and preserve regions", async () => {
     // Run extract command
     const extractedFiles = await runExtract(testMdPath, tempDir);
 
@@ -38,27 +40,27 @@ describe('End-to-End Extract and Update', () => {
     expect(extractedFiles.length).toBeGreaterThan(0);
 
     // Verify region files contain ONLY the region content, not full file
-    const regionsJsContent = await readFileContent(join(tempDir, 'regions.js'));
-    const mathTsContent = await readFileContent(join(tempDir, 'math.ts'));
-    const stringsPyContent = await readFileContent(join(tempDir, 'strings.py'));
+    const regionsJsContent = await readFileContent(join(tempDir, "regions.js"));
+    const mathTsContent = await readFileContent(join(tempDir, "math.ts"));
+    const stringsPyContent = await readFileContent(join(tempDir, "strings.py"));
 
     // For region-only blocks, the extracted file should contain only the function
     // and not include content outside the region
-    expect(regionsJsContent).toContain('function factorial');
-    expect(regionsJsContent).toContain('function isPrime');
-    expect(regionsJsContent).not.toContain('const PI');
-    expect(regionsJsContent).not.toContain('export');
+    expect(regionsJsContent).toContain("function factorial");
+    expect(regionsJsContent).toContain("function isPrime");
+    expect(regionsJsContent).not.toContain("const PI");
+    expect(regionsJsContent).not.toContain("export");
 
-    expect(mathTsContent).toContain('function fibonacci');
-    expect(mathTsContent).not.toContain('GOLDEN_RATIO');
-    expect(mathTsContent).not.toContain('function power');
+    expect(mathTsContent).toContain("function fibonacci");
+    expect(mathTsContent).not.toContain("GOLDEN_RATIO");
+    expect(mathTsContent).not.toContain("function power");
 
-    expect(stringsPyContent).toContain('def reverse_string');
-    expect(stringsPyContent).not.toContain('VOWELS');
-    expect(stringsPyContent).not.toContain('def is_palindrome');
+    expect(stringsPyContent).toContain("def reverse_string");
+    expect(stringsPyContent).not.toContain("VOWELS");
+    expect(stringsPyContent).not.toContain("def is_palindrome");
   });
 
-  it('should update markdown with no changes when source files match', async () => {
+  it("should update markdown with no changes when source files match", async () => {
     // Extract files first (they should match the source files)
     await runExtract(testMdPath, tempDir);
 
@@ -67,19 +69,19 @@ describe('End-to-End Extract and Update', () => {
     await writeFileContent(workingMdPath, updatedMarkdown);
 
     // Compare with expected (no changes)
-    const expectedPath = join(fixturesDir, 'expected-no-changes.md');
+    const expectedPath = join(fixturesDir, "expected-no-changes.md");
     const diff = await runDiff(workingMdPath, expectedPath);
 
-    expect(diff).toBe('');
+    expect(diff).toBe("");
   });
 
-  it('should update markdown from modified source files', async () => {
+  it("should update markdown from modified source files", async () => {
     // Extract files first
     await runExtract(testMdPath, tempDir);
 
     // Modify simple.js (file-only block)
     await writeFileContent(
-      join(tempDir, 'simple.js'),
+      join(tempDir, "simple.js"),
       `function greet(name) {
   return \`Hi there, \${name}!\`;
 }
@@ -92,18 +94,18 @@ console.log(greet('Universe'));`
     await writeFileContent(workingMdPath, updatedMarkdown);
 
     // Compare with expected (simple update)
-    const expectedPath = join(fixturesDir, 'expected-simple-update.md');
+    const expectedPath = join(fixturesDir, "expected-simple-update.md");
     const diff = await runDiff(workingMdPath, expectedPath);
 
-    expect(diff).toBe('');
+    expect(diff).toBe("");
   });
 
-  it('should update markdown with region changes', async () => {
+  it("should update markdown with region changes", async () => {
     // Extract files
     await runExtract(testMdPath, tempDir);
 
     // Update regions.js - modify factorial region
-    const regionsJs = await readFileContent(join(tempDir, 'regions.js'));
+    const regionsJs = await readFileContent(join(tempDir, "regions.js"));
     const updatedRegionsJs = regionsJs.replace(
       /\/\/ #region factorial[\s\S]*?\/\/ #endregion factorial/,
       `// #region factorial
@@ -118,10 +120,10 @@ function factorial(n) {
 }
 // #endregion factorial`
     );
-    await writeFileContent(join(tempDir, 'regions.js'), updatedRegionsJs);
+    await writeFileContent(join(tempDir, "regions.js"), updatedRegionsJs);
 
     // Update math.ts - modify fibonacci region
-    const mathTs = await readFileContent(join(tempDir, 'math.ts'));
+    const mathTs = await readFileContent(join(tempDir, "math.ts"));
     const updatedMathTs = mathTs.replace(
       /\/\/ #region fibonacci[\s\S]*?\/\/ #endregion fibonacci/,
       `// #region fibonacci
@@ -136,25 +138,25 @@ function fibonacci(n: number): number {
 }
 // #endregion fibonacci`
     );
-    await writeFileContent(join(tempDir, 'math.ts'), updatedMathTs);
+    await writeFileContent(join(tempDir, "math.ts"), updatedMathTs);
 
     // Run update and save to working file
     const updatedMarkdown = await runUpdate(testMdPath);
     await writeFileContent(workingMdPath, updatedMarkdown);
 
     // Compare with expected (region update)
-    const expectedPath = join(fixturesDir, 'expected-region-update.md');
+    const expectedPath = join(fixturesDir, "expected-region-update.md");
     const diff = await runDiff(workingMdPath, expectedPath);
 
-    expect(diff).toBe('');
+    expect(diff).toBe("");
   });
 
-  it('should correctly handle multiple regions in the same file', async () => {
+  it("should correctly handle multiple regions in the same file", async () => {
     // Extract files
     await runExtract(testMdPath, tempDir);
 
     // Modify both regions in regions.js
-    const regionsJs = await readFileContent(join(tempDir, 'regions.js'));
+    const regionsJs = await readFileContent(join(tempDir, "regions.js"));
 
     // Update factorial region
     let updatedRegionsJs = regionsJs.replace(
@@ -182,31 +184,31 @@ function isPrime(num) {
 // #endregion isPrime`
     );
 
-    await writeFileContent(join(tempDir, 'regions.js'), updatedRegionsJs);
+    await writeFileContent(join(tempDir, "regions.js"), updatedRegionsJs);
 
     // Run update and save to working file
     const updatedMarkdown = await runUpdate(testMdPath);
     await writeFileContent(workingMdPath, updatedMarkdown);
 
     // Compare with expected (multi-region update)
-    const expectedPath = join(fixturesDir, 'expected-multi-region.md');
+    const expectedPath = join(fixturesDir, "expected-multi-region.md");
     const diff = await runDiff(workingMdPath, expectedPath);
 
-    expect(diff).toBe('');
+    expect(diff).toBe("");
   });
 
-  it('should handle different comment styles for different languages', async () => {
+  it("should handle different comment styles for different languages", async () => {
     await runExtract(testMdPath, tempDir);
 
     // Verify Python uses # for regions
-    const stringsPy = await readFileContent(join(tempDir, 'strings.py'));
-    expect(stringsPy).toContain('# #region reverse');
-    expect(stringsPy).toContain('# #endregion reverse');
+    const stringsPy = await readFileContent(join(tempDir, "strings.py"));
+    expect(stringsPy).toContain("# #region reverse");
+    expect(stringsPy).toContain("# #endregion reverse");
 
     // Verify JavaScript uses // for regions
-    const regionsJs = await readFileContent(join(tempDir, 'regions.js'));
-    expect(regionsJs).toContain('// #region factorial');
-    expect(regionsJs).toContain('// #endregion factorial');
+    const regionsJs = await readFileContent(join(tempDir, "regions.js"));
+    expect(regionsJs).toContain("// #region factorial");
+    expect(regionsJs).toContain("// #endregion factorial");
 
     // Modify Python region
     const updatedStringsPy = stringsPy.replace(
@@ -220,16 +222,16 @@ def reverse_string(s):
     return result
 # #endregion reverse`
     );
-    await writeFileContent(join(tempDir, 'strings.py'), updatedStringsPy);
+    await writeFileContent(join(tempDir, "strings.py"), updatedStringsPy);
 
     // Run update and save to working file
     const updatedMarkdown = await runUpdate(testMdPath);
     await writeFileContent(workingMdPath, updatedMarkdown);
 
     // Compare with expected (Python region update)
-    const expectedPath = join(fixturesDir, 'expected-python-region.md');
+    const expectedPath = join(fixturesDir, "expected-python-region.md");
     const diff = await runDiff(workingMdPath, expectedPath);
 
-    expect(diff).toBe('');
+    expect(diff).toBe("");
   });
 });

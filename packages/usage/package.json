@@ -6,7 +6,11 @@
   "private": true,
   "scripts": {
     "test": "vitest",
-    "test:watch": "vitest --watch"
+    "test:watch": "vitest --watch",
+    "lint:ts": "tsc --noEmit",
+    "lint": "tsc --noEmit ; eslint \"{tests,fixtures}/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
+    "lint:s": "eslint --config .eslintrc.style.json \"{tests,fixtures}/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
+    "lint:fix": "eslint --config .eslintrc.style.json \"{tests,fixtures}/**/*.{j,t}s{,x}\" --cache --max-warnings=0 --fix"
   },
   "keywords": [
     "mdcode-ts",

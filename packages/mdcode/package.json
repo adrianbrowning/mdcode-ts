@@ -12,7 +12,11 @@
     "dev": "zshy --watch",
     "test": "vitest",
     "test:watch": "vitest --watch",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "pnpm build",
+    "lint:ts": "tsc --noEmit",
+    "lint": "tsc --noEmit ; eslint \"src/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
+    "lint:s": "eslint --config .eslintrc.style.json \"src/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
+    "lint:fix": "eslint --config .eslintrc.style.json \"src/**/*.{j,t}s{,x}\" --cache --max-warnings=0 --fix"
   },
   "keywords": [
     "markdown",

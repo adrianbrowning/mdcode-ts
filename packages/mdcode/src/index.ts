@@ -1,19 +1,20 @@
-import { readFile } from 'node:fs/promises';
-import { update } from './commands/update.js';
-import type { TransformerFunction, FilterOptions } from './types.js';
+import { readFile } from "node:fs/promises";
+
+import { update } from "./commands/update.js";
+import type { FilterOptions, TransformerFunction } from "./types.js";
 
 // Public API exports
-export * from './types.js';
-export * from './parser.js';
-export * from './cli.js';
+export * from "./types.js";
+export * from "./parser.js";
+export * from "./cli.js";
 
 // Export commands for programmatic use
-export { extract } from './commands/extract.js';
-export { update } from './commands/update.js';
-export { list } from './commands/list.js';
-export { run } from './commands/run.js';
-export { dump } from './commands/dump.js';
-export { transform, transformWithFunction } from './commands/transform.js';
+export { extract } from "./commands/extract.js";
+export { update } from "./commands/update.js";
+export { list } from "./commands/list.js";
+export { run } from "./commands/run.js";
+export { dump } from "./commands/dump.js";
+export { transform, transformWithFunction } from "./commands/transform.js";
 
 /**
  * Default export - Simple API for transforming markdown files
@@ -38,7 +39,7 @@ async function mdcode(
   transformer: TransformerFunction,
   filter?: FilterOptions
 ): Promise<string> {
-  const source = await readFile(filePath, 'utf-8');
+  const source = await readFile(filePath, "utf-8");
   return update({ source, transformer, filter });
 }
 

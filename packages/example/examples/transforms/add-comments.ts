@@ -1,10 +1,10 @@
-import { defineTransform } from '../../src/types.js';
+import { defineTransform } from "../../src/types.js";
 
 /**
  * Example transformer that adds file header comments based on metadata
  */
 export default defineTransform((tag, meta, code) => {
-  const lines: string[] = [];
+  const lines: Array<string> = [];
 
   // Add file header if file metadata is present
   if (meta.file) {
@@ -17,13 +17,13 @@ export default defineTransform((tag, meta, code) => {
       lines.push(`${commentStyle} Region: ${meta.region}`);
     }
 
-    lines.push('');
+    lines.push("");
   }
 
   // Add original code
   lines.push(code);
 
-  return lines.join('\n');
+  return lines.join("\n");
 });
 
 /**
@@ -31,20 +31,20 @@ export default defineTransform((tag, meta, code) => {
  */
 function getCommentStyle(lang: string): string {
   const styles: Record<string, string> = {
-    js: '//',
-    javascript: '//',
-    ts: '//',
-    typescript: '//',
-    py: '#',
-    python: '#',
-    rb: '#',
-    ruby: '#',
-    sh: '#',
-    bash: '#',
-    sql: '--',
-    html: '<!--',
-    css: '/*',
+    js: "//",
+    javascript: "//",
+    ts: "//",
+    typescript: "//",
+    py: "#",
+    python: "#",
+    rb: "#",
+    ruby: "#",
+    sh: "#",
+    bash: "#",
+    sql: "--",
+    html: "<!--",
+    css: "/*",
   };
 
-  return styles[lang.toLowerCase()] || '//';
+  return styles[lang.toLowerCase()] || "//";
 }

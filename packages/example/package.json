@@ -5,6 +5,10 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "lint:ts": "tsc --noEmit",
+    "lint": "tsc --noEmit ; eslint \"examples/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
+    "lint:s": "eslint --config .eslintrc.style.json \"examples/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
+    "lint:fix": "eslint --config .eslintrc.style.json \"examples/**/*.{j,t}s{,x}\" --cache --max-warnings=0 --fix",
     "example:extract": "mdcode-ts extract examples/sample.md",
     "example:list": "mdcode-ts list examples/sample.md",
     "example:update": "mdcode-ts update examples/sample.md",

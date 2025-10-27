@@ -1,0 +1,94 @@
+{
+  "env": {
+    "browser": false,
+    "es2021": true,
+    "node": true,
+    "webextensions": false
+  },
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:promise/recommended",
+    "plugin:node/recommended"
+    //,"plugin:security-node/recommended"
+  ],
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module"
+//    "project": "./tsconfig.json"
+  },
+  "plugins": [ "@typescript-eslint", "unused-imports", "promise", "node", "unicorn"],
+  "rules": {
+    "no-unused-labels": "off",
+    "unicorn/prefer-node-protocol" : "error",
+    "@typescript-eslint/array-type": [
+      "error",
+      {
+        "default": "generic"
+      }
+    ],
+    "@typescript-eslint/await-thenable": [
+      "error"
+    ],
+    "@typescript-eslint/no-floating-promises": [
+      "error"
+    ],
+    "@typescript-eslint/no-misused-promises": [
+      "error"
+    ],
+    "@typescript-eslint/no-unnecessary-condition": "off",
+    "@typescript-eslint/no-unnecessary-type-assertion": "error",
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
+    ],
+    "@typescript-eslint/promise-function-async": [
+      "error"
+    ],
+    "@typescript-eslint/method-signature-style": [
+      "error",
+      "property"
+    ],
+    "max-nested-callbacks": "error",
+    "no-debugger": [
+      "off"
+    ],
+    "no-fallthrough": "off",
+    "no-return-await": [
+      "error"
+    ],
+    "no-unused-vars": "off", // - we use @typescript-eslint/no-unused-vars
+    "no-await-in-loop": ["off"], // - good for reviews
+    "node/file-extension-in-import": [
+      "error",
+      "always"
+    ],
+    "node/no-missing-import": ["off"],
+    "node/no-unpublished-import": ["off"],
+    "node/no-unsupported-features/es-syntax": ["error" ],
+    "prefer-promise-reject-errors": [
+      "error"
+    ],
+    "promise/always-return": [
+      "error"
+    ],
+    "promise/catch-or-return": [
+      "error",
+      {
+        "allowThen": true
+      }
+    ],
+    "unused-imports/no-unused-imports": "error"
+  },
+  "settings": {
+    "node": {
+      "version": ">=20.*"
+    }
+  },
+  "ignorePatterns": ["build/**", "dist/**", "scripts/___template___.js", "scripts/generated/**"]
+}

@@ -10,7 +10,9 @@
       "Bash(pnpm --filter @gcm/mdcode-example install)",
       "Bash(pnpm build:*)",
       "Bash(pnpm test:usage:*)",
-      "Bash(pnpm --filter @gcm/mdcode-example test)"
+      "Bash(pnpm --filter @gcm/mdcode-example test)",
+      "Bash(pnpm -r lint:ts)",
+      "Bash(pnpm -r lint:s)"
     ],
     "deny": [],
     "ask": []

@@ -1,7 +1,8 @@
-import * as readline from 'node:readline';
-import { styleText } from 'node:util';
-import { walk } from '../parser.js';
-import type { Block, FilterOptions, TransformerFunction } from '../types.js';
+import * as readline from "node:readline";
+import { styleText } from "node:util";
+
+import { walk } from "../parser.js";
+import type { Block, FilterOptions, TransformerFunction } from "../types.js";
 
 export interface TransformOptions {
   source: string;
@@ -26,19 +27,19 @@ export async function transform(options: TransformOptions): Promise<string> {
       }
 
       // Display the block
-      console.log('\n' + styleText(['bold', 'cyan'], '─'.repeat(60)));
-      console.log(styleText(['bold', 'cyan'], `Code Block: ${block.lang || '(no language)'}`));
+      console.log("\n" + styleText([ "bold", "cyan" ], "─".repeat(60)));
+      console.log(styleText([ "bold", "cyan" ], `Code Block: ${block.lang || "(no language)"}`));
 
       if (Object.keys(block.meta).length > 0) {
         const metaStr = Object.entries(block.meta)
-          .map(([key, value]) => `${styleText('green', key)}=${value}`)
-          .join(' ');
-        console.log(styleText('white', `Metadata: ${metaStr}`));
+          .map(([ key, value ]) => `${styleText("green", key)}=${value}`)
+          .join(" ");
+        console.log(styleText("white", `Metadata: ${metaStr}`));
       }
 
-      console.log(styleText(['bold', 'cyan'], '─'.repeat(60)));
-      console.log(styleText('gray', block.code));
-      console.log(styleText(['bold', 'cyan'], '─'.repeat(60)) + '\n');
+      console.log(styleText([ "bold", "cyan" ], "─".repeat(60)));
+      console.log(styleText("gray", block.code));
+      console.log(styleText([ "bold", "cyan" ], "─".repeat(60)) + "\n");
 
       // If a transformer function is provided, use it
       if (transformer) {
@@ -51,36 +52,36 @@ export async function transform(options: TransformOptions): Promise<string> {
       }
 
       // Otherwise, prompt the user
-      const action = await prompt('Transform this block? (y/n/edit/skip-all): ');
+      const action = await prompt("Transform this block? (y/n/edit/skip-all): ");
 
       switch (action.toLowerCase().trim()) {
-        case 'y':
-        case 'yes': {
-          console.log(styleText('yellow', 'Enter the transformed code (type "<<<END>>>" on a new line to finish):'));
+        case "y":
+        case "yes": {
+          console.log(styleText("yellow", "Enter the transformed code (type \"<<<END>>>\" on a new line to finish):"));
           const transformedCode = await readMultiline();
           return { ...block, code: transformedCode };
         }
 
-        case 'edit':
-        case 'e': {
-          console.log(styleText('yellow', 'Current code:'));
+        case "edit":
+        case "e": {
+          console.log(styleText("yellow", "Current code:"));
           console.log(block.code);
-          console.log(styleText('yellow', '\nEnter the new code (type "<<<END>>>" on a new line to finish):'));
+          console.log(styleText("yellow", "\nEnter the new code (type \"<<<END>>>\" on a new line to finish):"));
           const transformedCode = await readMultiline();
           return { ...block, code: transformedCode };
         }
 
-        case 'skip-all':
-        case 'sa': {
+        case "skip-all":
+        case "sa": {
           skipAll = true;
-          console.log(styleText('yellow', 'Skipping all remaining blocks.'));
+          console.log(styleText("yellow", "Skipping all remaining blocks."));
           return block;
         }
 
-        case 'n':
-        case 'no':
+        case "n":
+        case "no":
         default: {
-          console.log(styleText('gray', 'Skipped.'));
+          console.log(styleText("gray", "Skipped."));
           return block;
         }
       }
@@ -93,14 +94,14 @@ export async function transform(options: TransformOptions): Promise<string> {
 /**
  * Prompt the user for a single line of input
  */
-function prompt(question: string): Promise<string> {
+async function prompt(question: string): Promise<string> {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   });
 
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
+  return new Promise(resolve => {
+    rl.question(question, answer => {
       rl.close();
       resolve(answer);
     });
@@ -111,28 +112,29 @@ function prompt(question: string): Promise<string> {
  * Read multiline input from the user
  * User should type "<<<END>>>" on a new line to finish
  */
-function readMultiline(): Promise<string> {
+async function readMultiline(): Promise<string> {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    prompt: '',
+    prompt: "",
   });
 
-  const lines: string[] = [];
+  const lines: Array<string> = [];
 
-  return new Promise((resolve) => {
-    rl.on('line', (line) => {
-      if (line.trim() === '<<<END>>>') {
+  return new Promise(resolve => {
+    rl.on("line", line => {
+      if (line.trim() === "<<<END>>>") {
         rl.close();
-        resolve(lines.join('\n'));
-      } else {
+        resolve(lines.join("\n"));
+      }
+      else {
         lines.push(line);
       }
     });
 
-    rl.on('close', () => {
-      if (!lines[lines.length - 1]?.includes('<<<END>>>')) {
-        resolve(lines.join('\n'));
+    rl.on("close", () => {
+      if (!lines[lines.length - 1]?.includes("<<<END>>>")) {
+        resolve(lines.join("\n"));
       }
     });
   });

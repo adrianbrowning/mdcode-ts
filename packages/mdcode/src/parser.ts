@@ -1,27 +1,28 @@
-import { unified } from 'unified';
-import remarkParse from 'remark-parse';
-import remarkStringify from 'remark-stringify';
-import { visit } from 'unist-util-visit';
-import type { Root, Code } from 'mdast';
-import type { Block, ParseOptions, WalkOptions, WalkResult, FilterOptions } from './types.js';
+import type { Code, Root } from "mdast";
+import remarkParse from "remark-parse";
+import remarkStringify from "remark-stringify";
+import { unified } from "unified";
+import { visit } from "unist-util-visit";
+
+import type { Block, FilterOptions, ParseOptions, WalkOptions, WalkResult } from "./types.js";
 
 /**
  * Parse metadata from the info string of a code block
  * Format: language key=value key2=value2
  * Example: "js file=foo.js region=main"
  */
-function parseInfoString(info: string | null | undefined): { lang: string; meta: Record<string, string> } {
+function parseInfoString(info: string | null | undefined): { lang: string; meta: Record<string, string>; } {
   if (!info) {
-    return { lang: '', meta: {} };
+    return { lang: "", meta: {} };
   }
 
   const parts = info.trim().split(/\s+/);
-  const lang = parts[0] || '';
+  const lang = parts[0] || "";
   const meta: Record<string, string> = {};
 
   for (let i = 1; i < parts.length; i++) {
     const part = parts[i];
-    const equalIndex = part.indexOf('=');
+    const equalIndex = part.indexOf("=");
     if (equalIndex > 0) {
       const key = part.substring(0, equalIndex);
       const value = part.substring(equalIndex + 1);
@@ -52,7 +53,7 @@ function matchesFilter(block: Block, filter?: FilterOptions): boolean {
 
   // Filter by custom metadata
   if (filter.meta) {
-    for (const [key, value] of Object.entries(filter.meta)) {
+    for (const [ key, value ] of Object.entries(filter.meta)) {
       if (block.meta[key] !== value) {
         return false;
       }
@@ -65,17 +66,17 @@ function matchesFilter(block: Block, filter?: FilterOptions): boolean {
 /**
  * Parse markdown and extract all code blocks
  */
-export function parse(options: ParseOptions): Block[] {
+export function parse(options: ParseOptions): Array<Block> {
   const { source, filter } = options;
-  const blocks: Block[] = [];
+  const blocks: Array<Block> = [];
 
   const tree = unified()
     .use(remarkParse)
     .parse(source);
 
-  visit(tree, 'code', (node: Code) => {
+  visit(tree, "code", (node: Code) => {
     // Combine lang and meta to form the full info string
-    const infoString = node.meta ? `${node.lang || ''} ${node.meta}` : (node.lang || '');
+    const infoString = node.meta ? `${node.lang || ""} ${node.meta}` : (node.lang || "");
     const { lang, meta } = parseInfoString(infoString);
 
     const block: Block = {
@@ -99,16 +100,16 @@ export function parse(options: ParseOptions): Block[] {
 export async function walk(options: WalkOptions): Promise<WalkResult> {
   const { source, walker, filter } = options;
   let modified = false;
-  const blocks: Block[] = [];
+  const blocks: Array<Block> = [];
 
   const tree = unified()
     .use(remarkParse)
-    .parse(source) as Root;
+    .parse(source);
 
   // Visit all code blocks and apply the walker function
-  await visitAsync(tree, 'code', async (node: Code, index, parent) => {
+  await visitAsync(tree, "code", async (node: Code, index, parent) => {
     // Combine lang and meta to form the full info string
-    const infoString = node.meta ? `${node.lang || ''} ${node.meta}` : (node.lang || '');
+    const infoString = node.meta ? `${node.lang || ""} ${node.meta}` : (node.lang || "");
     const { lang, meta } = parseInfoString(infoString);
 
     const block: Block = {
@@ -130,7 +131,7 @@ export async function walk(options: WalkOptions): Promise<WalkResult> {
 
     // If walker returns null, remove the block
     if (result === null) {
-      if (parent && typeof index === 'number') {
+      if (parent && typeof index === "number") {
         parent.children.splice(index, 1);
         modified = true;
       }
@@ -143,8 +144,8 @@ export async function walk(options: WalkOptions): Promise<WalkResult> {
 
       // Reconstruct the info string with the new language and metadata
       const metaString = Object.entries(result.meta)
-        .map(([key, value]) => `${key}=${value}`)
-        .join(' ');
+        .map(([ key, value ]) => `${key}=${value}`)
+        .join(" ");
 
       // Set lang and meta separately (remark separates them)
       node.lang = result.lang;
@@ -158,13 +159,13 @@ export async function walk(options: WalkOptions): Promise<WalkResult> {
   const newSource = unified()
     .use(remarkStringify, {
       fences: true,
-      fence: '`',
-      listItemIndent: 'one',
-      bullet: '-',  // Use dash for unordered lists
-      bulletOrdered: '.',
-      emphasis: '*',
-      strong: '*',
-      rule: '-',
+      fence: "`",
+      listItemIndent: "one",
+      bullet: "-", // Use dash for unordered lists
+      bulletOrdered: ".",
+      emphasis: "*",
+      strong: "*",
+      rule: "-",
     })
     .stringify(tree);
 

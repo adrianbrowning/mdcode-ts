@@ -10,8 +10,8 @@ export interface Block {
   code: string;
   /** Optional position information in the source markdown */
   position?: {
-    start: { line: number; column: number; offset?: number };
-    end: { line: number; column: number; offset?: number };
+    start: { line: number; column: number; offset?: number; };
+    end: { line: number; column: number; offset?: number; };
   };
 }
 
@@ -62,7 +62,7 @@ export interface WalkResult {
   /** The modified markdown source */
   source: string;
   /** All blocks that were processed */
-  blocks: Block[];
+  blocks: Array<Block>;
   /** Whether any modifications were made */
   modified: boolean;
 }

@@ -1,7 +1,9 @@
-import { TarStream, type TarStreamInput } from '@std/tar';
-import { styleText } from 'node:util';
-import { parse } from '../parser.js';
-import type { FilterOptions } from '../types.js';
+import { styleText } from "node:util";
+
+import { type TarStreamInput, TarStream } from "@std/tar";
+
+import { parse } from "../parser.js";
+import type { FilterOptions } from "../types.js";
 
 export interface DumpOptions {
   source: string;
@@ -16,19 +18,20 @@ export async function dump(options: DumpOptions): Promise<Uint8Array> {
   const blocks = parse({ source, filter });
 
   if (blocks.length === 0) {
-    console.error(styleText('yellow', 'No code blocks found to dump.'));
+    console.error(styleText("yellow", "No code blocks found to dump."));
     return new Uint8Array(0);
   }
 
   // Create tar stream inputs
-  const inputs: TarStreamInput[] = [];
+  const inputs: Array<TarStreamInput> = [];
 
-  for (const [index, block] of blocks.entries()) {
+  for (const [ index, block ] of blocks.entries()) {
     // Determine filename
     let filename: string;
     if (block.meta.file) {
       filename = block.meta.file;
-    } else {
+    }
+    else {
       const ext = getExtension(block.lang);
       filename = `block-${index + 1}${ext}`;
     }
@@ -36,7 +39,7 @@ export async function dump(options: DumpOptions): Promise<Uint8Array> {
     // Create file input for tar stream
     const content = new TextEncoder().encode(block.code);
     inputs.push({
-      type: 'file',
+      type: "file",
       path: filename,
       size: content.length,
       readable: new ReadableStream({
@@ -47,11 +50,11 @@ export async function dump(options: DumpOptions): Promise<Uint8Array> {
       }),
     });
 
-    console.error(styleText('green', `✓ Added ${filename} to archive`));
+    console.error(styleText("green", `✓ Added ${filename} to archive`));
   }
 
   // Create tar archive
-  const chunks: Uint8Array[] = [];
+  const chunks: Array<Uint8Array> = [];
   await ReadableStream.from(inputs)
     .pipeThrough(new TarStream())
     .pipeTo(
@@ -62,7 +65,7 @@ export async function dump(options: DumpOptions): Promise<Uint8Array> {
       })
     );
 
-  console.error(styleText(['bold', 'green'], `\nCreated tar archive with ${blocks.length} file(s).`));
+  console.error(styleText([ "bold", "green" ], `\nCreated tar archive with ${blocks.length} file(s).`));
 
   // Combine all chunks into a single Uint8Array
   const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
@@ -81,44 +84,44 @@ export async function dump(options: DumpOptions): Promise<Uint8Array> {
  */
 function getExtension(lang: string): string {
   const extensions: Record<string, string> = {
-    js: '.js',
-    javascript: '.js',
-    ts: '.ts',
-    typescript: '.ts',
-    py: '.py',
-    python: '.py',
-    go: '.go',
-    rust: '.rs',
-    rs: '.rs',
-    java: '.java',
-    c: '.c',
-    cpp: '.cpp',
-    'c++': '.cpp',
-    cs: '.cs',
-    'c#': '.cs',
-    rb: '.rb',
-    ruby: '.rb',
-    php: '.php',
-    swift: '.swift',
-    kt: '.kt',
-    kotlin: '.kt',
-    sh: '.sh',
-    bash: '.sh',
-    zsh: '.sh',
-    fish: '.fish',
-    html: '.html',
-    css: '.css',
-    scss: '.scss',
-    sass: '.sass',
-    json: '.json',
-    yaml: '.yaml',
-    yml: '.yml',
-    xml: '.xml',
-    sql: '.sql',
-    md: '.md',
-    markdown: '.md',
-    txt: '.txt',
+    js: ".js",
+    javascript: ".js",
+    ts: ".ts",
+    typescript: ".ts",
+    py: ".py",
+    python: ".py",
+    go: ".go",
+    rust: ".rs",
+    rs: ".rs",
+    java: ".java",
+    c: ".c",
+    cpp: ".cpp",
+    "c++": ".cpp",
+    cs: ".cs",
+    "c#": ".cs",
+    rb: ".rb",
+    ruby: ".rb",
+    php: ".php",
+    swift: ".swift",
+    kt: ".kt",
+    kotlin: ".kt",
+    sh: ".sh",
+    bash: ".sh",
+    zsh: ".sh",
+    fish: ".fish",
+    html: ".html",
+    css: ".css",
+    scss: ".scss",
+    sass: ".sass",
+    json: ".json",
+    yaml: ".yaml",
+    yml: ".yml",
+    xml: ".xml",
+    sql: ".sql",
+    md: ".md",
+    markdown: ".md",
+    txt: ".txt",
   };
 
-  return extensions[lang.toLowerCase()] || '.txt';
+  return extensions[lang.toLowerCase()] || ".txt";
 }

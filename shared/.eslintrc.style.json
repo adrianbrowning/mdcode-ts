@@ -1,0 +1,142 @@
+{
+  "extends": ["./.eslintrc.json"],
+  "plugins": [ "@stylistic", "simple-import-sort"],
+  "rules": {
+    "@stylistic/array-bracket-spacing": [
+      "error",
+      "always",
+      {
+        "arraysInArrays": false,
+        "objectsInArrays": false
+      }
+    ],
+    "@stylistic/arrow-parens": [
+      "error",
+      "as-needed"
+    ],
+    "@stylistic/brace-style": [
+      "error",
+      "stroustrup",
+      {
+        "allowSingleLine": true
+      }
+    ],
+    "@stylistic/comma-dangle": [
+      "error",
+      {
+        "arrays": "always-multiline",
+        "exports": "never",
+        "functions": "never",
+        "imports": "never",
+        "objects": "always-multiline"
+      }
+    ],
+    "@stylistic/comma-spacing": [
+      "error"
+    ],
+    "@stylistic/indent": [
+      "error",
+      2,
+      {
+        "SwitchCase": 1
+      }
+    ],
+    "@stylistic/jsx-closing-bracket-location": [
+      "error",
+      "line-aligned"
+    ],
+    "@stylistic/jsx-curly-brace-presence": [
+      "error",
+      {
+        "children": "always",
+        "propElementValues": "always",
+        "props": "never"
+      }
+    ],
+    "@stylistic/jsx-curly-newline": "off",
+    "@stylistic/jsx-max-props-per-line": [
+      "error",
+      {
+        "maximum": {
+          "multi": 1,
+          "single": 2
+        }
+      }
+    ],
+    "@stylistic/linebreak-style": [
+      "error",
+      "unix"
+    ],
+    "@stylistic/max-len": [
+      "error",
+      {
+        "code": 400,
+        "ignoreStrings": true
+      }
+    ],
+    "@stylistic/member-delimiter-style": [
+      "error",
+      {
+        "multiline": {
+          "delimiter": "semi",
+          "requireLast": true
+        },
+        "singleline": {
+          "delimiter": "semi",
+          "requireLast": true
+        }
+      }
+    ],
+    "@stylistic/newline-per-chained-call": [
+      "error",
+      {
+        "ignoreChainWithDepth": 2
+      }
+    ],
+    "@stylistic/no-multi-spaces": "error",
+    "@stylistic/no-multiple-empty-lines": ["error", {
+      "max": 1,
+      "maxEOF": 1,
+      "maxBOF": 0
+    }],
+    "@stylistic/nonblock-statement-body-position": ["error", "beside"],
+    "@stylistic/object-curly-spacing": [
+      "error",
+      "always",
+      {
+        "arraysInObjects": true,
+        "objectsInObjects": true
+      }
+    ],
+    "@stylistic/object-property-newline": [
+      "error",
+      {
+        "allowAllPropertiesOnSameLine": true,
+        "allowMultiplePropertiesPerLine": false
+      }
+    ],
+    "@stylistic/quotes": [
+      "error",
+      "double",
+      {
+        "allowTemplateLiterals": true
+      }
+    ],
+    "@stylistic/semi": [
+      "error",
+      "always"
+    ],
+    "@stylistic/type-annotation-spacing": "error",
+    "simple-import-sort/imports": "error",
+    "@typescript-eslint/consistent-type-imports": [
+      "error",
+      {
+        "fixStyle": "separate-type-imports"
+      }
+    ],
+    "arrow-body-style": [
+      "error",
+      "as-needed"
+    ]
+  }
+}
