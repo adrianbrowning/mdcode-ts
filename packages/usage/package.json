@@ -1,19 +1,23 @@
 {
-  "name": "@mdcode-ts/usage",
+  "name": "usage",
   "version": "0.0.1",
-  "description": "End-to-end tests for @mdcode-ts/mdcode",
+  "description": "Examples and end-to-end tests for mdcode",
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "vitest",
-    "test:watch": "vitest --watch",
+    "test": "node --test-reporter=spec --test tests/**/*.test.ts",
+    "test:watch": "node --test-reporter=spec --test --watch tests/**/*.test.ts",
     "lint:ts": "tsc --noEmit",
-    "lint": "tsc --noEmit ; eslint \"{tests,fixtures}/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
-    "lint:s": "eslint --config .eslintrc.style.json \"{tests,fixtures}/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
-    "lint:fix": "eslint --config .eslintrc.style.json \"{tests,fixtures}/**/*.{j,t}s{,x}\" --cache --max-warnings=0 --fix"
+    "lint": "tsc --noEmit ; eslint \"{tests,fixtures,examples}/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
+    "lint:s": "eslint --config .eslintrc.style.json \"{tests,fixtures,examples}/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
+    "lint:fix": "eslint --config .eslintrc.style.json \"{tests,fixtures,examples}/**/*.{j,t}s{,x}\" --cache --max-warnings=0 --fix",
+    "example:extract": "mdcode extract examples/sample.md",
+    "example:list": "mdcode list examples/sample.md",
+    "example:update": "mdcode update examples/sample.md",
+    "example:transform": "mdcode update --transform examples/transforms/uppercase-sql.ts examples/test-transform.md"
   },
   "keywords": [
-    "mdcode-ts",
+    "mdcode",
     "mdcode",
     "test",
     "e2e"
@@ -24,11 +28,10 @@
     "node": ">=22.0.0"
   },
   "devDependencies": {
-    "@types/node": "^24.9.1",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.2"
+    "@types/node": "^22.18.12",
+    "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@mdcode-ts/mdcode": "workspace:*"
+   "mdcode": "workspace:mdcode@*"
   }
 }

@@ -1,45 +1,116 @@
-# mdcode-ts
+# mdcode
 
 A TypeScript port of [szkiba/mdcode](https://github.com/szkiba/mdcode) - a Markdown code block authoring tool for extracting, updating, and managing code blocks within markdown documents.
 
-[![npm version](https://badge.fury.io/js/@gcm%2Fmdcode-ts.svg)](https://www.npmjs.com/package/@mdcode-ts/mdcode)
+[![npm version](https://badge.fury.io/js/@gcm%2Fmdcode-ts.svg)](https://www.npmjs.com/package/@mdcode/mdcode)
+
+## Drop-in Replacement
+
+This TypeScript implementation is designed as a **drop-in replacement** for the original Go-based [szkiba/mdcode](https://github.com/szkiba/mdcode). It maintains full CLI compatibility, including all commands, flags, and output formats, while adding bonus features like transform functions and a library API.
 
 ## Features
 
 - **Extract** code blocks from markdown to files
-- **List** code blocks with metadata and previews
+- **List** code blocks with metadata and previews (text or JSON format)
 - **Update** markdown code blocks from source files OR transform with custom functions
-- **Run** shell commands on code blocks
-- **Dump** code blocks to tar archives
+- **Run** shell commands on code blocks with enhanced control
+- **Dump** code blocks to tar archives (stdout or file)
 - Support for metadata in code block info strings
 - Filter blocks by language, file, or custom metadata
 - Region extraction using special comments
+- Outline extraction for code structure
+- Quiet mode for cleaner output
+- Short and long flag forms for all options
 
 ## Installation
 
+### Global Installation
+
+Install globally to use the `mdcode` command anywhere:
+
 ```bash
-pnpm install
+# Using npm
+npm install -g @mdcode/mdcode
+
+# Using pnpm
+pnpm install -g @mdcode/mdcode
 ```
 
-## Usage
+### Run Without Installing
+
+```bash
+# Using pnpm dlx
+pnpm dlx @mdcode/mdcode list README.md
+
+# Using npx
+npx @mdcode/mdcode list README.md
+```
+
+### Local Development
+
+```bash
+pnpm install
+pnpm build
+```
+
+## CLI Usage
+
+### Default Behavior
+
+Running `mdcode` with no arguments lists code blocks from `README.md`:
+
+```bash
+mdcode
+# Same as: mdcode list README.md
+```
 
 ### List code blocks
 
 ```bash
-pnpm build
-node dist/main.js list examples/sample.md
+# List all blocks
+mdcode list README.md
 
-# Or filter by language
-node dist/main.js list --lang=js examples/sample.md
+# Filter by language (short form)
+mdcode list -l js README.md
+
+# Filter by language (long form)
+mdcode list --lang js README.md
+
+# Filter by file metadata
+mdcode list -f app.js README.md
+
+# Filter by custom metadata
+mdcode list -m region=main README.md
+
+# Output as JSON (one object per line)
+mdcode list --json README.md
+```
+
+**JSON Output Format:**
+
+```json
+{"lang": "js", "file": "app.js", "region": "main"}
+{"lang": "python", "file": "script.py"}
+{"lang": "sql"}
 ```
 
 ### Extract code blocks to files
 
 ```bash
-node dist/main.js extract examples/sample.md
+# Extract to current directory
+mdcode extract README.md
 
-# Extract to specific directory
-node dist/main.js extract -o output examples/sample.md
+# Extract to specific directory (short form)
+mdcode extract -d output README.md
+
+# Extract to specific directory (long form)
+mdcode extract --dir output README.md
+
+# Extract with filters
+mdcode extract -l js -f "*.test.js" README.md
+
+# Quiet mode (suppress status messages)
+mdcode extract -q README.md
 ```
 
 ### Update markdown from source files or transform blocks
@@ -51,7 +122,17 @@ The `update` command can update code blocks in two ways:
 Updates code blocks by reading from files specified in the `file` metadata:
 
 ```bash
-node dist/main.js update examples/sample.md > updated.md
+# Update and output to stdout
+mdcode update README.md > updated.md
+
+# Update with specific working directory
+mdcode update -d src README.md
+
+# Quiet mode
+mdcode update -q README.md > updated.md
+
+# Filter which blocks to update
+mdcode update -l js README.md
 ```
 
 #### 2. Transform with custom function (using `--transform` flag)
@@ -61,17 +142,17 @@ Transform code blocks using a custom transformer function:
 ```bash
 # Build your transformer to .js first
 npx tsc my-transform.ts --outDir dist --module ES2022 --target ES2022
-node dist/main.js update --transform dist/my-transform.js examples/sample.md > output.md
+mdcode update --transform dist/my-transform.js README.md > output.md
 
 # Combine with filters to transform only specific blocks
-node dist/main.js update --lang sql --transform dist/uppercase-sql.js examples/sample.md
+mdcode update -l sql --transform dist/uppercase-sql.js README.md
 ```
 
 **Creating a transformer:**
 
 ```typescript
 // my-transform.ts
-import { defineTransform } from '@mdcode-ts/mdcode';
+import { defineTransform } from '@mdcode/mdcode';
 
 export default defineTransform((tag, meta, code) => {
   // tag: language (e.g., 'js', 'sql', 'python')
@@ -92,20 +173,101 @@ export default defineTransform((tag, meta, code) => {
 
 See `examples/transforms/` for more examples including async transformers.
 
-## Library Usage
-
-You can use mdcode-ts programmatically in your Node.js or TypeScript projects:
+### Run commands on code blocks
 
 ```bash
-pnpm add @mdcode-ts/mdcode
+# Run node on JavaScript blocks
+mdcode run -l js "node {file}" README.md
+
+# Run python on Python blocks
+mdcode run -l python "python {file}" README.md
+
+# Filter by block name
+mdcode run -n myfunction "node {file}" README.md
+
+# Keep temporary directory after execution
+mdcode run -k -l js "node {file}" README.md
+
+# Use custom working directory instead of temp
+mdcode run -d ./workspace -l js "node {file}" README.md
+
+# Combine multiple options
+mdcode run -l js -n factorial -k "node {file}" README.md
+```
+
+**CLI Flags for Run Command:**
+
+- `-l, --lang <lang>` - Filter by language
+- `-f, --file <file>` - Filter by file metadata
+- `-m, --meta <key=value>` - Filter by custom metadata
+- `-n, --name <name>` - Filter by block name
+- `-k, --keep` - Keep temporary directory after execution
+- `-d, --dir <dir>` - Use custom working directory
+
+### Create tar archive
+
+```bash
+# Output to stdout (pipe to file)
+mdcode dump README.md > code-blocks.tar
+
+# Output to specific file (short form)
+mdcode dump -o code-blocks.tar README.md
+
+# Output to specific file (long form)
+mdcode dump --out code-blocks.tar README.md
+
+# Dump with filters
+mdcode dump -l js README.md > js-blocks.tar
+
+# Quiet mode
+mdcode dump -q -o output.tar README.md
+```
+
+### CLI Flags Reference
+
+All commands support these common filtering flags:
+
+- `-l, --lang <lang>` - Filter by language
+- `-f, --file <file>` - Filter by file metadata pattern
+- `-m, --meta <key=value>` - Filter by custom metadata (can specify multiple times)
+
+Additional flags by command:
+
+**list:**
+- `--json` - Output as JSON (one object per line)
+
+**extract:**
+- `-d, --dir <dir>` - Output directory (default: current directory)
+- `-q, --quiet` - Suppress status messages
+
+**update:**
+- `-d, --dir <dir>` - Working directory for file resolution
+- `-q, --quiet` - Suppress status messages
+- `--transform <file>` - Path to transformer function
+
+**run:**
+- `-n, --name <name>` - Filter by block name
+- `-k, --keep` - Keep temporary directory
+- `-d, --dir <dir>` - Custom working directory
+
+**dump:**
+- `-o, --out <file>` - Output file (default: stdout)
+- `-q, --quiet` - Suppress status messages
+
+## Library Usage
+
+You can use mdcode programmatically in your Node.js or TypeScript projects:
+
+```bash
+pnpm add @mdcode/mdcode
 ```
 
 ### Simple API (Default Export)
 
-The simplest way to use mdcode-ts is with the default export:
+The simplest way to use mdcode is with the default export:
 
 ```typescript
-import mdcode from '@mdcode-ts/mdcode';
+import mdcode from '@mdcode/mdcode';
 
 // Transform a markdown file
 const result = await mdcode('/path/to/file.md', (tag, meta, code) => {
@@ -151,13 +313,13 @@ import {
   type Block,
   type TransformerFunction,
   type FilterOptions,
-} from '@mdcode-ts/mdcode';
+} from '@mdcode/mdcode';
 ```
 
 ### Parse and Extract Code Blocks
 
 ```typescript
-import { parse } from '@mdcode-ts/mdcode';
+import { parse } from '@mdcode/mdcode';
 
 const markdown = `
 # Example
@@ -185,7 +347,7 @@ const jsBlocks = parse({
 ### Transform Code Blocks
 
 ```typescript
-import { update, defineTransform } from '@mdcode-ts/mdcode';
+import { update, defineTransform } from '@mdcode/mdcode';
 
 const markdown = `
 \`\`\`sql
@@ -220,7 +382,7 @@ console.log(result); // Transformed markdown
 ### Async Transformers
 
 ```typescript
-import { update, defineTransform } from '@mdcode-ts/mdcode';
+import { update, defineTransform } from '@mdcode/mdcode';
 
 const transformer = defineTransform(async (tag, meta, code) => {
   // Fetch from API, read files, etc.
@@ -234,7 +396,7 @@ const result = await update({ source: markdown, transformer });
 ### Custom Walker for Advanced Processing
 
 ```typescript
-import { walk, type Block } from '@mdcode-ts/mdcode';
+import { walk, type Block } from '@mdcode/mdcode';
 
 const result = await walk({
   source: markdown,
@@ -320,22 +482,6 @@ Helper to define type-safe transformers.
 - **fn** - The transformer function `(tag, meta, code) => string | Promise<string>`
 - **Returns** - The same function with proper typing
 
-### Run commands on code blocks
-
-```bash
-# Run node on JavaScript blocks
-node dist/main.js run --lang=js "node {file}" examples/sample.md
-
-# Run python on Python blocks
-node dist/main.js run --lang=python "python {file}" examples/sample.md
-```
-
-### Create tar archive
-
-```bash
-node dist/main.js dump examples/sample.md > code-blocks.tar
-```
-
 ## Metadata in Code Blocks
 
 Add metadata to code blocks using the info string:
@@ -346,8 +492,86 @@ console.log('Hello, world!');
 
 Supported metadata:
 - `file`: Output filename for extraction
-- `region`: Region name for partial extraction
-- Custom key=value pairs
+- `region`: Region name for partial extraction (using `#region`/`#endregion` comments)
+- `outline`: Extract only the structure without implementation details
+- `name`: Custom name for the block (useful with run command)
+- Custom key=value pairs for filtering
+
+### Region Extraction
+
+Use region comments in your source files to extract specific sections:
+
+```javascript
+// #region factorial
+function factorial(n) {
+  if (n <= 1) return 1;
+  return n * factorial(n - 1);
+}
+// #endregion
+
+// #region helper
+function helper() { /* ... */ }
+// #endregion
+```
+
+Then reference the region in your markdown:
+
+\`\`\`js file=math.js region=factorial
+\`\`\`
+
+### Outline Extraction
+
+Use `outline=true` to extract code structure without implementation details:
+
+\`\`\`js file=calculator.js outline=true
+\`\`\`
+
+When updating from source, this will preserve the region markers and structure but remove the implementation:
+
+```javascript
+// #region add
+// #endregion
+
+// #region subtract
+// #endregion
+```
+
+This is useful for documentation that shows structure without implementation details.
+
+## Comparison with Original mdcode
+
+This TypeScript implementation maintains full compatibility with [szkiba/mdcode](https://github.com/szkiba/mdcode) while adding bonus features:
+
+### ✅ Full Parity Features
+- All 5 commands: list, extract, update, run, dump
+- Short and long flag forms: `-l`/`--lang`, `-f`/`--file`, `-m`/`--meta`, etc.
+- JSON output for list command: `--json`
+- Quiet mode: `-q`/`--quiet`
+- Enhanced run command: `-n`/`--name`, `-k`/`--keep`, `-d`/`--dir`
+- Dump to file: `-o`/`--out`
+- Default behavior: `mdcode` lists README.md
+- Region extraction with `#region`/`#endregion`
+- Outline metadata support
+
+### ⭐ Bonus Features (Not in Original)
+- **Transform API**: Custom transformer functions for code block manipulation
+- **Library API**: Use mdcode programmatically in Node.js/TypeScript projects
+- **Async transformers**: Support for async operations in transformers
+- **Enhanced filtering**: More flexible metadata filtering
+
+### Migration from Go Version
+
+Simply replace the binary:
+
+```bash
+# Before (Go version)
+go install github.com/szkiba/mdcode/cmd/mdcode@latest
+
+# After (TypeScript version)
+npm install -g @mdcode/mdcode
+```
+
+All existing commands and scripts will work identically.
 
 ## Development
 
@@ -401,10 +625,11 @@ tests/
 
 - **TypeScript** with strict mode and verbatimModuleSyntax
 - **Node 22** built-in APIs (util.styleText, fs/promises, readline)
-- **unified** + **remark-parse** for markdown parsing
-- **commander** for CLI
+- **unified** + **remark-parse** + **remark-stringify** for markdown parsing/generation
+- **commander** for CLI argument parsing
 - **vitest** for testing
 - **@std/tar** from Deno std via JSR for tar archives
+- **zshy** for TypeScript compilation and bundling
 
 ## License
 

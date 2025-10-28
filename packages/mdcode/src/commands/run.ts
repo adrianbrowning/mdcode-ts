@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { styleText } from "node:util";
 
-import { parse } from "../parser.js";
-import type { FilterOptions } from "../types.js";
+import { parse } from "../parser.ts";
+import type { FilterOptions } from "../types.ts";
 
 const execAsync = promisify(exec);
 
@@ -13,6 +13,8 @@ export interface RunOptions {
   source: string;
   command: string;
   filter?: FilterOptions;
+  keep?: boolean;
+  dir?: string;
 }
 
 export interface RunResult {
@@ -27,7 +29,7 @@ export interface RunResult {
  * Run a shell command on each code block
  */
 export async function run(options: RunOptions): Promise<Array<RunResult>> {
-  const { source, command, filter } = options;
+  const { source, command, filter, keep = false, dir } = options;
   const blocks = parse({ source, filter });
 
   if (blocks.length === 0) {
@@ -36,10 +38,17 @@ export async function run(options: RunOptions): Promise<Array<RunResult>> {
   }
 
   const results: Array<RunResult> = [];
-  const tmpDir = join(process.cwd(), ".mdcode-tmp");
 
-  // Create temp directory
-  await mkdir(tmpDir, { recursive: true });
+  // Use custom directory if provided, otherwise use temp directory
+  const workingDir = dir || join(process.cwd(), ".mdcode-tmp");
+
+  // Create working directory
+  await mkdir(workingDir, { recursive: true });
+
+  // Print working directory path if keep flag is set
+  if (keep) {
+    console.log(styleText("cyan", `Working directory: ${workingDir}`));
+  }
 
   try {
     for (const [ index, block ] of blocks.entries()) {
@@ -47,7 +56,7 @@ export async function run(options: RunOptions): Promise<Array<RunResult>> {
 
       // Generate temp file
       const ext = getExtension(block.lang);
-      const tmpFile = join(tmpDir, `block-${index}${ext}`);
+      const tmpFile = join(workingDir, `block-${index}${ext}`);
 
       // Write block to temp file
       await writeFile(tmpFile, block.code, "utf-8");
@@ -95,14 +104,18 @@ export async function run(options: RunOptions): Promise<Array<RunResult>> {
         }
       }
       finally {
-        // Clean up temp file
-        await unlink(tmpFile).catch(() => {});
+        // Clean up temp file only if not keeping the directory
+        if (!keep) {
+          await unlink(tmpFile).catch(() => {});
+        }
       }
     }
   }
   finally {
-    // Clean up temp directory
-    await unlink(tmpDir).catch(() => {});
+    // Clean up temp directory only if not keeping and it's a temp directory (not custom)
+    if (!keep && !dir) {
+      await unlink(workingDir).catch(() => {});
+    }
   }
 
   return results;

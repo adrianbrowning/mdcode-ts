@@ -1,20 +1,20 @@
 import { readFile } from "node:fs/promises";
 
-import { update } from "./commands/update.js";
-import type { FilterOptions, TransformerFunction } from "./types.js";
+import { update } from "./commands/update.ts";
+import type { FilterOptions, TransformerFunction } from "./types.ts";
 
 // Public API exports
-export * from "./types.js";
-export * from "./parser.js";
-export * from "./cli.js";
+export * from "./types.ts";
+export * from "./parser.ts";
+export * from "./cli.ts";
 
 // Export commands for programmatic use
-export { extract } from "./commands/extract.js";
-export { update } from "./commands/update.js";
-export { list } from "./commands/list.js";
-export { run } from "./commands/run.js";
-export { dump } from "./commands/dump.js";
-export { transform, transformWithFunction } from "./commands/transform.js";
+export { extract } from "./commands/extract.ts";
+export { update } from "./commands/update.ts";
+export { list } from "./commands/list.ts";
+export { run } from "./commands/run.ts";
+export { dump } from "./commands/dump.ts";
+export { transform, transformWithFunction } from "./commands/transform.ts";
 
 /**
  * Default export - Simple API for transforming markdown files

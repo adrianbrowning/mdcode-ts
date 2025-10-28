@@ -1,16 +1,16 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { stdin } from "node:process";
 import { pathToFileURL } from "node:url";
 
 import { Command } from "commander";
 
-import { dump } from "./commands/dump.js";
-import { extract } from "./commands/extract.js";
-import { list } from "./commands/list.js";
-import { run } from "./commands/run.js";
-import { update } from "./commands/update.js";
-import type { FilterOptions } from "./types.js";
+import { dump } from "./commands/dump.ts";
+import { extract } from "./commands/extract.ts";
+import { list } from "./commands/list.ts";
+import { run } from "./commands/run.ts";
+import { update } from "./commands/update.ts";
+import type { FilterOptions } from "./types.ts";
 
 /**
  * Read input from file or stdin
@@ -77,14 +77,15 @@ export async function Execute(
     .command("list")
     .description("List code blocks from markdown")
     .argument("[file]", "Markdown file to read (default: stdin)")
-    .option("--lang <lang>", "Filter by language")
-    .option("--file <file>", "Filter by file metadata")
-    .option("--meta <key=value...>", "Filter by custom metadata")
+    .option("-l, --lang <lang>", "Filter by language")
+    .option("-f, --file <file>", "Filter by file metadata")
+    .option("-m, --meta <key=value...>", "Filter by custom metadata")
+    .option("--json", "Output as JSON")
     .action(async (file, options) => {
       try {
         const source = await readInput(file);
         const filter = parseFilterOptions(options);
-        const output = list({ source, filter });
+        const output = list({ source, filter, json: options.json });
         stdout.write(output + "\n");
       }
       catch (error: unknown) {
@@ -99,15 +100,16 @@ export async function Execute(
     .command("extract")
     .description("Extract code blocks to files")
     .argument("[file]", "Markdown file to read (default: stdin)")
-    .option("--lang <lang>", "Filter by language")
-    .option("--file <file>", "Filter by file metadata")
-    .option("--meta <key=value...>", "Filter by custom metadata")
-    .option("-o, --output <dir>", "Output directory (default: current directory)", ".")
+    .option("-l, --lang <lang>", "Filter by language")
+    .option("-f, --file <file>", "Filter by file metadata")
+    .option("-m, --meta <key=value...>", "Filter by custom metadata")
+    .option("-d, --dir <dir>", "Output directory (default: current directory)", ".")
+    .option("-q, --quiet", "Suppress status messages")
     .action(async (file, options) => {
       try {
         const source = await readInput(file);
         const filter = parseFilterOptions(options);
-        await extract({ source, filter, outputDir: options.output });
+        await extract({ source, filter, outputDir: options.dir, quiet: options.quiet });
       }
       catch (error: unknown) {
         if(error instanceof Error) stderr.write(`Error: ${error.message}\n`);
@@ -122,14 +124,28 @@ export async function Execute(
     .description("Run a shell command on each code block")
     .argument("<command>", "Command to run (use {file} as placeholder)")
     .argument("[file]", "Markdown file to read (default: stdin)")
-    .option("--lang <lang>", "Filter by language")
-    .option("--file <file>", "Filter by file metadata")
-    .option("--meta <key=value...>", "Filter by custom metadata")
+    .option("-l, --lang <lang>", "Filter by language")
+    .option("-f, --file <file>", "Filter by file metadata")
+    .option("-m, --meta <key=value...>", "Filter by custom metadata")
+    .option("-n, --name <name>", "Filter by block name")
+    .option("-k, --keep", "Keep temporary directory after execution")
+    .option("-d, --dir <dir>", "Working directory for command execution (default: temp directory)")
     .action(async (command, file, options) => {
       try {
         const source = await readInput(file);
         const filter = parseFilterOptions(options);
-        await run({ source, command, filter });
+
+        // Add name to filter if provided
+        if (options.name) {
+          if (!filter) {
+            await run({ source, command, filter: { meta: { name: options.name } }, keep: options.keep, dir: options.dir });
+          } else {
+            filter.meta = { ...filter.meta, name: options.name };
+            await run({ source, command, filter, keep: options.keep, dir: options.dir });
+          }
+        } else {
+          await run({ source, command, filter, keep: options.keep, dir: options.dir });
+        }
       }
       catch (error: unknown) {
         if (error instanceof Error)stderr.write(`Error: ${error.message}\n`);
@@ -143,10 +159,12 @@ export async function Execute(
     .command("update")
     .description("Update markdown code blocks from source files or via transformer")
     .argument("[file]", "Markdown file to read (default: stdin)")
-    .option("--lang <lang>", "Filter by language")
-    .option("--file <file>", "Filter by file metadata")
-    .option("--meta <key=value...>", "Filter by custom metadata")
+    .option("-l, --lang <lang>", "Filter by language")
+    .option("-f, --file <file>", "Filter by file metadata")
+    .option("-m, --meta <key=value...>", "Filter by custom metadata")
     .option("-t, --transform <path>", "Path to transformer function file (must export default)")
+    .option("-q, --quiet", "Suppress status messages")
+    .option("--stdout", "Write output to stdout instead of updating file in-place")
     .action(async (file, options) => {
       try {
         const source = await readInput(file);
@@ -174,8 +192,15 @@ export async function Execute(
           }
         }
 
-        const output = await update({ source, filter, transformer });
-        stdout.write(output);
+        const output = await update({ source, filter, transformer, quiet: options.quiet });
+
+        // If file path is provided and --stdout flag is not set, write in-place
+        if (file && !options.stdout) {
+          await writeFile(file, output, "utf-8");
+        } else {
+          // Otherwise write to stdout
+          stdout.write(output);
+        }
       }
       catch (error: unknown) {
         if (error instanceof Error) stderr.write(`Error: ${error.message}\n`);
@@ -189,15 +214,25 @@ export async function Execute(
     .command("dump")
     .description("Create a tar archive of code blocks")
     .argument("[file]", "Markdown file to read (default: stdin)")
-    .option("--lang <lang>", "Filter by language")
-    .option("--file <file>", "Filter by file metadata")
-    .option("--meta <key=value...>", "Filter by custom metadata")
+    .option("-l, --lang <lang>", "Filter by language")
+    .option("-f, --file <file>", "Filter by file metadata")
+    .option("-m, --meta <key=value...>", "Filter by custom metadata")
+    .option("-q, --quiet", "Suppress status messages")
+    .option("-o, --out <file>", "Output file (default: stdout)")
     .action(async (file, options) => {
       try {
         const source = await readInput(file);
         const filter = parseFilterOptions(options);
-        const tarData = await dump({ source, filter });
-        stdout.write(tarData);
+        const tarData = await dump({ source, filter, quiet: options.quiet });
+
+        if (options.out) {
+          await writeFile(options.out, tarData);
+          if (!options.quiet) {
+            stderr.write(`Dumped archive to ${options.out}\n`);
+          }
+        } else {
+          stdout.write(tarData);
+        }
       }
       catch (error: unknown) {
         if (error instanceof Error)stderr.write(`Error: ${error.message}\n`);
@@ -205,6 +240,19 @@ export async function Execute(
         process.exit(1);
       }
     });
+
+  // Default behavior: if no subcommand is provided, run list on README.md
+  const commands = ["list", "extract", "update", "run", "dump"];
+  const hasCommand = args.length > 0 && commands.includes(args[0]);
+
+  if (!hasCommand && args.length === 0) {
+    // No arguments at all - run list README.md
+    args = ["list", "README.md"];
+  } else if (!hasCommand && !args[0]?.startsWith("-")) {
+    // First arg is not a command and not a flag - could be a file
+    // Insert 'list' command before it
+    args = ["list", ...args];
+  }
 
   await program.parseAsync(args, { from: "user" });
 }

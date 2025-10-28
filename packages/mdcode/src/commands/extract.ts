@@ -2,24 +2,27 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { styleText } from "node:util";
 
-import { parse } from "../parser.js";
-import type { FilterOptions } from "../types.js";
+import { parse } from "../parser.ts";
+import type { FilterOptions } from "../types.ts";
 
 export interface ExtractOptions {
   source: string;
   filter?: FilterOptions;
   outputDir?: string;
+  quiet?: boolean;
 }
 
 /**
  * Extract code blocks to files based on their metadata
  */
 export async function extract(options: ExtractOptions): Promise<Array<string>> {
-  const { source, filter, outputDir = "." } = options;
+  const { source, filter, outputDir = ".", quiet = false } = options;
   const blocks = parse({ source, filter });
 
   if (blocks.length === 0) {
-    console.log(styleText("yellow", "No code blocks found to extract."));
+    if (!quiet) {
+      console.error(styleText("yellow", "No code blocks found to extract."));
+    }
     return [];
   }
 
@@ -70,7 +73,9 @@ export async function extract(options: ExtractOptions): Promise<Array<string>> {
       }
 
       await writeFile(filePath, parts.join("\n").trim() + "\n", "utf-8");
-      console.log(styleText("green", `✓ Extracted ${items.length} region(s) to ${filePath}`));
+      if (!quiet) {
+        console.error(styleText("green", `✓ Extracted ${items.length} region(s) to ${filePath}`));
+      }
     }
     else if (items.length === 1 && items[0]?.block.meta.region) {
       // Single region - wrap with markers
@@ -83,12 +88,16 @@ export async function extract(options: ExtractOptions): Promise<Array<string>> {
       ].join("\n") + "\n";
 
       await writeFile(filePath, content, "utf-8");
-      console.log(styleText("green", `✓ Extracted to ${filePath}`));
+      if (!quiet) {
+        console.error(styleText("green", `✓ Extracted to ${filePath}`));
+      }
     }
     else {
       // No regions or mixed - write the first block's code
       await writeFile(filePath, items[0]?.block.code || "", "utf-8");
-      console.log(styleText("green", `✓ Extracted to ${filePath}`));
+      if (!quiet) {
+        console.error(styleText("green", `✓ Extracted to ${filePath}`));
+      }
     }
 
     extractedFiles.push(filePath);

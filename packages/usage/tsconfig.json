@@ -1,8 +1,9 @@
 {
   "extends": "../../shared/tsconfig.json",
   "compilerOptions": {
+    "module": "ESNext",
     "outDir": "dist",
 //    "rootDir": "src"
   },
-  "include": ["tests/**/*","fixtures/**/*"]
+  "include": ["tests/**/*","fixtures/**/*", "examples/**/*"]
 }

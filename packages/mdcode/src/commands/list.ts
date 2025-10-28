@@ -1,20 +1,36 @@
 import { styleText } from "node:util";
 
-import { parse } from "../parser.js";
-import type { Block, FilterOptions } from "../types.js";
+import { parse } from "../parser.ts";
+import type { Block, FilterOptions } from "../types.ts";
 
 export interface ListOptions {
   source: string;
   filter?: FilterOptions;
+  json?: boolean;
 }
 
 /**
  * List all code blocks with their metadata
  */
 export function list(options: ListOptions): string {
-  const { source, filter } = options;
+  const { source, filter, json } = options;
   const blocks = parse({ source, filter });
 
+  if (json) {
+    // JSON output: one object per line
+    return blocks
+      .map((block) => {
+        const obj: Record<string, string> = { lang: block.lang };
+        // Spread metadata at top level
+        for (const [ key, value ] of Object.entries(block.meta)) {
+          obj[key] = value;
+        }
+        return JSON.stringify(obj);
+      })
+      .join("\n");
+  }
+
+  // Default text output
   if (blocks.length === 0) {
     return styleText("yellow", "No code blocks found.");
   }

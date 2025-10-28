@@ -1,6 +1,6 @@
+import assert from "node:assert/strict";
 import { join } from "node:path";
-
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, it } from "node:test";
 
 import {
   cleanupTempDir,
@@ -37,7 +37,7 @@ describe("End-to-End Extract and Update", () => {
     const extractedFiles = await runExtract(testMdPath, tempDir);
 
     // Verify files were created
-    expect(extractedFiles.length).toBeGreaterThan(0);
+    assert.ok(extractedFiles.length > 0);
 
     // Verify region files contain ONLY the region content, not full file
     const regionsJsContent = await readFileContent(join(tempDir, "regions.js"));
@@ -46,18 +46,18 @@ describe("End-to-End Extract and Update", () => {
 
     // For region-only blocks, the extracted file should contain only the function
     // and not include content outside the region
-    expect(regionsJsContent).toContain("function factorial");
-    expect(regionsJsContent).toContain("function isPrime");
-    expect(regionsJsContent).not.toContain("const PI");
-    expect(regionsJsContent).not.toContain("export");
+    assert.ok(regionsJsContent.includes("function factorial"));
+    assert.ok(regionsJsContent.includes("function isPrime"));
+    assert.ok(!regionsJsContent.includes("const PI"));
+    assert.ok(!regionsJsContent.includes("export"));
 
-    expect(mathTsContent).toContain("function fibonacci");
-    expect(mathTsContent).not.toContain("GOLDEN_RATIO");
-    expect(mathTsContent).not.toContain("function power");
+    assert.ok(mathTsContent.includes("function fibonacci"));
+    assert.ok(!mathTsContent.includes("GOLDEN_RATIO"));
+    assert.ok(!mathTsContent.includes("function power"));
 
-    expect(stringsPyContent).toContain("def reverse_string");
-    expect(stringsPyContent).not.toContain("VOWELS");
-    expect(stringsPyContent).not.toContain("def is_palindrome");
+    assert.ok(stringsPyContent.includes("def reverse_string"));
+    assert.ok(!stringsPyContent.includes("VOWELS"));
+    assert.ok(!stringsPyContent.includes("def is_palindrome"));
   });
 
   it("should update markdown with no changes when source files match", async () => {
@@ -72,7 +72,7 @@ describe("End-to-End Extract and Update", () => {
     const expectedPath = join(fixturesDir, "expected-no-changes.md");
     const diff = await runDiff(workingMdPath, expectedPath);
 
-    expect(diff).toBe("");
+    assert.strictEqual(diff, "");
   });
 
   it("should update markdown from modified source files", async () => {
@@ -97,7 +97,7 @@ console.log(greet('Universe'));`
     const expectedPath = join(fixturesDir, "expected-simple-update.md");
     const diff = await runDiff(workingMdPath, expectedPath);
 
-    expect(diff).toBe("");
+    assert.strictEqual(diff, "");
   });
 
   it("should update markdown with region changes", async () => {
@@ -148,7 +148,7 @@ function fibonacci(n: number): number {
     const expectedPath = join(fixturesDir, "expected-region-update.md");
     const diff = await runDiff(workingMdPath, expectedPath);
 
-    expect(diff).toBe("");
+    assert.strictEqual(diff, "");
   });
 
   it("should correctly handle multiple regions in the same file", async () => {
@@ -194,7 +194,7 @@ function isPrime(num) {
     const expectedPath = join(fixturesDir, "expected-multi-region.md");
     const diff = await runDiff(workingMdPath, expectedPath);
 
-    expect(diff).toBe("");
+    assert.strictEqual(diff, "");
   });
 
   it("should handle different comment styles for different languages", async () => {
@@ -202,13 +202,13 @@ function isPrime(num) {
 
     // Verify Python uses # for regions
     const stringsPy = await readFileContent(join(tempDir, "strings.py"));
-    expect(stringsPy).toContain("# #region reverse");
-    expect(stringsPy).toContain("# #endregion reverse");
+    assert.ok(stringsPy.includes("# #region reverse"));
+    assert.ok(stringsPy.includes("# #endregion reverse"));
 
     // Verify JavaScript uses // for regions
     const regionsJs = await readFileContent(join(tempDir, "regions.js"));
-    expect(regionsJs).toContain("// #region factorial");
-    expect(regionsJs).toContain("// #endregion factorial");
+    assert.ok(regionsJs.includes("// #region factorial"));
+    assert.ok(regionsJs.includes("// #endregion factorial"));
 
     // Modify Python region
     const updatedStringsPy = stringsPy.replace(
@@ -232,6 +232,6 @@ def reverse_string(s):
     const expectedPath = join(fixturesDir, "expected-python-region.md");
     const diff = await runDiff(workingMdPath, expectedPath);
 
-    expect(diff).toBe("");
+    assert.strictEqual(diff, "");
   });
 });

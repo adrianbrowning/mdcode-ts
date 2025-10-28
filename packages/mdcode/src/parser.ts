@@ -4,7 +4,7 @@ import remarkStringify from "remark-stringify";
 import { unified } from "unified";
 import { visit } from "unist-util-visit";
 
-import type { Block, FilterOptions, ParseOptions, WalkOptions, WalkResult } from "./types.js";
+import type { Block, FilterOptions, ParseOptions, WalkOptions, WalkResult } from "./types.ts";
 
 /**
  * Parse metadata from the info string of a code block

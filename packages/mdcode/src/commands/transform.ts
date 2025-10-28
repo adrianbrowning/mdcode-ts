@@ -1,8 +1,8 @@
 import * as readline from "node:readline";
 import { styleText } from "node:util";
 
-import { walk } from "../parser.js";
-import type { Block, FilterOptions, TransformerFunction } from "../types.js";
+import { walk } from "../parser.ts";
+import type { Block, FilterOptions, TransformerFunction } from "../types.ts";
 
 export interface TransformOptions {
   source: string;
@@ -43,11 +43,14 @@ export async function transform(options: TransformOptions): Promise<string> {
 
       // If a transformer function is provided, use it
       if (transformer) {
-        const transformedCode = await transformer(
-          block.lang,
-          { file: block.meta.file, region: block.meta.region },
-          block.code
-        );
+        const transformedCode = await transformer({
+          tag: block.lang,
+          meta: {
+            file: block.meta.file,
+            region: block.meta.region
+          },
+          code: block.code
+        });
         return { ...block, code: transformedCode };
       }
 

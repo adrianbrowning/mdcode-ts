@@ -22,21 +22,27 @@ export interface Block {
 export type WalkerFunction = (block: Block) => Block | null | Promise<Block | null>;
 
 /**
+ * Metadata for transformer functions
+ * Contains only the supported metadata fields: file and region
+ */
+export type TransformerMeta = {/** Filter by file metadata (supports glob patterns) */
+    file?: string;
+    /** Filter by custom metadata key-value pairs */
+    region?:string
+}
+
+/**
  * Options for filtering code blocks
  */
-export interface FilterOptions {
-  /** Filter by programming language */
-  lang?: string;
-  /** Filter by file metadata (supports glob patterns) */
-  file?: string;
-  /** Filter by custom metadata key-value pairs */
-  meta?: Record<string, string>;
+export type FilterOptions =  TransformerMeta   & {
+    /** Filter by programming language */
+    lang?: string;
 }
 
 /**
  * Options for parsing markdown
  */
-export interface ParseOptions {
+export type ParseOptions = {
   /** The markdown source to parse */
   source: string;
   /** Optional filter to apply during parsing */
@@ -46,7 +52,7 @@ export interface ParseOptions {
 /**
  * Options for walking/transforming blocks
  */
-export interface WalkOptions {
+export type WalkOptions = {
   /** The markdown source to walk */
   source: string;
   /** Function to call for each block */
@@ -58,7 +64,7 @@ export interface WalkOptions {
 /**
  * Result of walking and potentially modifying blocks
  */
-export interface WalkResult {
+export type WalkResult = {
   /** The modified markdown source */
   source: string;
   /** All blocks that were processed */
@@ -67,16 +73,7 @@ export interface WalkResult {
   modified: boolean;
 }
 
-/**
- * Metadata for transformer functions
- * Contains only the supported metadata fields: file and region
- */
-export interface TransformerMeta {
-  /** Optional file path from metadata */
-  file?: string;
-  /** Optional region name from metadata */
-  region?: string;
-}
+
 
 /**
  * Function that transforms a code block
@@ -85,11 +82,9 @@ export interface TransformerMeta {
  * @param code - The code block content
  * @returns The transformed code (or Promise of transformed code)
  */
-export type TransformerFunction = (
-  tag: string,
-  meta: TransformerMeta,
-  code: string
-) => string | Promise<string>;
+export type TransformerFunction = (options: {tag: string;
+                                       meta: TransformerMeta;
+                                       code: string;}) => string | Promise<string>;
 
 /**
  * Helper function to define a transformer with proper type checking
@@ -100,7 +95,7 @@ export type TransformerFunction = (
  * ```typescript
  * import { defineTransform } from 'mdcode';
  *
- * export default defineTransform((tag, meta, code) => {
+ * export default defineTransform(({tag, code}) => {
  *   if (tag === 'sql') {
  *     return code.toUpperCase();
  *   }

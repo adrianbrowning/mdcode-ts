@@ -12,7 +12,10 @@
       "Bash(pnpm test:usage:*)",
       "Bash(pnpm --filter @gcm/mdcode-example test)",
       "Bash(pnpm -r lint:ts)",
-      "Bash(pnpm -r lint:s)"
+      "Bash(pnpm -r lint:s)",
+      "Bash(pnpm exec tsc:*)",
+      "Bash(tar:*)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []

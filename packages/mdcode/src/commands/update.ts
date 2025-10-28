@@ -2,21 +2,23 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { styleText } from "node:util";
 
-import { walk } from "../parser.js";
-import type { Block, FilterOptions, TransformerFunction } from "../types.js";
+import { outline } from "../outline.ts";
+import { walk } from "../parser.ts";
+import type { Block, FilterOptions, TransformerFunction } from "../types.ts";
 
 export interface UpdateOptions {
   source: string;
   filter?: FilterOptions;
   transformer?: TransformerFunction;
   basePath?: string; // Base path for resolving file paths
+  quiet?: boolean;
 }
 
 /**
  * Update markdown code blocks from source files or via transformer
  */
 export async function update(options: UpdateOptions): Promise<string> {
-  const { source, filter, transformer, basePath = "." } = options;
+  const { source, filter, transformer, basePath = ".", quiet = false } = options;
 
   let updatedCount = 0;
 
@@ -27,17 +29,22 @@ export async function update(options: UpdateOptions): Promise<string> {
       // If transformer is provided, use it to transform the block
       if (transformer) {
         try {
-          const transformedCode = await transformer(
-            block.lang,
-            { file: block.meta.file, region: block.meta.region },
-            block.code
-          );
+          const transformedCode = await transformer({
+            tag: block.lang,
+            meta: {
+              file: block.meta.file,
+              region: block.meta.region
+            },
+            code: block.code
+          });
 
           // Only update if content changed
           if (transformedCode !== block.code) {
-            console.log(styleText("green", `✓ Transformed ${block.lang} block`));
-            if (block.meta.file) {
-              console.log(styleText("gray", `  File: ${block.meta.file}`));
+            if (!quiet) {
+              console.error(styleText("green", `✓ Transformed ${block.lang} block`));
+              if (block.meta.file) {
+                console.error(styleText("gray", `  File: ${block.meta.file}`));
+              }
             }
             updatedCount++;
             return { ...block, code: transformedCode };
@@ -46,7 +53,8 @@ export async function update(options: UpdateOptions): Promise<string> {
           return block;
         }
         catch (error: any) {
-          console.log(styleText("red", `✗ Transform failed: ${error.message}`));
+          // Error messages should always be shown
+          console.error(styleText("red", `✗ Transform failed: ${error.message}`));
           return block;
         }
       }
@@ -64,16 +72,34 @@ export async function update(options: UpdateOptions): Promise<string> {
         // Read the source file
         let fileContent = await readFile(resolvedPath, "utf-8");
 
-        // If a region is specified, extract only that region
-        if (block.meta.region) {
+        // Check if outline mode is requested
+        const shouldOutline = block.meta.outline === "true" || block.meta.outline === true;
+
+        if (shouldOutline) {
+          // Use outline to remove content between region markers
+          const result = outline(fileContent);
+
+          if (!result.found) {
+            throw new Error(`outline=true specified but no region markers found in ${filePath}`);
+          }
+
+          fileContent = result.content;
+        }
+        // If a region is specified (and not using outline), extract only that region
+        else if (block.meta.region) {
           fileContent = extractRegion(fileContent, block.meta.region, block.lang);
         }
 
         // Only update if content changed
         if (fileContent !== block.code) {
-          console.log(styleText("green", `✓ Updated block from ${filePath}`));
-          if (block.meta.region) {
-            console.log(styleText("gray", `  Region: ${block.meta.region}`));
+          if (!quiet) {
+            console.error(styleText("green", `✓ Updated block from ${filePath}`));
+            if (shouldOutline) {
+              console.error(styleText("gray", `  Mode: outline`));
+            }
+            else if (block.meta.region) {
+              console.error(styleText("gray", `  Region: ${block.meta.region}`));
+            }
           }
           updatedCount++;
           return { ...block, code: fileContent };
@@ -82,17 +108,20 @@ export async function update(options: UpdateOptions): Promise<string> {
         return block;
       }
       catch (error: any) {
-        console.log(styleText("red", `✗ Failed to read ${filePath}: ${error.message}`));
+        // Error messages should always be shown
+        console.error(styleText("red", `✗ Failed to read ${filePath}: ${error.message}`));
         return block; // Keep original block if file read fails
       }
     },
   });
 
-  if (updatedCount === 0) {
-    console.log(styleText("yellow", "No blocks were updated."));
-  }
-  else {
-    console.log(styleText([ "bold", "green" ], `\nUpdated ${updatedCount} block(s).`));
+  if (!quiet) {
+    if (updatedCount === 0) {
+      console.error(styleText("yellow", "No blocks were updated."));
+    }
+    else {
+      console.error(styleText([ "bold", "green" ], `\nUpdated ${updatedCount} block(s).`));
+    }
   }
 
   return result.source;

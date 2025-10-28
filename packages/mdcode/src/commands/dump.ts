@@ -1,30 +1,41 @@
 import { styleText } from "node:util";
+import { Readable } from "node:stream";
 
-import { type TarStreamInput, TarStream } from "@std/tar";
+import { pack } from "tar-stream";
 
-import { parse } from "../parser.js";
-import type { FilterOptions } from "../types.js";
+import { parse } from "../parser.ts";
+import type { FilterOptions } from "../types.ts";
 
 export interface DumpOptions {
   source: string;
   filter?: FilterOptions;
+  quiet?: boolean;
 }
 
 /**
  * Create a tar archive of code blocks
  */
 export async function dump(options: DumpOptions): Promise<Uint8Array> {
-  const { source, filter } = options;
+  const { source, filter, quiet = false } = options;
   const blocks = parse({ source, filter });
 
   if (blocks.length === 0) {
-    console.error(styleText("yellow", "No code blocks found to dump."));
+    if (!quiet) {
+      console.error(styleText("yellow", "No code blocks found to dump."));
+    }
     return new Uint8Array(0);
   }
 
-  // Create tar stream inputs
-  const inputs: Array<TarStreamInput> = [];
+  // Create tar archive using tar-stream
+  const packStream = pack();
+  const chunks: Array<Buffer> = [];
 
+  // Collect chunks
+  packStream.on("data", (chunk: Buffer) => {
+    chunks.push(chunk);
+  });
+
+  // Add files to tar archive
   for (const [ index, block ] of blocks.entries()) {
     // Determine filename
     let filename: string;
@@ -36,36 +47,27 @@ export async function dump(options: DumpOptions): Promise<Uint8Array> {
       filename = `block-${index + 1}${ext}`;
     }
 
-    // Create file input for tar stream
-    const content = new TextEncoder().encode(block.code);
-    inputs.push({
-      type: "file",
-      path: filename,
-      size: content.length,
-      readable: new ReadableStream({
-        start(controller) {
-          controller.enqueue(content);
-          controller.close();
-        },
-      }),
-    });
+    const content = Buffer.from(block.code, "utf-8");
 
-    console.error(styleText("green", `✓ Added ${filename} to archive`));
+    // Create entry in tar
+    packStream.entry({ name: filename }, content);
+
+    if (!quiet) {
+      console.error(styleText("green", `✓ Added ${filename} to archive`));
+    }
   }
 
-  // Create tar archive
-  const chunks: Array<Uint8Array> = [];
-  await ReadableStream.from(inputs)
-    .pipeThrough(new TarStream())
-    .pipeTo(
-      new WritableStream<Uint8Array>({
-        write(chunk) {
-          chunks.push(chunk);
-        },
-      })
-    );
+  // Finalize the archive
+  packStream.finalize();
 
-  console.error(styleText([ "bold", "green" ], `\nCreated tar archive with ${blocks.length} file(s).`));
+  // Wait for stream to finish
+  await new Promise<void>((resolve) => {
+    packStream.on("end", resolve);
+  });
+
+  if (!quiet) {
+    console.error(styleText([ "bold", "green" ], `\nCreated tar archive with ${blocks.length} file(s).`));
+  }
 
   // Combine all chunks into a single Uint8Array
   const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
