@@ -33,7 +33,6 @@ cd packages/usage && pnpm test  # Alternative
 - **Example package**: `packages/example/` - No tests, just runnable examples
 
 ### Important Notes
-- Root `/tests/` are configured in `packages/mdcode/vitest.config.ts`
 - Import paths from root tests must use `../packages/mdcode/src/...`
 - **ALWAYS test all packages** - run `pnpm test` from workspace root
 - E2E tests validate extract/update workflows with real files

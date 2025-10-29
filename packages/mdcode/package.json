@@ -1,6 +1,6 @@
 {
-  "name": "mdcode",
-  "version": "0.0.3-7",
+  "name": "mdcode-ts",
+  "version": "0.0.3-8",
   "description": "TypeScript port of mdcode - Drop-in replacement for Markdown code block authoring",
   "type": "module",
   "files": [
@@ -38,7 +38,9 @@
       ".": "./src/index.ts",
       "./cli": "./src/cli.ts"
     },
-    "bin": "./src/main.ts"
+    "bin": {
+      "mdcode": "./src/main.ts"
+    }
   },
   "devDependencies": {
     "@types/node": "^22.18.12",
@@ -69,5 +71,7 @@
       "import": "./dist/cli.js"
     }
   },
-  "bin": "./dist/main.js"
+  "bin": {
+    "mdcode": "./dist/main.js"
+  }
 }
