@@ -1,19 +1,24 @@
-import { exec } from "node:child_process";
+import { exec, spawn } from "node:child_process";
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
 
 import type { Block } from "mdcode";
 import { extract, update, parse } from "mdcode";
 
 const execAsync = promisify(exec);
 
+// Get path to the mdcode CLI binary
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const CLI_PATH = join(__dirname, "../../mdcode/dist/main.js");
+
 /**
  * Create a temporary test directory
  */
 export async function createTempDir(): Promise<string> {
-  return mkdtemp(join(tmpdir(), "mdcode-test-"));
+  return mkdtemp(join(tmpdir(), "mdcode-test-"+Date.now()+"-"));
 }
 
 /**
@@ -117,3 +122,50 @@ export async function runDiff(file1: string, file2: string): Promise<string> {
   }
 }
 
+/**
+ * Execute mdcode CLI command and capture output
+ */
+export async function execCli(
+  args: Array<string>,
+  options?: { stdin?: string; cwd?: string }
+): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("node", [CLI_PATH, ...args], {
+      cwd: options?.cwd || process.cwd(),
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (data: Buffer) => {
+      stdout += data.toString();
+    });
+
+    child.stderr.on("data", (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    child.on("error", (error) => {
+      reject(error);
+    });
+
+    child.on("close", (exitCode) => {
+      resolve({ stdout, stderr, exitCode });
+    });
+
+    // Write stdin if provided
+    if (options?.stdin) {
+      child.stdin.write(options.stdin);
+      child.stdin.end();
+    }
+    else {
+      child.stdin.end();
+    }
+  });
+}
+
+
+
+export function stripAnsi(text: string) {
+    return text.replace(/\x1b\[[0-9;]*m/g, ''); // eslint-disable-line no-control-regex
+}

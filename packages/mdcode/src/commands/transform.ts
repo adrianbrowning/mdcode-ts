@@ -47,9 +47,9 @@ export async function transform(options: TransformOptions): Promise<string> {
           tag: block.lang,
           meta: {
             file: block.meta.file,
-            region: block.meta.region
+            region: block.meta.region,
           },
-          code: block.code
+          code: block.code,
         });
         return { ...block, code: transformedCode };
       }

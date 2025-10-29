@@ -5,9 +5,15 @@ You have a very short term memory. If you need to remember something, you can wr
 ## Overview
 Converting the Go-based mdcode project to TypeScript with Node 22 and pnpm. mdcode is a Markdown code block authoring tool that extracts, updates, and manages code blocks within markdown documents.
 
+Node 22 can run typescript files directly. Use `.ts` extension for imports.`
+
 Original project: https://github.com/szkiba/mdcode
 
 ## Development Guidelines
+
+### Testing
+- Reference TESTING.md
+- Do Not use vitest. Use native node:test instead
 
 ### ALWAYS Use Todo Lists
 - Track all tasks with TodoWrite tool

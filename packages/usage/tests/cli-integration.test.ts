@@ -4,10 +4,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-// Import command functions
-import { extract } from "../../mdcode/src/commands/extract.ts";
-import { dump } from "../../mdcode/src/commands/dump.ts";
-import { update } from "../../mdcode/src/commands/update.ts";
+import { execCli } from "./test-utils.ts";
+
 
 describe("CLI Integration Tests", () => {
   describe("quiet mode", () => {
@@ -22,21 +20,15 @@ console.log('test');
 
       try {
         // Extract without quiet - should have status messages in stderr
-        const result1 = await extract({
-          source: markdown,
-          outputDir: tmpDir,
-          quiet: false,
-        });
+        const result1 = await execCli(["extract", "-d", tmpDir], { stdin: markdown });
+        assert.ok(result1.stderr.includes("✓"), "Should have status messages in stderr when not quiet");
+        assert.strictEqual(result1.exitCode, 0, "Should exit successfully");
 
         // Extract with quiet - should suppress status messages
-        const result2 = await extract({
-          source: markdown,
-          outputDir: join(tmpDir, "quiet"),
-          quiet: true,
-        });
-
-        // Both should succeed (quiet mode only affects stderr output)
-        assert.ok(true);
+        const quietDir = join(tmpDir, "quiet");
+        const result2 = await execCli(["extract", "-d", quietDir, "--quiet"], { stdin: markdown });
+        assert.strictEqual(result2.stderr, "", "Should have no status messages in stderr when quiet");
+        assert.strictEqual(result2.exitCode, 0, "Should exit successfully");
       } finally {
         await rm(tmpDir, { recursive: true, force: true });
       }
@@ -49,23 +41,17 @@ console.log('test');
 \`\`\`
       `.trim();
 
-      // Dump without quiet
-      const result1 = await dump({
-        source: markdown,
-        quiet: false,
-      });
+      // Dump without quiet - should have status messages in stderr
+      const result1 = await execCli(["dump"], { stdin: markdown });
+      assert.ok(result1.stderr.includes("✓"), "Should have status messages in stderr when not quiet");
+      assert.ok(result1.stdout.length > 0, "Should output tar data to stdout");
+      assert.strictEqual(result1.exitCode, 0, "Should exit successfully");
 
-      // Dump with quiet
-      const result2 = await dump({
-        source: markdown,
-        quiet: true,
-      });
-
-      // Both should return valid Uint8Array buffers
-      assert.ok(result1 instanceof Uint8Array);
-      assert.ok(result2 instanceof Uint8Array);
-      assert.ok(result1.length > 0);
-      assert.ok(result2.length > 0);
+      // Dump with quiet - should suppress status messages
+      const result2 = await execCli(["dump", "--quiet"], { stdin: markdown });
+      assert.strictEqual(result2.stderr, "", "Should have no status messages in stderr when quiet");
+      assert.ok(result2.stdout.length > 0, "Should output tar data to stdout");
+      assert.strictEqual(result2.exitCode, 0, "Should exit successfully");
     });
 
     it("should suppress status messages in update command", async () => {
@@ -76,32 +62,24 @@ console.log('old');
       `.trim();
 
       const tmpDir = await mkdtemp(join(tmpdir(), "mdcode-cli-test-"));
+      const mdFile = join(tmpDir, "test.md");
 
       try {
-        // Create source file
-        await writeFile(
-          join(tmpDir, "test.js"),
-          "console.log('new');",
-          "utf-8",
-        );
+        // Create source file with updated content
+        await writeFile(join(tmpDir, "test.js"), "console.log('new');\n", "utf-8");
+        await writeFile(mdFile, markdown, "utf-8");
 
-        // Update without quiet
-        const result1 = await update({
-          source: markdown,
-          basePath: tmpDir,
-          quiet: false,
-        });
+        // Update without quiet - should have status messages in stderr
+        const result1 = await execCli(["update", "--stdout", mdFile], { cwd: tmpDir });
+        assert.ok(result1.stderr.includes("✓"), "Should have status messages in stderr when not quiet");
+        assert.ok(result1.stdout.includes("console.log('new')"), "Should output updated markdown to stdout");
+        assert.strictEqual(result1.exitCode, 0, "Should exit successfully");
 
-        // Update with quiet
-        const result2 = await update({
-          source: markdown,
-          basePath: tmpDir,
-          quiet: true,
-        });
-
-        // Both should return updated markdown
-        assert.ok(result1.includes("console.log('new')"));
-        assert.ok(result2.includes("console.log('new')"));
+        // Update with quiet - should suppress status messages
+        const result2 = await execCli(["update", "--stdout", "--quiet", mdFile], { cwd: tmpDir });
+        assert.strictEqual(result2.stderr, "", "Should have no status messages in stderr when quiet");
+        assert.ok(result2.stdout.includes("console.log('new')"), "Should output updated markdown to stdout");
+        assert.strictEqual(result2.exitCode, 0, "Should exit successfully");
       } finally {
         await rm(tmpDir, { recursive: true, force: true });
       }
@@ -122,28 +100,19 @@ print('hello')
 
       const tmpDir = await mkdtemp(join(tmpdir(), "mdcode-cli-test-"));
       const outFile = join(tmpDir, "output.tar");
-      const mdFile = join(tmpDir, "test.md");
 
       try {
-        // Write test markdown file
-        await writeFile(mdFile, markdown, "utf-8");
-
-        // Use dump command - it returns Uint8Array
-        const tarData = await dump({
-          source: markdown,
-          quiet: true,
-        });
-
-        // Simulate CLI behavior: write to file when -o is provided
-        await writeFile(outFile, tarData);
+        // Use dump command with -o flag to write to file
+        const result = await execCli(["dump", "-o", outFile, "--quiet"], { stdin: markdown });
+        assert.strictEqual(result.exitCode, 0, "Should exit successfully");
+        assert.strictEqual(result.stdout, "", "Should not write to stdout when using -o flag");
 
         // Verify file was created
-        const { stat } = await import("node:fs/promises");
+        const { stat, readFile: readFilePromise } = await import("node:fs/promises");
         const stats = await stat(outFile);
         assert.ok(stats.size > 0, "Output file should have content");
 
         // Verify it's a valid tar file by checking tar signature
-        const { readFile: readFilePromise } = await import("node:fs/promises");
         const content = await readFilePromise(outFile);
 
         // Tar files contain filenames as readable strings
@@ -162,24 +131,18 @@ console.log('test');
 \`\`\`
       `.trim();
 
-      // Default behavior - returns Uint8Array for stdout
-      const tarData = await dump({
-        source: markdown,
-        quiet: true,
-      });
-
-      // Should return Uint8Array suitable for stdout.write()
-      assert.ok(tarData instanceof Uint8Array);
-      assert.ok(tarData.length > 0);
+      // Default behavior - writes tar data to stdout
+      const result = await execCli(["dump", "--quiet"], { stdin: markdown });
+      assert.strictEqual(result.exitCode, 0, "Should exit successfully");
+      assert.ok(result.stdout.length > 0, "Should write tar data to stdout");
 
       // Verify it's valid tar content
-      const contentStr = Buffer.from(tarData).toString();
-      assert.ok(contentStr.includes("block-1.js"));
+      assert.ok(result.stdout.includes("block-1.js"), "Tar should contain block-1.js");
     });
   });
 
   describe("filter options", () => {
-    it("should filter by language with short and long flag", () => {
+    it("should filter by language with short and long flag", async () => {
       const markdown = `
 \`\`\`js
 const x = 1;
@@ -190,16 +153,20 @@ y = 2
 \`\`\`
       `.trim();
 
-      // Both short (-l) and long (--lang) flags should work the same
-      const filter1 = { lang: "js" }; // from -l js or --lang js
-      const filter2 = { lang: "python" }; // from -l python or --lang python
+      // Test short flag -l
+      const result1 = await execCli(["list", "-l", "js"], { stdin: markdown });
+      assert.strictEqual(result1.exitCode, 0, "Should exit successfully");
+      assert.ok(result1.stdout.includes("js"), "Should include js block");
+      assert.ok(!result1.stdout.includes("python"), "Should not include python block");
 
-      // This test verifies the filter structure that would be created by CLI
-      assert.deepStrictEqual(filter1, { lang: "js" });
-      assert.deepStrictEqual(filter2, { lang: "python" });
+      // Test long flag --lang
+      const result2 = await execCli(["list", "--lang", "python"], { stdin: markdown });
+      assert.strictEqual(result2.exitCode, 0, "Should exit successfully");
+      assert.ok(result2.stdout.includes("python"), "Should include python block");
+      assert.ok(!result2.stdout.includes("const x"), "Should not include js block");
     });
 
-    it("should filter by file metadata with short and long flag", () => {
+    it("should filter by file metadata with short and long flag", async () => {
       const markdown = `
 \`\`\`js file=app.js
 const x = 1;
@@ -210,15 +177,20 @@ const y = 2;
 \`\`\`
       `.trim();
 
-      // Both short (-f) and long (--file) flags should work the same
-      const filter1 = { file: "app.js" }; // from -f app.js or --file app.js
-      const filter2 = { file: "test.js" }; // from -f test.js or --file test.js
+      // Test short flag -f
+      const result1 = await execCli(["list", "-f", "app.js"], { stdin: markdown });
+      assert.strictEqual(result1.exitCode, 0, "Should exit successfully");
+      assert.ok(result1.stdout.includes("app.js"), "Should include app.js block");
+      assert.ok(!result1.stdout.includes("test.js"), "Should not include test.js block");
 
-      assert.deepStrictEqual(filter1, { file: "app.js" });
-      assert.deepStrictEqual(filter2, { file: "test.js" });
+      // Test long flag --file
+      const result2 = await execCli(["list", "--file", "test.js"], { stdin: markdown });
+      assert.strictEqual(result2.exitCode, 0, "Should exit successfully");
+      assert.ok(result2.stdout.includes("test.js"), "Should include test.js block");
+      assert.ok(!result2.stdout.includes("app.js"), "Should not include app.js block");
     });
 
-    it("should filter by custom metadata with short and long flag", () => {
+    it("should filter by custom metadata with short and long flag", async () => {
       const markdown = `
 \`\`\`js env=prod
 const x = 1;
@@ -229,12 +201,17 @@ const y = 2;
 \`\`\`
       `.trim();
 
-      // Both short (-m) and long (--meta) flags should work the same
-      const filter1 = { meta: { env: "prod" } }; // from -m env=prod or --meta env=prod
-      const filter2 = { meta: { env: "dev" } }; // from -m env=dev or --meta env=dev
+      // Test short flag -m
+      const result1 = await execCli(["list", "-m", "env=prod"], { stdin: markdown });
+      assert.strictEqual(result1.exitCode, 0, "Should exit successfully");
+      assert.ok(result1.stdout.includes("env=prod") || result1.stdout.includes("const x"), "Should include prod block");
+      assert.ok(!result1.stdout.includes("const y"), "Should not include dev block");
 
-      assert.deepStrictEqual(filter1, { meta: { env: "prod" } });
-      assert.deepStrictEqual(filter2, { meta: { env: "dev" } });
+      // Test long flag --meta
+      const result2 = await execCli(["list", "--meta", "env=dev"], { stdin: markdown });
+      assert.strictEqual(result2.exitCode, 0, "Should exit successfully");
+      assert.ok(result2.stdout.includes("env=dev") || result2.stdout.includes("const y"), "Should include dev block");
+      assert.ok(!result2.stdout.includes("const x"), "Should not include prod block");
     });
   });
 });

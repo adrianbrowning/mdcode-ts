@@ -85,7 +85,7 @@ export async function run(options: RunOptions): Promise<Array<RunResult>> {
           console.log(styleText("yellow", "Stderr:"), stderr.trim());
         }
       }
-      catch (error: any) {
+      catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
         const exitCode = error.code || 1;
         results.push({
           blockIndex: index,

@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 // Import list function from command file
 import { list } from "../../mdcode/src/commands/list.ts";
+import {stripAnsi} from "./test-utils.ts";
 
 describe("list command", () => {
   describe("default text output", () => {
@@ -24,15 +25,17 @@ print('world')
 
       const output = list({ source: markdown });
 
+      const cleanedOutput = stripAnsi(output);
+
       // Verify output contains block info
-      assert.ok(output.includes("Found 2 code block(s)"));
-      assert.ok(output.includes("[1] js"));
-      assert.ok(output.includes("[2] python"));
-      assert.ok(output.includes("file=app.js"));
-      assert.ok(output.includes("region=main"));
-      assert.ok(output.includes("file=script.py"));
-      assert.ok(output.includes("console.log('hello')"));
-      assert.ok(output.includes("print('world')"));
+      assert.ok(cleanedOutput.includes("Found 2 code block(s)"));
+      assert.ok(cleanedOutput.includes("[1] js"));
+      assert.ok(cleanedOutput.includes("[2] python"));
+      assert.ok(cleanedOutput.includes("file=app.js"));
+      assert.ok(cleanedOutput.includes("region=main"));
+      assert.ok(cleanedOutput.includes("file=script.py"));
+      assert.ok(cleanedOutput.includes("console.log('hello')"));
+      assert.ok(cleanedOutput.includes("print('world')"));
     });
 
     it("should handle empty markdown", () => {

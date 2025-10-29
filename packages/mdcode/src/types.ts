@@ -8,10 +8,10 @@ export interface Block {
   meta: Record<string, string>;
   /** The actual code content */
   code: string;
-  /** Optional position information in the source markdown */
+  /** Optional position information in the source markdown (character offsets) */
   position?: {
-    start: { line: number; column: number; offset?: number; };
-    end: { line: number; column: number; offset?: number; };
+    start: number;
+    end: number;
   };
 }
 
@@ -25,19 +25,21 @@ export type WalkerFunction = (block: Block) => Block | null | Promise<Block | nu
  * Metadata for transformer functions
  * Contains only the supported metadata fields: file and region
  */
-export type TransformerMeta = {/** Filter by file metadata (supports glob patterns) */
-    file?: string;
-    /** Filter by custom metadata key-value pairs */
-    region?:string
-}
+export type TransformerMeta = { /** Filter by file metadata (supports glob patterns) */
+  file?: string;
+  /** Filter by custom metadata key-value pairs */
+  region?: string;
+};
 
 /**
  * Options for filtering code blocks
  */
-export type FilterOptions =  TransformerMeta   & {
-    /** Filter by programming language */
-    lang?: string;
-}
+export type FilterOptions = TransformerMeta & {
+  /** Filter by programming language */
+  lang?: string;
+  /** Filter by custom metadata key-value pairs (alternative to flat file/region) */
+  meta?: Record<string, string>;
+};
 
 /**
  * Options for parsing markdown
@@ -47,7 +49,7 @@ export type ParseOptions = {
   source: string;
   /** Optional filter to apply during parsing */
   filter?: FilterOptions;
-}
+};
 
 /**
  * Options for walking/transforming blocks
@@ -59,7 +61,7 @@ export type WalkOptions = {
   walker: WalkerFunction;
   /** Optional filter to apply before calling walker */
   filter?: FilterOptions;
-}
+};
 
 /**
  * Result of walking and potentially modifying blocks
@@ -71,9 +73,7 @@ export type WalkResult = {
   blocks: Array<Block>;
   /** Whether any modifications were made */
   modified: boolean;
-}
-
-
+};
 
 /**
  * Function that transforms a code block
@@ -82,9 +82,9 @@ export type WalkResult = {
  * @param code - The code block content
  * @returns The transformed code (or Promise of transformed code)
  */
-export type TransformerFunction = (options: {tag: string;
-                                       meta: TransformerMeta;
-                                       code: string;}) => string | Promise<string>;
+export type TransformerFunction = (options: { tag: string;
+  meta: TransformerMeta;
+  code: string; }) => string | Promise<string>;
 
 /**
  * Helper function to define a transformer with proper type checking

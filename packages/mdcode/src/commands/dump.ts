@@ -1,5 +1,4 @@
 import { styleText } from "node:util";
-import { Readable } from "node:stream";
 
 import { pack } from "tar-stream";
 
@@ -61,7 +60,7 @@ export async function dump(options: DumpOptions): Promise<Uint8Array> {
   packStream.finalize();
 
   // Wait for stream to finish
-  await new Promise<void>((resolve) => {
+  await new Promise<void>(resolve => {
     packStream.on("end", resolve);
   });
 

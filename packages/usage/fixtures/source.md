@@ -141,6 +141,7 @@ echo "Deployment complete!"
 ## Conclusion
 
 This document provides comprehensive test coverage for:
+
 - Blocks without file metadata (ignored)
 - Blocks with file metadata only (full file)
 - Blocks with file and region metadata (region extraction)

@@ -15,7 +15,14 @@
       "Bash(pnpm -r lint:s)",
       "Bash(pnpm exec tsc:*)",
       "Bash(tar:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(curl -s https://raw.githubusercontent.com/szkiba/mdcode/main/internal/mdcode/meta_internal_test.go)",
+      "Bash(curl -s https://raw.githubusercontent.com/szkiba/mdcode/main/internal/mdcode/walk_internal_test.go)",
+      "Bash(curl:*)",
+      "Bash(pnpm --filter @mdcode/mdcode test)",
+      "Read(//private/tmp/prisma-ts-select/packages/prisma-ts-select/**)",
+      "Bash(sed:*)",
+      "Bash(pnpm exec mdcode:*)"
     ],
     "deny": [],
     "ask": []

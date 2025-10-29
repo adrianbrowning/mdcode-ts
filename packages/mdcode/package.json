@@ -1,6 +1,6 @@
 {
   "name": "mdcode",
-  "version": "0.0.2",
+  "version": "0.0.3-4",
   "description": "TypeScript port of mdcode - Drop-in replacement for Markdown code block authoring",
   "type": "module",
   "files": [
@@ -10,8 +10,8 @@
   "scripts": {
     "build": "zshy",
     "dev": "zshy --watch",
-    "test": "node --experimental-strip-types --test ../../tests/**/*.test.ts",
-    "test:watch": "node --experimental-strip-types --test --watch ../../tests/**/*.test.ts",
+    "test": "node --test-reporter=spec --test src/**/*.test.ts",
+    "test:watch": "node -w --test-reporter=spec --test src/**/*.test.ts",
     "prepublishOnly": "pnpm build",
     "lint:ts": "tsc --noEmit",
     "lint": "tsc --noEmit ; eslint \"src/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
@@ -42,19 +42,14 @@
     "bin": "./src/main.ts"
   },
   "devDependencies": {
-    "@types/mdast": "^4.0.4",
     "@types/node": "^22.18.12",
+    "@types/tar-stream": "^3.1.4",
     "typescript": "^5.9.3",
     "zshy": "^0.4.4"
   },
   "dependencies": {
-    "tar-stream": "^3.1.7",
     "commander": "^14.0.1",
-    "mdast-util-to-string": "^4.0.0",
-    "remark-parse": "^11.0.0",
-    "remark-stringify": "^11.0.0",
-    "unified": "^11.0.5",
-    "unist-util-visit": "^5.0.0"
+    "tar-stream": "^3.1.7"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

@@ -1,5 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { stdin } from "node:process";
 import { pathToFileURL } from "node:url";
 
@@ -139,11 +139,13 @@ export async function Execute(
         if (options.name) {
           if (!filter) {
             await run({ source, command, filter: { meta: { name: options.name } }, keep: options.keep, dir: options.dir });
-          } else {
+          }
+          else {
             filter.meta = { ...filter.meta, name: options.name };
             await run({ source, command, filter, keep: options.keep, dir: options.dir });
           }
-        } else {
+        }
+        else {
           await run({ source, command, filter, keep: options.keep, dir: options.dir });
         }
       }
@@ -192,12 +194,16 @@ export async function Execute(
           }
         }
 
-        const output = await update({ source, filter, transformer, quiet: options.quiet });
+        // Set basePath to the directory of the input file, or current directory if stdin
+        const basePath = file ? dirname(resolve(file)) : process.cwd();
+
+        const output = await update({ source, filter, transformer, basePath, quiet: options.quiet });
 
         // If file path is provided and --stdout flag is not set, write in-place
         if (file && !options.stdout) {
           await writeFile(file, output, "utf-8");
-        } else {
+        }
+        else {
           // Otherwise write to stdout
           stdout.write(output);
         }
@@ -230,7 +236,8 @@ export async function Execute(
           if (!options.quiet) {
             stderr.write(`Dumped archive to ${options.out}\n`);
           }
-        } else {
+        }
+        else {
           stdout.write(tarData);
         }
       }
@@ -242,16 +249,17 @@ export async function Execute(
     });
 
   // Default behavior: if no subcommand is provided, run list on README.md
-  const commands = ["list", "extract", "update", "run", "dump"];
-  const hasCommand = args.length > 0 && commands.includes(args[0]);
+  const commands = [ "list", "extract", "update", "run", "dump" ];
+  const hasCommand = !!args[0] && commands.includes(args[0]);
 
   if (!hasCommand && args.length === 0) {
     // No arguments at all - run list README.md
-    args = ["list", "README.md"];
-  } else if (!hasCommand && !args[0]?.startsWith("-")) {
+    args = [ "list", "README.md" ];
+  }
+  else if (!hasCommand && !args[0]?.startsWith("-")) {
     // First arg is not a command and not a flag - could be a file
     // Insert 'list' command before it
-    args = ["list", ...args];
+    args = [ "list", ...args ];
   }
 
   await program.parseAsync(args, { from: "user" });

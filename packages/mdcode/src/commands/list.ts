@@ -19,7 +19,7 @@ export function list(options: ListOptions): string {
   if (json) {
     // JSON output: one object per line
     return blocks
-      .map((block) => {
+      .map(block => {
         const obj: Record<string, string> = { lang: block.lang };
         // Spread metadata at top level
         for (const [ key, value ] of Object.entries(block.meta)) {

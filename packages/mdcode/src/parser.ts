@@ -1,9 +1,3 @@
-import type { Code, Root } from "mdast";
-import remarkParse from "remark-parse";
-import remarkStringify from "remark-stringify";
-import { unified } from "unified";
-import { visit } from "unist-util-visit";
-
 import type { Block, FilterOptions, ParseOptions, WalkOptions, WalkResult } from "./types.ts";
 
 /**
@@ -52,7 +46,12 @@ function matchesFilter(block: Block, filter?: FilterOptions): boolean {
     return false;
   }
 
-  // Filter by custom metadata
+  // Filter by region
+  if (filter.region && block.meta.region !== filter.region) {
+    return false;
+  }
+
+  // Filter by custom metadata (nested format for backwards compatibility)
   if (filter.meta) {
     for (const [ key, value ] of Object.entries(filter.meta)) {
       if (block.meta[key] !== value) {
@@ -65,32 +64,156 @@ function matchesFilter(block: Block, filter?: FilterOptions): boolean {
 }
 
 /**
- * Parse markdown and extract all code blocks
+ * State machine for parsing code blocks
+ */
+interface ParserState {
+  inCodeBlock: boolean;
+  fenceChar: string; // '`'
+  fenceLength: number; // 3 or 4
+  fenceIndent: string;
+  blockStart: number; // offset where fence starts
+  codeStart: number; // offset where code content starts
+  currentBlock: Partial<Block>;
+  codeLines: Array<string>;
+}
+
+/**
+ * Parse markdown and extract all code blocks using line-by-line state machine
  */
 export function parse(options: ParseOptions): Array<Block> {
   const { source, filter } = options;
   const blocks: Array<Block> = [];
 
-  const tree = unified()
-    .use(remarkParse)
-    .parse(source);
+  const state: ParserState = {
+    inCodeBlock: false,
+    fenceChar: "",
+    fenceLength: 0,
+    fenceIndent: "",
+    blockStart: 0,
+    codeStart: 0,
+    currentBlock: {},
+    codeLines: [],
+  };
 
-  visit(tree, "code", (node: Code) => {
-    // Combine lang and meta to form the full info string
-    const infoString = node.meta ? `${node.lang || ""} ${node.meta}` : (node.lang || "");
-    const { lang, meta } = parseInfoString(infoString);
+  let offset = 0;
 
-    const block: Block = {
-      lang,
-      meta,
-      code: node.value,
-      position: node.position,
-    };
+  // Split source into lines while preserving line endings
+  const lines = source.split(/(\r?\n)/);
 
-    if (matchesFilter(block, filter)) {
-      blocks.push(block);
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] || "";
+
+    // Skip newline-only entries from split
+    if (line === "\n" || line === "\r\n") {
+      offset += line.length;
+      continue;
     }
-  });
+
+    if (!state.inCodeBlock) {
+      // Look for opening fence
+      const match = line.match(/^(\s*)(```+)(.*)$/);
+
+      if (match) {
+        const indent = match[1] || "";
+        const fence = match[2] || "";
+        const info = match[3] || "";
+
+        // Only support backtick fences (3 or 4)
+        if (fence[0] === "`" && (fence.length === 3 || fence.length === 4)) {
+          state.inCodeBlock = true;
+          state.fenceChar = "`";
+          state.fenceLength = fence.length;
+          state.fenceIndent = indent;
+          state.blockStart = offset;
+
+          // Parse info string
+          const { lang, meta } = parseInfoString(info);
+          state.currentBlock = { lang, meta };
+          state.codeLines = [];
+
+          // Move past the opening fence line and newline
+          offset += line.length;
+          if (i + 1 < lines.length && (lines[i + 1] === "\n" || lines[i + 1] === "\r\n")) {
+            offset += lines[i + 1]!.length;
+            i++; // Skip the newline
+          }
+          state.codeStart = offset;
+          continue;
+        }
+      }
+    }
+    else {
+      // Look for closing fence
+      const match = line.match(/^(\s*)(```+)\s*$/);
+
+      if (match) {
+        const indent = match[1] || "";
+        const fence = match[2] || "";
+
+        // Check if this is a matching closing fence
+        if (
+          fence[0] === state.fenceChar &&
+          fence.length >= state.fenceLength &&
+          indent.length <= state.fenceIndent.length
+        ) {
+          // Found closing fence - finalize the block
+          let code = state.codeLines.join("");
+
+          // Remove trailing newline to match remark-parse behavior
+          if (code.endsWith("\r\n")) {
+            code = code.slice(0, -2);
+          }
+          else if (code.endsWith("\n") || code.endsWith("\r")) {
+            code = code.slice(0, -1);
+          }
+
+          const codeEnd = offset;
+
+          const block: Block = {
+            lang: state.currentBlock.lang || "",
+            meta: state.currentBlock.meta || {},
+            code,
+            position: {
+              start: state.codeStart,
+              end: codeEnd,
+            },
+          };
+
+          // Apply filter and add if matches
+          if (matchesFilter(block, filter)) {
+            blocks.push(block);
+          }
+
+          // Reset state
+          state.inCodeBlock = false;
+          state.fenceChar = "";
+          state.fenceLength = 0;
+          state.fenceIndent = "";
+          state.currentBlock = {};
+          state.codeLines = [];
+
+          offset += line.length;
+          if (i + 1 < lines.length && (lines[i + 1] === "\n" || lines[i + 1] === "\r\n")) {
+            offset += lines[i + 1]!.length;
+            i++; // Skip the newline
+          }
+          continue;
+        }
+      }
+
+      // Inside code block - collect the line
+      state.codeLines.push(line);
+      offset += line.length;
+      if (i + 1 < lines.length && (lines[i + 1] === "\n" || lines[i + 1] === "\r\n")) {
+        state.codeLines.push(lines[i + 1]!);
+        offset += lines[i + 1]!.length;
+        i++; // Skip the newline
+      }
+      continue;
+    }
+
+    offset += line.length;
+  }
 
   return blocks;
 }
@@ -103,102 +226,80 @@ export async function walk(options: WalkOptions): Promise<WalkResult> {
   let modified = false;
   const blocks: Array<Block> = [];
 
-  const tree = unified()
-    .use(remarkParse)
-    .parse(source);
+  // List of replacements to apply: { start, end, newCode }
+  interface Replacement {
+    start: number;
+    end: number;
+    newCode: string;
+  }
+  const replacements: Array<Replacement> = [];
 
-  // Visit all code blocks and apply the walker function
-  await visitAsync(tree, "code", async (node: Code, index, parent) => {
-    // Combine lang and meta to form the full info string
-    const infoString = node.meta ? `${node.lang || ""} ${node.meta}` : (node.lang || "");
-    const { lang, meta } = parseInfoString(infoString);
+  // Parse all blocks
+  const parsedBlocks = parse({ source, filter });
 
-    const block: Block = {
-      lang,
-      meta,
-      code: node.value,
-      position: node.position,
-    };
-
-    // Only process blocks that match the filter
-    if (!matchesFilter(block, filter)) {
-      return;
-    }
-
+  // Apply walker function to each block
+  for (const block of parsedBlocks) {
     blocks.push(block);
 
     // Apply the walker function
     const result = await walker(block);
 
-    // If walker returns null, remove the block
+    // If walker returns null, empty the block content (but keep newline for fence separation)
     if (result === null) {
-      if (parent && typeof index === "number") {
-        parent.children.splice(index, 1);
+      if (block.position) {
+        replacements.push({
+          start: block.position.start,
+          end: block.position.end,
+          newCode: "\n",
+        });
         modified = true;
       }
-      return;
+      continue;
     }
 
-    // If the block was modified, update the node
-    if (result.code !== block.code || result.lang !== block.lang) {
-      node.value = result.code;
-
-      // Reconstruct the info string with the new language and metadata
-      const metaString = Object.entries(result.meta)
-        .map(([ key, value ]) => `${key}=${value}`)
-        .join(" ");
-
-      // Set lang and meta separately (remark separates them)
-      node.lang = result.lang;
-      node.meta = metaString || null;
-
-      modified = true;
+    // If the block was modified, record the replacement
+    if (result.code !== block.code) {
+      if (block.position) {
+        // Ensure code ends with newline for proper fence separation
+        let newCode = result.code;
+        if (newCode.length > 0 && !newCode.endsWith("\n") && !newCode.endsWith("\r\n")) {
+          newCode += "\n";
+        }
+        replacements.push({
+          start: block.position.start,
+          end: block.position.end,
+          newCode,
+        });
+        modified = true;
+      }
     }
-  });
+  }
 
-  // Convert the tree back to markdown
-  const newSource = unified()
-    .use(remarkStringify, {
-      fences: true,
-      fence: "`",
-      listItemIndent: "one",
-      bullet: "-", // Use dash for unordered lists
-      bulletOrdered: ".",
-      emphasis: "*",
-      strong: "*",
-      rule: "-",
-    })
-    .stringify(tree);
+  // If no modifications, return original source
+  if (!modified) {
+    return {
+      source,
+      blocks,
+      modified: false,
+    };
+  }
+
+  // Sort replacements in reverse order (by start position, descending)
+  // This ensures that later replacements don't affect the offsets of earlier ones
+  replacements.sort((a, b) => b.start - a.start);
+
+  // Apply all replacements to the source string
+  let newSource = source;
+  for (const replacement of replacements) {
+    newSource =
+      newSource.substring(0, replacement.start) +
+      replacement.newCode +
+      newSource.substring(replacement.end);
+  }
 
   return {
     source: newSource,
     blocks,
     modified,
   };
-}
-
-/**
- * Async version of unist-util-visit's visit function
- * This allows us to use async walker functions
- */
-async function visitAsync(
-  tree: Root,
-  type: string,
-  visitor: (node: any, index: number | undefined, parent: any) => Promise<void> // eslint-disable-line @typescript-eslint/no-explicit-any
-): Promise<void> {
-  const visit = async (node: any, index?: number, parent?: any): Promise<void> => { // eslint-disable-line @typescript-eslint/no-explicit-any
-    if (node.type === type) {
-      await visitor(node, index, parent);
-    }
-
-    if (node.children) {
-      // Iterate backwards to handle splicing correctly
-      // This way, splicing doesn't affect the indices of unvisited children
-      for (let i = node.children.length - 1; i >= 0; i--) {
-        await visit(node.children[i], i, node);
-      }
-    }
-  };
-
-  await visit(tree);
 }

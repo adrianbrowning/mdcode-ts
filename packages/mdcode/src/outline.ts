@@ -27,25 +27,25 @@ export function outline(source: string): OutlineResult {
   // Captures the whole line including newlines
   const regionStartPattern = new RegExp(
     String.raw`^[ \t]*${specialChars}{2}\s*#?region\s+\w+.*$`,
-    'gm'
+    "gm"
   );
 
   // Pattern for region end: two special chars + "endregion"
   const regionEndPattern = new RegExp(
     String.raw`^[ \t]*${specialChars}{2}\s*#?endregion.*$`,
-    'gm'
+    "gm"
   );
 
   // Find all region markers with their positions
-  const regionStarts: Array<{ index: number; endIndex: number; line: string }> = [];
-  const regionEnds: Array<{ index: number; endIndex: number; line: string }> = [];
+  const regionStarts: Array<{ index: number; endIndex: number; line: string; }> = [];
+  const regionEnds: Array<{ index: number; endIndex: number; line: string; }> = [];
 
   let match;
   while ((match = regionStartPattern.exec(source)) !== null) {
     regionStarts.push({
       index: match.index,
       endIndex: match.index + match[0].length,
-      line: match[0]
+      line: match[0],
     });
   }
 
@@ -53,7 +53,7 @@ export function outline(source: string): OutlineResult {
     regionEnds.push({
       index: match.index,
       endIndex: match.index + match[0].length,
-      line: match[0]
+      line: match[0],
     });
   }
 
@@ -71,33 +71,35 @@ export function outline(source: string): OutlineResult {
 
   // Verify proper nesting (each start must be before its corresponding end)
   for (let i = 0; i < regionStarts.length; i++) {
-    if (regionStarts[i].index >= regionEnds[i].index) {
+    const startMarker = regionStarts[i]  || {index: -1};
+    const endMarker = regionEnds[i] || {index: -1};
+      if (startMarker?.index >= endMarker?.index) {
       throw new Error(
-        `Invalid region nesting: #endregion found before #region at position ${regionEnds[i].index}`
+        `Invalid region nesting: #endregion found before #region at position ${endMarker.index}`
       );
     }
   }
 
   // Build result by copying ranges and preserving markers
-  let result = '';
+  let result = "";
   let lastPos = 0;
 
   for (let i = 0; i < regionStarts.length; i++) {
-    const startMarker = regionStarts[i];
-    const endMarker = regionEnds[i];
+    const startMarker = regionStarts[i]!;
+    const endMarker = regionEnds[i]!;
 
     // Copy content before region start marker (including any newline before it)
-    result += source.substring(lastPos, startMarker.index);
+    result += source.substring(lastPos, startMarker?.index);
 
     // Add the region start marker line
-    result += startMarker.line;
+    result += startMarker?.line;
 
     // Add newline if the start marker line was followed by a newline
-    if (startMarker.endIndex < source.length && source[startMarker.endIndex] === '\n') {
-      result += '\n';
+    if (startMarker.endIndex < source.length && source[startMarker.endIndex] === "\n") {
+      result += "\n";
     }
-    else if (startMarker.endIndex + 1 < source.length && source.substring(startMarker.endIndex, startMarker.endIndex + 2) === '\r\n') {
-      result += '\r\n';
+    else if (startMarker.endIndex + 1 < source.length && source.substring(startMarker.endIndex, startMarker.endIndex + 2) === "\r\n") {
+      result += "\r\n";
     }
 
     // Add the region end marker line
@@ -105,19 +107,19 @@ export function outline(source: string): OutlineResult {
 
     // Add newline if the end marker line was followed by a newline
     const endLineEnd = endMarker.endIndex;
-    if (endLineEnd < source.length && source[endLineEnd] === '\n') {
-      result += '\n';
+    if (endLineEnd < source.length && source[endLineEnd] === "\n") {
+      result += "\n";
     }
-    else if (endLineEnd + 1 < source.length && source.substring(endLineEnd, endLineEnd + 2) === '\r\n') {
-      result += '\r\n';
+    else if (endLineEnd + 1 < source.length && source.substring(endLineEnd, endLineEnd + 2) === "\r\n") {
+      result += "\r\n";
     }
 
     // Move past the end marker and its newline
     lastPos = endLineEnd;
-    if (lastPos < source.length && source[lastPos] === '\n') {
+    if (lastPos < source.length && source[lastPos] === "\n") {
       lastPos++;
     }
-    else if (lastPos + 1 < source.length && source.substring(lastPos, lastPos + 2) === '\r\n') {
+    else if (lastPos + 1 < source.length && source.substring(lastPos, lastPos + 2) === "\r\n") {
       lastPos += 2;
     }
   }
