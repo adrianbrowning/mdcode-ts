@@ -9,7 +9,7 @@ import { outline, read, replace } from "./region.ts";
 
 // Helper to load test fixtures
 async function loadFixture(filename: string): Promise<string> {
-  const path = join(import.meta.dirname, "..", "..", "..", "tests", "testdata", "region", filename);
+  const path = join(import.meta.dirname, "..", "tests", "testdata", "region", filename);
   return readFile(path, "utf-8");
 }
 

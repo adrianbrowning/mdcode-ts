@@ -9,7 +9,7 @@ import { parse, walk } from "./parser.ts";
 
 // Helper to load test fixtures
 async function loadFixture(filename: string): Promise<string> {
-  const path = join(import.meta.dirname, "..", "..", "..", "tests", "testdata", filename);
+  const path = join(import.meta.dirname, "..", "tests", "testdata", filename);
   return readFile(path, "utf-8");
 }
 

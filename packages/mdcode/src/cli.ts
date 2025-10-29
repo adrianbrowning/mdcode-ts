@@ -1,5 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+
 import { readFile, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname, resolve, join } from "node:path";
 import { stdin } from "node:process";
 import { pathToFileURL } from "node:url";
 
@@ -67,10 +71,13 @@ export async function Execute(
 ): Promise<void> {
   const program = new Command();
 
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const pkg = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8'));
+
   program
     .name("mdcode")
     .description("Markdown code block authoring tool")
-    .version("1.0.0");
+    .version(pkg.version);
 
   // List command
   program

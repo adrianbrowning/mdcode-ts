@@ -1,6 +1,6 @@
 {
   "name": "mdcode",
-  "version": "0.0.3-4",
+  "version": "0.0.3-7",
   "description": "TypeScript port of mdcode - Drop-in replacement for Markdown code block authoring",
   "type": "module",
   "files": [
@@ -8,10 +8,11 @@
     "README.md"
   ],
   "scripts": {
+    "bp": "pnpm version prerelease  --no-git-tag-version && pnpm --filter mdcode build && pnpm pack",
     "build": "zshy",
     "dev": "zshy --watch",
-    "test": "node --test-reporter=spec --test src/**/*.test.ts",
-    "test:watch": "node -w --test-reporter=spec --test src/**/*.test.ts",
+    "test": "node --test-reporter=spec --test {tests,src}/**/*.test.ts",
+    "test:watch": "node -w --test-reporter=spec --test {tests,src}/**/*.test.ts",
     "prepublishOnly": "pnpm build",
     "lint:ts": "tsc --noEmit",
     "lint": "tsc --noEmit ; eslint \"src/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
@@ -22,9 +23,7 @@
     "markdown",
     "code-blocks",
     "documentation",
-    "authoring",
     "mdcode",
-    "szkiba",
     "typescript"
   ],
   "author": "Adrian Elton-Browning",
@@ -51,10 +50,15 @@
     "commander": "^14.0.1",
     "tar-stream": "^3.1.7"
   },
-  "main": "./dist/index.cjs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adrianbrowning/mdcode"
+  },
+  "publishConfig": {
+    "name": "mdcode"
+  },
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "bin": "./dist/main.js",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -65,11 +69,5 @@
       "import": "./dist/cli.js"
     }
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/adrianbrowning/mdcode"
-  },
-  "publishConfig": {
-    "name": "mdcode"
-  }
+  "bin": "./dist/main.js"
 }

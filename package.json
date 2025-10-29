@@ -7,7 +7,7 @@
   "scripts": {
     "build": "pnpm --filter mdcode build",
     "dev": "pnpm --filter mdcode dev",
-    "test": "pnpm --filter mdcode test",
+    "test": "pnpm -r test",
     "test:watch": "pnpm --filter mdcode test:watch",
     "test:usage": "pnpm --filter usage test",
     "test:usage:watch": "pnpm --filter usage test:watch",
