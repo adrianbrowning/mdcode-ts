@@ -2,35 +2,78 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { styleText } from "node:util";
 
-import { parse } from "../parser.ts";
+import {parse, updateInfoStrings} from "../parser.ts";
 import type { FilterOptions } from "../types.ts";
 
-export interface ExtractOptions {
+export type ExtractOptions = {
   source: string;
   filter?: FilterOptions;
   outputDir?: string;
   quiet?: boolean;
-}
+  updateSource?: boolean;
+  ignoreAnonymous?: boolean;
+  sourcePath?: string;
+};
+
+type ExtractResult = {
+  extractedFiles: Array<string>;
+  updatedSource?: string;
+};
 
 /**
  * Extract code blocks to files based on their metadata
  */
-export async function extract(options: ExtractOptions): Promise<Array<string>> {
-  const { source, filter, outputDir = ".", quiet = false } = options;
-  const blocks = parse({ source, filter });
+export async function extract(options: ExtractOptions): Promise<ExtractResult> {
+  const {
+    source,
+    filter,
+    outputDir = ".",
+    quiet = false,
+    updateSource = false,
+    ignoreAnonymous = false,
+  } = options;
+
+  // Validate mutual exclusivity
+  if (updateSource && ignoreAnonymous) {
+    throw new Error("Cannot use --update-source and --ignore-anonymous together");
+  }
+
+  // Parse all blocks (without filter for tracking indices)
+  const allBlocks = parse({ source });
+
+  // Apply filter if provided
+  let blocks = filter ? parse({ source, filter }) : allBlocks;
+
+  // Filter anonymous blocks if requested
+  if (ignoreAnonymous) {
+    blocks = blocks.filter(b => b.meta.file);
+    if (blocks.length === 0) {
+      if (!quiet) {
+        console.error(styleText("yellow", "No code blocks with file metadata found."));
+      }
+      return { extractedFiles: [] };
+    }
+  }
 
   if (blocks.length === 0) {
     if (!quiet) {
       console.error(styleText("yellow", "No code blocks found to extract."));
     }
-    return [];
+    return { extractedFiles: [] };
   }
+
+  // Track generated filenames for anonymous blocks (for --update-source)
+  const metadataUpdates = new Map<number, Record<string, string>>();
 
   // Group blocks by file path
   const fileMap = new Map<string, Array<{ block: { meta: Record<string, string>; lang: string; code: string; }; index: number; }>>();
 
-  for (const [ index, block ] of blocks.entries()) {
+  for (const block of blocks) {
+    // Find the original index of this block in allBlocks
+    const index = allBlocks.findIndex(b => b.position?.start === block.position?.start);
+
     let filePath: string;
+    let generatedFilename: string | undefined;
 
     if (block.meta.file) {
       filePath = join(outputDir, block.meta.file);
@@ -38,7 +81,13 @@ export async function extract(options: ExtractOptions): Promise<Array<string>> {
     else {
       // Generate a filename if not specified
       const ext = getExtensionForLang(block.lang);
-      filePath = join(outputDir, `block-${index + 1}${ext}`);
+      generatedFilename = `block-${index + 1}${ext}`;
+      filePath = join(outputDir, generatedFilename);
+
+      // Track for --update-source
+      if (updateSource && index >= 0) {
+        metadataUpdates.set(index, { file: generatedFilename });
+      }
     }
 
     if (!fileMap.has(filePath)) {
@@ -103,7 +152,13 @@ export async function extract(options: ExtractOptions): Promise<Array<string>> {
     extractedFiles.push(filePath);
   }
 
-  return extractedFiles;
+  // Update source if requested
+  let updatedSourceContent: string | undefined;
+  if (updateSource && metadataUpdates.size > 0) {
+    updatedSourceContent = updateInfoStrings(source, metadataUpdates);
+  }
+
+  return { extractedFiles, updatedSource: updatedSourceContent };
 }
 
 /**

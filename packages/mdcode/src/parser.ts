@@ -219,6 +219,109 @@ export function parse(options: ParseOptions): Array<Block> {
 }
 
 /**
+ * Update info strings in markdown source with new metadata
+ * @param source - Original markdown source
+ * @param updates - Map of block index to metadata updates
+ * @returns Updated markdown source with modified info strings
+ */
+export function updateInfoStrings(
+  source: string,
+  updates: Map<number, Record<string, string>>
+): string {
+  if (updates.size === 0) {
+    return source;
+  }
+
+  // Parse to get all blocks (without filter)
+  const blocks = parse({ source });
+
+  // Track fence positions as we scan through the source
+  const lines = source.split(/(\r?\n)/);
+  let offset = 0;
+  let blockIndex = 0;
+
+  // Build list of replacements: { start, end, newLine }
+  type Replacement = { start: number; end: number; newLine: string };
+  const replacements: Array<Replacement> = [];
+  let inCodeBlock = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] || "";
+
+    // Skip newline-only entries
+    if (line === "\n" || line === "\r\n") {
+      offset += line.length;
+      continue;
+    }
+
+    if (!inCodeBlock) {
+      // Look for opening fence
+      const match = line.match(/^(\s*)(```+)(.*)$/);
+
+      if (match) {
+        const indent = match[1] || "";
+        const fence = match[2] || "";
+        const info = match[3] || "";
+
+        // Only backtick fences (3 or 4)
+        if (fence[0] === "`" && (fence.length === 3 || fence.length === 4)) {
+          inCodeBlock = true;
+
+          // Check if this block needs updating
+          const update = updates.get(blockIndex);
+
+          if (update) {
+            // Parse existing info string
+            const { lang, meta } = parseInfoString(info);
+
+            // Merge updates
+            const newMeta = { ...meta, ...update };
+
+            // Build new info string
+            const metaParts = Object.entries(newMeta).map(([k, v]) => `${k}=${v}`);
+            const newInfo = [lang, ...metaParts].filter(Boolean).join(" ");
+
+            // Record replacement
+            const lineStart = offset;
+            const lineEnd = offset + line.length;
+            const newLine = `${indent}${fence}${newInfo}`;
+
+            replacements.push({ start: lineStart, end: lineEnd, newLine });
+          }
+
+          blockIndex++;
+        }
+      }
+    }
+    else {
+      // Look for closing fence
+      const match = line.match(/^(\s*)(```+)\s*$/);
+
+      if (match) {
+        inCodeBlock = false;
+      }
+    }
+
+    offset += line.length;
+    // Account for newline after this line
+    if (i + 1 < lines.length && (lines[i + 1] === "\n" || lines[i + 1] === "\r\n")) {
+      offset += lines[i + 1]!.length;
+      i++; // Skip the newline
+    }
+  }
+
+  // Apply replacements in reverse order to maintain correct offsets
+  replacements.sort((a, b) => b.start - a.start);
+  let result = source;
+
+  for (const { start, end, newLine } of replacements) {
+    result = result.substring(0, start) + newLine + result.substring(end);
+  }
+
+  return result;
+}
+
+/**
  * Walk through code blocks and optionally transform them
  */
 export async function walk(options: WalkOptions): Promise<WalkResult> {

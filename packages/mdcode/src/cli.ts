@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve, join } from "node:path";
 import { stdin } from "node:process";
+import { styleText } from "node:util";
 import { pathToFileURL } from "node:url";
 
 import { Command } from "commander";
@@ -112,11 +113,44 @@ export async function Execute(
     .option("-m, --meta <key=value...>", "Filter by custom metadata")
     .option("-d, --dir <dir>", "Output directory (default: current directory)", ".")
     .option("-q, --quiet", "Suppress status messages")
+    .option("--update-source", "Add file metadata to anonymous code blocks")
+    .option("--ignore-anonymous", "Skip blocks without file metadata")
     .action(async (file, options) => {
       try {
+        // Validation
+        if (options.updateSource && options.ignoreAnonymous) {
+          stderr.write("Error: Cannot use --update-source and --ignore-anonymous together\n");
+          // eslint-disable-next-line no-process-exit
+          process.exit(1);
+        }
+
         const source = await readInput(file);
         const filter = parseFilterOptions(options);
-        await extract({ source, filter, outputDir: options.dir, quiet: options.quiet });
+
+        const result = await extract({
+          source,
+          filter,
+          outputDir: options.dir,
+          quiet: options.quiet,
+          updateSource: options.updateSource,
+          ignoreAnonymous: options.ignoreAnonymous,
+          sourcePath: file,
+        });
+
+        // Handle --update-source behavior
+        if (options.updateSource && result.updatedSource) {
+          if (file) {
+            // Update file in-place
+            await writeFile(file, result.updatedSource, "utf-8");
+            if (!options.quiet) {
+              stderr.write(styleText("green", `✓ Updated ${file} with file metadata\n`));
+            }
+          }
+          else {
+            // stdin input - output to stdout
+            stdout.write(result.updatedSource);
+          }
+        }
       }
       catch (error: unknown) {
         if(error instanceof Error) stderr.write(`Error: ${error.message}\n`);
