@@ -376,14 +376,15 @@ mdcode extract --update-source -q -d ./src README.md
 ```bash
 echo "hello"
 ```
-````file=block-29.md
-
+````
 **After:**
+``````file=block-29.md
 ````markdown
 ```bash file=block-1.sh
 echo "hello"
-```
-````file=block-30.sh
+````
+``````
+
 
 This enables bidirectional sync workflow:
 1. Extract blocks: `mdcode extract --update-source README.md`
@@ -481,7 +482,7 @@ export default function({tag, meta, code}) {
 **Creating a TypeScript transformer:**
 ```typescript file=tests/examples/transformer.js
 // my-transform.ts
-import { defineTransform } from '@mdcode/mdcode';
+import { defineTransform } from 'mdcode-ts';
 
 export default defineTransform(({tag, meta, code}) => {
   // tag: language (e.g., 'js', 'sql', 'python')
@@ -894,11 +895,11 @@ const jsBlocks = parse({
   source: markdown,
   filter: { lang: 'js' }
 });
-````file=block-60.ts
+````
 
 ### Transform Code Blocks
 
-````typescript
+````typescript file=block-60.ts
 import { update, defineTransform } from '@mdcode/mdcode';
 
 const markdown = `
@@ -929,11 +930,11 @@ const transformer = defineTransform(({tag, meta, code}) => {
 // Apply transformation
 const result = await update({ source: markdown, transformer });
 console.log(result); // Transformed markdown
-````file=block-62.ts
+````
 
 ### Async Transformers
 
-```typescript
+```typescript file=block-62.ts
 import { update, defineTransform } from '@mdcode/mdcode';
 
 const transformer = defineTransform(async ({tag, meta, code}) => {
@@ -1040,11 +1041,11 @@ Helper to define type-safe transformers.
 
 Add metadata to code blocks using the info string:
 
-```markdown file=block-65.md
-\`\`\`js file=hello.js region=main
+````markdown file=block-65.md
+```js file=hello.js region=main
 console.log('Hello, world!');
-\`\`\`
 ```
+````
 
 Supported metadata:
 - `file`: Output filename for extraction
@@ -1055,7 +1056,7 @@ Supported metadata:
 
 ### Region Extraction
 
-Use region comments in your source files to extract specific sections:
+Use region comments in your source files to extract specific sections. If the same region name appears multiple times, all occurrences are joined together:
 
 ```javascript file=block-66.md
 // #region factorial
@@ -1070,12 +1071,14 @@ function helper() { /* ... */ }
 // #endregion
 ```
 
+Region markers are detected using language-appropriate comment styles (e.g. `//` for JS/TS, `#` for Python/Shell, `<!--` for HTML). Specify the `lang` in the code fence to enable language-aware matching.
+
 Then reference the region in your markdown:
 
 ````markdown file=block-67.js
 ```js file=math.js region=factorial
 ```
-````file=block-68.sh
+````
 
 ### Outline Extraction
 
@@ -1084,7 +1087,7 @@ Use `outline=true` to extract code structure without implementation details:
 ````markdown
 ```js file=calculator.js outline=true
 ```
-````file=block-69.sh
+````
 
 When updating from source, this will preserve the region markers and structure but remove the implementation:
 
@@ -1161,197 +1164,6 @@ These features are **not** in the original but are available in this implementat
 
 ---
 
-## Real-World Use Cases
-
-### Library Documentation with Executable Examples
-
-You're building a JavaScript library. Every example in your README should actually work.
-
-**In your README.md:**
-````markdown file=block-73.yaml
-## Quick Start
-
-```js file=tests/examples/quickstart.js
-import { Calculator } from 'my-library';
-
-const calc = new Calculator();
-console.log(calc.add(2, 3)); // 5
-```
-
-## Advanced Usage
-
-```js file=block-74.md
-import { Calculator } from 'my-library';
-
-const calc = new Calculator({ precision: 2 });
-console.log(calc.divide(10, 3)); // 3.33
-```
-````file=block-75.sh
-
-**Test your examples:**
-```bash
-# Extract examples to files
-mdcode extract README.md -d examples/
-
-# Run them to verify they work
-mdcode run -l js "node {file}" README.md
-
-# Add to package.json
-{
-  "scripts": {
-    "test:examples": "mdcode run -l js 'node {file}' README.md"
-  }
-}
-```
-
-**In CI/CD (GitHub Actions):**
-```yaml file=block-76.sh
-name: Validate Documentation
-on: [push, pull_request]
-
-jobs:
-  test-examples:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - run: npm install
-      - run: npm run test:examples  # Fails if examples don't work!
-```
-
-Now your documentation examples are guaranteed to work because they're tested on every commit.
-
-### Tutorial Website with Live Code
-
-You're writing a tutorial series with code examples at each step.
-
-**tutorials/lesson-01.md:**
-````markdown file=block-77.md
-# Lesson 1: Variables
-
-```js file=lessons/01-variables.js name=lesson-1
-let x = 10;
-let y = 20;
-console.log(x + y);
-```
-
-Try running this code!
-````file=block-78.sh
-
-**Generate runnable lessons:**
-```bash
-# Extract all lessons
-mdcode extract tutorials/*.md -d lessons/
-
-# Students can run each lesson
-node lessons/01-variables.js
-
-# Or run them via mdcode
-mdcode run -l js "node {file}" tutorials/lesson-01.md
-```
-
-**Validate tutorial code:**
-```bash file=block-79.md
-# Every lesson must run without errors
-for lesson in tutorials/*.md; do
-  echo "Testing $lesson..."
-  mdcode run -l js "node {file}" "$lesson" || exit 1
-done
-```
-
-### API Documentation That Never Lies
-
-You have a REST API with curl examples in your docs.
-
-**API.md:**
-````markdown file=block-80.sh
-## Create User
-
-```bash file=examples/create-user.sh
-curl -X POST https://api.example.com/users \
-  -H "Content-Type: application/json" \
-  -d '{"name":"John","email":"john@example.com"}'
-```
-
-## List Users
-
-```bash file=block-81.sh
-curl https://api.example.com/users
-```
-````file=block-82.sh
-
-**Validate against your API:**
-```bash
-# Extract examples
-mdcode extract API.md -d examples/
-
-# Run them against staging
-mdcode run -l bash "bash {file}" API.md
-
-# Or with actual validation
-mdcode run -l bash "bash {file} | jq -e '.status == \"success\"'" API.md
-```
-
-### README-Driven Development
-
-Start with the README, generate skeleton code, implement, sync back.
-
-**Step 1: Write README with examples:**
-````markdown file=block-83.json
-```js file=src/calculator.js region=add
-function add(a, b) {
-  return a + b;
-}
-```
-
-```js file=block-84.sh
-import { add } from './calculator.js';
-
-test('add two numbers', () => {
-  expect(add(2, 3)).toBe(5);
-});
-```
-````file=block-85.sh
-
-**Step 2: Extract to create initial files:**
-```bash
-mdcode extract README.md
-```
-
-**Step 3: Implement and test:**
-```bash file=block-86.sh
-npm test  # Run the tests you documented
-```
-
-**Step 4: Sync changes back:**
-```bash file=block-87.sh
-mdcode update README.md
-```
-
-Now your README and code are always in sync.
-
-### Documentation Testing in Monorepos
-
-You have multiple packages, each with examples in their READMEs.
-
-**package.json (root):**
-```json file=block-88.sh
-{
-  "scripts": {
-    "test:docs": "npm run test:docs --workspaces",
-    "test:docs:ws": "mdcode run -l js 'node {file}' README.md"
-  }
-}
-```
-
-**Run for all packages:**
-```bash file=block-89.sh
-pnpm -r test:docs
-```
-
-Every package's README examples must work, or CI fails.
-
----
-
 ## Workflow Examples
 
 ### Workflow: Extract, Modify, Update
@@ -1393,140 +1205,15 @@ mdcode list --json -l sql README.md
 mdcode extract -l sql -d ./queries README.md
 ```
 
-### Workflow: CI/CD Integration
-
-```bash file=block-93.sh
-#!/bin/bash
-# .github/workflows/validate-docs.sh
-
-set -e
-
-echo "Extracting code blocks..."
-mdcode extract -q -d ./temp README.md
-
-echo "Running linter..."
-mdcode run -l js "eslint {file}" README.md
-
-echo "Running tests..."
-mdcode run -l js -n test "npm test {file}" README.md
-
-echo "Creating archive..."
-mdcode dump -q -o artifacts/code-blocks.tar README.md
-
-echo "All checks passed!"
-```
-
-### Workflow: Documentation-Driven Testing
-
-Write your README first with working examples, then extract and run as tests:
-
-```bash file=block-94.sh
-# 1. Write examples in README.md with file metadata
-# ```js file=examples/math.js
-# export function add(a, b) { return a + b; }
-# ```
-
-# 2. Extract examples to create initial implementation
-mdcode extract README.md -d src/
-
-# 3. Add to your test suite
-# package.json:
-# "scripts": {
-#   "test": "node --test",
-#   "test:docs": "mdcode run -l js 'node {file}' README.md"
-# }
-
-# 4. Run both unit tests and doc tests
-npm test && npm run test:docs
-
-# 5. Both test suites must pass
-```
-
-Your documentation examples ARE your integration tests.
-
-### Workflow: Regression Testing for Documentation
-
-Prevent examples from breaking as code evolves:
-
-```bash file=block-95.sh
-# 1. Create a snapshot of current example outputs
-mdcode run -l js "node {file}" README.md > examples-output.txt
-
-# 2. Make code changes
-git checkout -b feature/new-api
-
-# 3. Test if examples still work
-mdcode run -l js "node {file}" README.md > new-output.txt
-
-# 4. Compare outputs
-diff examples-output.txt new-output.txt
-
-# If different, either:
-# - Fix the code (if examples should still work)
-# - Update examples (if API intentionally changed)
-mdcode update README.md
-
-# 5. Commit both code and documentation changes together
-git add README.md src/
-git commit -m "feat: new API with updated examples"
-```
-
-### Workflow: Multi-Language Documentation Testing
-
-Test examples in multiple languages:
-
-```bash file=block-96.sh
-# Test JavaScript examples
-mdcode run -l js "node {file}" README.md || exit 1
-
-# Test Python examples
-mdcode run -l python "python {file}" README.md || exit 1
-
-# Test Shell scripts
-mdcode run -l bash "bash {file}" README.md || exit 1
-
-# Test TypeScript with compilation
-mdcode run -l typescript "tsc --noEmit {file}" README.md || exit 1
-
-# All languages pass? Documentation is valid!
-echo "✓ All documentation examples work!"
-```
-
-### Workflow: Pre-commit Hook for Documentation
-
-Ensure examples always work before committing:
-
-**.git/hooks/pre-commit:**
-```bash
-#!/bin/bash
-
-echo "Testing README examples..."
-mdcode run -l js "node {file}" README.md
-
-if [ $? -ne 0 ]; then
-  echo "❌ README examples are broken!"
-  echo "Fix them or update with: mdcode update README.md"
-  exit 1
-fi
-
-echo "✓ README examples work!"
-```
-
-```bash
-# Make executable
-chmod +x .git/hooks/pre-commit
-
-# Now you can't commit broken examples
-git commit -m "update API"  # Fails if examples don't work
-```
-
----
-
 ## Development
 
 ### Run tests
 
 ```bash
+# All tests (unit + E2E)
+pnpm test:all
+
+# Unit tests only
 pnpm test
 ```
 
@@ -1536,12 +1223,10 @@ pnpm test
 pnpm build
 ```
 
-### Run directly (Node 20+ with --experimental-strip-types)
-
-Note: This project is configured for Node 22+ but can run on Node 20 with the experimental flag:
+### Run directly (Node 22+)
 
 ```bash
-node --experimental-strip-types src/main.ts list examples/sample.md
+node packages/mdcode/src/main.ts list README.md
 ```
 
 

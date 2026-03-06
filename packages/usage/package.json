@@ -32,6 +32,6 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-   "mdcode": "workspace:mdcode@*"
+   "mdcode": "workspace:mdcode-ts@*"
   }
 }

@@ -94,7 +94,7 @@ importers:
   packages/usage:
     dependencies:
       mdcode:
-        specifier: workspace:mdcode@*
+        specifier: workspace:mdcode-ts@*
         version: link:../mdcode
     devDependencies:
       '@types/node':
