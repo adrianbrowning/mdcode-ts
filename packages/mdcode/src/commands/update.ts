@@ -4,6 +4,7 @@ import { styleText } from "node:util";
 
 import { outline } from "../outline.ts";
 import { walk } from "../parser.ts";
+import { read as readRegion } from "../region.ts";
 import type { Block, FilterOptions, TransformerFunction } from "../types.ts";
 
 export interface UpdateOptions {
@@ -52,7 +53,7 @@ export async function update(options: UpdateOptions): Promise<string> {
           }
           // If a region is specified (and not using outline), extract only that region
           else if (block.meta.region) {
-            fileContent = extractRegion(fileContent, block.meta.region, block.lang);
+            fileContent = readRegion(fileContent, block.meta.region, block.lang).content/*.trim()*/;
           }
 
           currentCode = fileContent;
@@ -130,92 +131,3 @@ export async function update(options: UpdateOptions): Promise<string> {
   return result.source;
 }
 
-/**
- * Extract a region from source code using special comments
- * Supports various comment styles based on language
- * Only extracts the FIRST matching region
- */
-function extractRegion(content: string, regionName: string, lang: string): string {
-  const commentStyles = getCommentStyle(lang);
-  const lines = content.split("\n");
-  const extracted: Array<string> = [];
-  let inRegion = false;
-  let foundRegion = false;
-
-  for (const line of lines) {
-    // If we've already found and finished a region, stop looking
-    if (foundRegion && !inRegion) {
-      break;
-    }
-
-    let isMarkerLine = false;
-
-    // Check for region start/end markers
-    for (const style of commentStyles) {
-      const startPattern = new RegExp(`${escapeRegex(style)}\\s*#region\\s+${escapeRegex(regionName)}`);
-      const endPattern = new RegExp(`${escapeRegex(style)}\\s*#endregion(?:\\s+${escapeRegex(regionName)})?`);
-
-      if (startPattern.test(line)) {
-        inRegion = true;
-        foundRegion = true;
-        isMarkerLine = true;
-        break;
-      }
-
-      if (inRegion && endPattern.test(line)) {
-        inRegion = false;
-        isMarkerLine = true;
-        break;
-      }
-    }
-
-    // Collect lines inside the region (but not the marker lines themselves)
-    if (inRegion && !isMarkerLine) {
-      extracted.push(line);
-    }
-  }
-
-  return extracted.join("\n").trim();
-}
-
-/**
- * Get comment styles for a given language
- */
-function getCommentStyle(lang: string): Array<string> {
-  const styles: Record<string, Array<string>> = {
-    js: [ "//" ],
-    javascript: [ "//" ],
-    ts: [ "//" ],
-    typescript: [ "//" ],
-    java: [ "//" ],
-    c: [ "//" ],
-    cpp: [ "//" ],
-    "c++": [ "//" ],
-    cs: [ "//" ],
-    "c#": [ "//" ],
-    go: [ "//" ],
-    rust: [ "//" ],
-    swift: [ "//" ],
-    kotlin: [ "//" ],
-    php: [ "//" ],
-    py: [ "#" ],
-    python: [ "#" ],
-    rb: [ "#" ],
-    ruby: [ "#" ],
-    sh: [ "#" ],
-    bash: [ "#" ],
-    yaml: [ "#" ],
-    yml: [ "#" ],
-    html: [ "<!--" ],
-    xml: [ "<!--" ],
-  };
-
-  return styles[lang.toLowerCase()] || [ "//" ];
-}
-
-/**
- * Escape special regex characters
- */
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}

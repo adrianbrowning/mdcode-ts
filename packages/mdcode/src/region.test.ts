@@ -258,6 +258,42 @@ content
     assert.equal(result.content,"content");
   });
 
+  it("should join duplicate regions with same name", () => {
+    const source = `
+// #region test
+content 1
+// #endregion
+
+// #region test
+content 2
+// #endregion
+    `.trim();
+
+    const result = read(source, "test");
+
+    assert.equal(result.found, true);
+    assert.ok(result.content.includes("content 1"));
+    assert.ok(result.content.includes("content 2"));
+  });
+
+  it("should not match region name as prefix of another (lang mode)", () => {
+    const source = `
+// #region join
+content A
+// #endregion
+
+// #region join-sql
+content B
+// #endregion
+    `.trim();
+
+    const result = read(source, "join", "js");
+
+    assert.equal(result.found, true);
+    assert.ok(result.content.includes("content A"));
+    assert.ok(!result.content.includes("content B"));
+  });
+
   it("should not match region names partially", () => {
     const source = `
 // #region testing

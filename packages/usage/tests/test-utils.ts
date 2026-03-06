@@ -68,7 +68,8 @@ export async function runExtract(
   outputDir: string
 ): Promise<Array<string>> {
   const source = await readFile(mdFile, "utf-8");
-  return extract({ source, outputDir });
+  const { extractedFiles } = await extract({ source, outputDir });
+  return extractedFiles;
 }
 
 /**

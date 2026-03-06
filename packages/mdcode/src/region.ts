@@ -3,48 +3,59 @@
  * Handles #region/#endregion markers in source files
  */
 
-export interface RegionReadResult {
+export type RegionReadResult = {
   content: string;
   found: boolean;
-}
+};
 
-export interface RegionReplaceResult {
+export type RegionReplaceResult = {
   content: string;
   found: boolean;
-}
+};
 
-export interface RegionOutlineResult {
+export type RegionOutlineResult = {
   content: string;
   hasRegions: boolean;
-}
+};
 
 /**
- * Read a specific region from source code
- * Supports both line-style (//) and block-style (/* *\/) comments
+ * Read a specific region from source code.
+ * Joins all occurrences of the same-named region.
+ * Pass `lang` to use language-specific comment styles; defaults to // and /* *\/.
  */
-export function read(source: string, regionName: string): RegionReadResult {
+export function read(source: string, regionName: string, lang?: string): RegionReadResult {
   const lines = source.split("\n");
   let inRegion = false;
   const regionContent: Array<string> = [];
   let found = false;
 
-  // Match both // #region name and /* #region name */
-  const startPattern = new RegExp(`^\\s*(?://|/\\*)\\s*#region\\s+${escapeRegex(regionName)}(?:\\s|\\*/|$)`);
-  const endPattern = /^\s*(?:\/\/|\/\*)\s*#endregion(?:\s|\*\/|$)/;
+  let startPattern: RegExp;
+  let endPattern: RegExp;
+
+  if (lang) {
+    const styles = getCommentStyle(lang).map(escapeRegex).join("|");
+    startPattern = new RegExp(`^\\s*(?:${styles})\\s*#region\\s+${escapeRegex(regionName)}(?:\\s|$)`);
+    endPattern = new RegExp(`^\\s*(?:${styles})\\s*#endregion`);
+  }
+  else {
+    startPattern = new RegExp(`^\\s*(?://|/\\*)\\s*#region\\s+${escapeRegex(regionName)}(?:\\s|\\*/|$)`);
+    endPattern = /^\s*(?:\/\/|\/\*)\s*#endregion(?:\s|\*\/|$)/;
+  }
 
   for (const line of lines) {
     if (!inRegion) {
       if (startPattern.test(line)) {
         inRegion = true;
         found = true;
-        continue;
       }
     }
     else {
       if (endPattern.test(line)) {
-        break;
+        inRegion = false;
       }
-      regionContent.push(line);
+      else {
+        regionContent.push(line);
+      }
     }
   }
 
@@ -132,6 +143,41 @@ export function replace(source: string, regionName: string, newContent: string):
     content: result.join("\n"),
     found,
   };
+}
+
+/**
+ * Get comment prefix(es) for a given language
+ */
+export function getCommentStyle(lang: string): Array<string> {
+  const styles: Record<string, Array<string>> = {
+    js: [ "//" ],
+    javascript: [ "//" ],
+    ts: [ "//" ],
+    typescript: [ "//" ],
+    java: [ "//" ],
+    c: [ "//" ],
+    cpp: [ "//" ],
+    "c++": [ "//" ],
+    cs: [ "//" ],
+    "c#": [ "//" ],
+    go: [ "//" ],
+    rust: [ "//" ],
+    swift: [ "//" ],
+    kotlin: [ "//" ],
+    php: [ "//" ],
+    py: [ "#" ],
+    python: [ "#" ],
+    rb: [ "#" ],
+    ruby: [ "#" ],
+    sh: [ "#" ],
+    bash: [ "#" ],
+    yaml: [ "#" ],
+    yml: [ "#" ],
+    html: [ "<!--" ],
+    xml: [ "<!--" ],
+  };
+
+  return styles[lang.toLowerCase()] || [ "//" ];
 }
 
 /**

@@ -5,10 +5,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm --filter mdcode build",
-    "dev": "pnpm --filter mdcode dev",
+    "build": "pnpm --filter mdcode-ts build",
+    "dev": "pnpm --filter mdcode-ts dev",
     "test": "pnpm -r test",
-    "test:watch": "pnpm --filter mdcode test:watch",
+    "test:watch": "pnpm --filter mdcode-ts test:watch",
     "test:usage": "pnpm --filter usage test",
     "test:usage:watch": "pnpm --filter usage test:watch",
     "test:all": "pnpm test && pnpm test:usage",
