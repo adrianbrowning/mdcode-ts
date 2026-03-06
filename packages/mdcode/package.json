@@ -1,6 +1,6 @@
 {
   "name": "mdcode-ts",
-  "version": "0.0.3-10",
+  "version": "0.0.4",
   "description": "TypeScript port of mdcode - Drop-in replacement for Markdown code block authoring",
   "type": "module",
   "files": [
