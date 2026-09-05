@@ -1,0 +1,108 @@
+name: ESLint Check
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  eslint:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-base
+
+      - name: Run ESLint (style)
+        id: lint-style
+        continue-on-error: true
+        run: |
+          set +e
+          set -o pipefail
+          pnpm run lint:s 2>&1 | tee lint-output.txt
+          LINT_EXIT_CODE=$?
+          echo "exit_code=$LINT_EXIT_CODE" >> $GITHUB_OUTPUT
+          if [ ! -s lint-output.txt ]; then
+            echo "has_issues=false" >> $GITHUB_OUTPUT
+            echo "has_errors=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          if grep -qiE "(warning|error)" lint-output.txt; then
+            echo "has_issues=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_issues=false" >> $GITHUB_OUTPUT
+          fi
+          if grep -E "^\s+[0-9]+:[0-9]+\s+error\s" lint-output.txt; then
+            echo "has_errors=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_errors=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run ESLint (correctness)
+        id: lint-correctness
+        continue-on-error: true
+        run: |
+          set +e
+          set -o pipefail
+          pnpm run lint:esl 2>&1 | tee lint-correctness-output.txt
+          LINT_EXIT_CODE=$?
+          echo "exit_code=$LINT_EXIT_CODE" >> $GITHUB_OUTPUT
+          if [ -s lint-correctness-output.txt ]; then
+            echo "has_issues=true" >> $GITHUB_OUTPUT
+          elif [ $LINT_EXIT_CODE -ne 0 ]; then
+            echo "has_issues=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_issues=false" >> $GITHUB_OUTPUT
+          fi
+          if [ $LINT_EXIT_CODE -ne 0 ]; then
+            echo "has_errors=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_errors=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Fail on ESLint errors
+        if: steps.lint-style.outputs.has_errors == 'true' || steps.lint-correctness.outputs.has_errors == 'true'
+        run: exit 1
+
+      - name: Comment lint results on PR
+        if: always() && github.event_name == 'pull_request' && (steps.lint-style.outputs.has_issues == 'true' || steps.lint-correctness.outputs.has_issues == 'true' || steps.lint-correctness.outputs.has_errors == 'true')
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          LINT_STYLE_FILE: lint-output.txt
+          LINT_CORRECTNESS_FILE: lint-correctness-output.txt
+          HAS_STYLE_ERRORS: ${{ steps.lint-style.outputs.has_errors }}
+          HAS_CORRECTNESS_ERRORS: ${{ steps.lint-correctness.outputs.has_errors }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const fs = require('fs');
+            const escape = s => s.replace(/[`<>&]/g, c => ({'`':"'", '<':'&lt;', '>':'&gt;', '&':'&amp;'}[c])).slice(0, 30000);
+            const sections = [];
+            if (fs.existsSync(process.env.LINT_STYLE_FILE) && fs.statSync(process.env.LINT_STYLE_FILE).size > 0) {
+              sections.push(`### Style\n\`\`\`\n${escape(fs.readFileSync(process.env.LINT_STYLE_FILE, 'utf8'))}\n\`\`\``);
+            }
+            if (fs.existsSync(process.env.LINT_CORRECTNESS_FILE) && fs.statSync(process.env.LINT_CORRECTNESS_FILE).size > 0) {
+              sections.push(`### Correctness\n\`\`\`\n${escape(fs.readFileSync(process.env.LINT_CORRECTNESS_FILE, 'utf8'))}\n\`\`\``);
+            }
+            if (sections.length === 0) return;
+            const hasErrors = process.env.HAS_STYLE_ERRORS === 'true' || process.env.HAS_CORRECTNESS_ERRORS === 'true';
+            const icon = hasErrors ? '❌' : '⚠️';
+            const status = hasErrors ? 'Failed' : 'Warnings';
+            const comment = `## ${icon} ESLint Check ${status}\n\n<details>\n<summary>Click to see details\n\n${sections.join('\n\n')}\n\n</details>\n\n[View workflow run](${process.env.RUN_URL})`;
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });

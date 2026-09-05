@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { styleText } from "node:util";
 
-import {parse, updateInfoStrings} from "../parser.ts";
+import { parse, updateInfoStrings } from "../parser.ts";
 import type { FilterOptions } from "../types.ts";
 
 export type ExtractOptions = {

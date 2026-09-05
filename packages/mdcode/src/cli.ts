@@ -1,12 +1,10 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-
-
+import { readFileSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
-import { dirname, resolve, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { stdin } from "node:process";
-import { styleText } from "node:util";
+import { fileURLToPath } from "node:url";
 import { pathToFileURL } from "node:url";
+import { styleText } from "node:util";
 
 import { Command } from "commander";
 
@@ -72,8 +70,8 @@ export async function Execute(
 ): Promise<void> {
   const program = new Command();
 
-    const __dirname = dirname(fileURLToPath(import.meta.url));
-    const pkg = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf-8'));
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const pkg = JSON.parse(readFileSync(join(__dirname, "../package.json"), "utf-8"));
 
   program
     .name("mdcode")

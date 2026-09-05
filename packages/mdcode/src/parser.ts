@@ -232,16 +232,13 @@ export function updateInfoStrings(
     return source;
   }
 
-  // Parse to get all blocks (without filter)
-  const blocks = parse({ source });
-
   // Track fence positions as we scan through the source
   const lines = source.split(/(\r?\n)/);
   let offset = 0;
   let blockIndex = 0;
 
   // Build list of replacements: { start, end, newLine }
-  type Replacement = { start: number; end: number; newLine: string };
+  type Replacement = { start: number; end: number; newLine: string; };
   const replacements: Array<Replacement> = [];
   let inCodeBlock = false;
 
@@ -278,8 +275,8 @@ export function updateInfoStrings(
             const newMeta = { ...meta, ...update };
 
             // Build new info string
-            const metaParts = Object.entries(newMeta).map(([k, v]) => `${k}=${v}`);
-            const newInfo = [lang, ...metaParts].filter(Boolean).join(" ");
+            const metaParts = Object.entries(newMeta).map(([ k, v ]) => `${k}=${v}`);
+            const newInfo = [ lang, ...metaParts ].filter(Boolean).join(" ");
 
             // Record replacement
             const lineStart = offset;

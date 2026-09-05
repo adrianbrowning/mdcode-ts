@@ -4,15 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 
+import type { Block, TransformerFunction, TransformerMeta } from "mdcode";
 import mdcode, {
-    defineTransform,
-    parse,
-    transformWithFunction,
-    update,
-    walk,
+  defineTransform,
+  parse,
+  transformWithFunction,
+  update,
+  walk
 } from "mdcode";
-
-import type {TransformerMeta, Block, TransformerFunction} from "mdcode"
 
 describe("Library Usage - Programmatic API", () => {
   describe("default export - Simple file-based API", () => {
@@ -376,16 +375,16 @@ y = 2
 
   describe("defineTransform() - Type-safe transformers", () => {
     it("should create type-safe transformer functions", () => {
-        let _tag: string = "";
-        let _file: string | undefined = "";
-        let _region: string | undefined = "";
-        let _code: string = "";
+      let _tag: string = "";
+      let _file: string | undefined = "";
+      let _region: string | undefined = "";
+      let _code: string = "";
 
       const transformer = defineTransform(({ tag, meta, code }) => {
         // All parameters should be properly typed
         _tag = tag;
-        _file  = meta.file;
-        _region  = meta.region;
+        _file = meta.file;
+        _region = meta.region;
         _code = code;
 
         return code;
@@ -410,7 +409,7 @@ y = 2
         return code.toUpperCase();
       });
 
-      const result = await transformer({tag: "js", meta:{}, code:"const x = 1;"});
+      const result = await transformer({ tag: "js", meta:{}, code:"const x = 1;" });
       assert.strictEqual(result, "CONST X = 1;");
     });
   });

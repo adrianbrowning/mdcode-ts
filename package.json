@@ -12,10 +12,13 @@
     "test:usage": "pnpm --filter usage test",
     "test:usage:watch": "pnpm --filter usage test:watch",
     "test:all": "pnpm test && pnpm test:usage",
-    "_lint:ts": "pnpm -r lint:ts",
-    "_lint": "pnpm -r lint",
-    "_lint:s": "pnpm -r lint:s",
-    "_lint:fix": "pnpm -r lint:fix"
+    "lint:ts": "pnpm -r lint:ts",
+    "lint": "pnpm -r lint",
+    "lint:esl": "pnpm -r lint:esl",
+    "lint:s": "pnpm -r lint:s",
+    "lint:fix": "pnpm -r lint:fix",
+    "bump": "bumpy add",
+    "bump:status": "bumpy status"
   },
   "keywords": [
     "markdown",
@@ -50,5 +53,8 @@
     "lint-staged": "^15.2.10",
     "typescript": "^5.9.3",
     "zshy": "^0.4.2"
+  },
+  "dependencies": {
+    "@varlock/bumpy": "^1.18.1"
   }
 }

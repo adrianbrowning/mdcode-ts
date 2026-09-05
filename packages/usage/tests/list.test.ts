@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 // Import list function from command file
 import { list } from "../../mdcode/src/commands/list.ts";
-import {stripAnsi} from "./test-utils.ts";
+import { stripAnsi } from "./test-utils.ts";
 
 describe("list command", () => {
   describe("default text output", () => {

@@ -1,0 +1,61 @@
+name: Setup Base
+description: Checkout, install pnpm + Node.js, cache pnpm store, install dependencies, build
+
+inputs:
+  node-version:
+    description: Node.js version
+    default: '22'
+  checkout-ref:
+    description: Git ref to checkout (e.g. github.head_ref for PRs)
+    default: ''
+  checkout-fetch-depth:
+    description: Fetch depth for checkout
+    default: '1'
+  checkout-token:
+    description: Token for checkout (use secrets.BUMPY_GH_TOKEN for write access)
+    default: ${{ github.token }}
+  registry-url:
+    description: npm registry URL for setup-node (e.g. https://registry.npmjs.org)
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v7
+      with:
+        token: ${{ inputs.checkout-token }}
+        fetch-depth: ${{ inputs.checkout-fetch-depth }}
+        ref: ${{ inputs.checkout-ref }}
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+
+    - name: Setup Node.js ${{ inputs.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        registry-url: ${{ inputs.registry-url }}
+
+    - name: Get pnpm store path
+      id: pnpm-store
+      shell: bash
+      run: echo "path=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+    - name: Cache pnpm store
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.pnpm-store.outputs.path }}
+        key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    # ponytail: packages/usage resolves `mdcode` via dist/, which is gitignored.
+    # Build here so every consumer workflow gets it; skip build:false input until a workflow needs it.
+    - name: Build
+      shell: bash
+      run: pnpm build

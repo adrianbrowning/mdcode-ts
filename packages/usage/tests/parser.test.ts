@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { parse, walk } from "mdcode";
 import type { Block } from "mdcode";
+import { parse, walk } from "mdcode";
 
 describe("parse", () => {
   it("should extract code blocks from markdown", () => {
