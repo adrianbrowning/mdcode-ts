@@ -8,7 +8,7 @@
     "README.md"
   ],
   "scripts": {
-    "bp": "pnpm version prerelease  --no-git-tag-version && pnpm --filter mdcode build && pnpm pack",
+    "bp": "pnpm version prerelease  --no-git-tag-version && pnpm --filter mdcode-ts build && pnpm pack",
     "build": "zshy",
     "dev": "zshy --watch",
     "test": "node --test-reporter=spec --test {tests,src}/**/*.test.ts",
@@ -16,6 +16,7 @@
     "prepublishOnly": "pnpm build",
     "lint:ts": "tsc --noEmit",
     "lint": "tsc --noEmit ; eslint \"src/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
+    "lint:esl": "eslint \"src/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
     "lint:s": "eslint --config .eslintrc.style.json \"src/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
     "lint:fix": "eslint --config .eslintrc.style.json \"src/**/*.{j,t}s{,x}\" --cache --max-warnings=0 --fix"
   },
@@ -55,9 +56,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/adrianbrowning/mdcode-ts"
-  },
-  "publishConfig": {
-    "name": "mdcode"
   },
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",

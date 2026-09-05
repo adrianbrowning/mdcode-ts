@@ -1,0 +1,28 @@
+name: Bumpy PR Comment
+
+on:
+  workflow_run:
+    workflows: ['Bumpy Check']
+    types: [completed]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-base
+
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: bumpy-comment
+          path: ${{ runner.temp }}/bumpy-comment
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - run: pnpm exec bumpy ci comment --body-file "$RUNNER_TEMP/bumpy-comment/comment.md"
+        env:
+          GH_TOKEN: ${{ github.token }}

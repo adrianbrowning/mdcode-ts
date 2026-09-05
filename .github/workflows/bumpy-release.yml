@@ -1,0 +1,73 @@
+name: Bumpy Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: bumpy-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      mode: ${{ steps.plan.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-base
+        with:
+          checkout-fetch-depth: '0'
+
+      - id: plan
+        run: pnpm exec bumpy ci plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  version-pr:
+    needs: plan
+    if: needs.plan.outputs.mode == 'version-pr'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-base
+        with:
+          checkout-fetch-depth: '0'
+          checkout-token: ${{ secrets.BUMPY_GH_TOKEN || github.token }}
+
+      - run: pnpm exec bumpy ci release --expect-mode version-pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUMPY_GH_TOKEN: ${{ secrets.BUMPY_GH_TOKEN }}
+
+  publish:
+    needs: plan
+    if: needs.plan.outputs.mode == 'publish'
+    runs-on: ubuntu-latest
+    environment: publish
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-base
+        with:
+          checkout-fetch-depth: '0'
+          checkout-token: ${{ secrets.BUMPY_GH_TOKEN || github.token }}
+          registry-url: 'https://registry.npmjs.org'
+
+      # OIDC trusted publishing needs npm >= 11.15.0
+      - run: npm install -g npm@latest
+
+      - run: pnpm build
+
+      - run: pnpm exec bumpy ci release --expect-mode publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUMPY_GH_TOKEN: ${{ secrets.BUMPY_GH_TOKEN }}

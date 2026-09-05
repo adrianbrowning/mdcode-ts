@@ -1,0 +1,44 @@
+name: Bumpy Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-base
+        with:
+          checkout-fetch-depth: '0'
+
+      - name: Check for bump file or exemption
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          set -euo pipefail
+
+          # Exempt the release PR branch
+          if [[ "${{ github.head_ref }}" == "bumpy/version-packages" ]]; then
+            exit 0
+          fi
+
+          # Exempt if no-bump label is applied
+          if jq -e 'index("no-bump") != null' <<< "$LABELS" >/dev/null; then
+            exit 0
+          fi
+
+          pnpm exec bumpy ci check --emit-comment ./bumpy-comment
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bumpy-comment
+          path: ./bumpy-comment
+          if-no-files-found: ignore
