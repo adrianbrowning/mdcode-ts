@@ -33,7 +33,8 @@ export function read(source: string, regionName: string, lang?: string): RegionR
   let endPattern: RegExp;
 
   if (lang) {
-    const styles = getCommentStyle(lang).map(escapeRegex).join("|");
+    const styles = getCommentStyle(lang).map(escapeRegex)
+      .join("|");
     startPattern = new RegExp(`^\\s*(?:${styles})\\s*#region\\s+${escapeRegex(regionName)}(?:\\s|$)`);
     endPattern = new RegExp(`^\\s*(?:${styles})\\s*#endregion`);
   }

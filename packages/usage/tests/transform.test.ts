@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import {update, defineTransform } from "mdcode";
-import type { TransformerMeta} from "mdcode";
+import type { TransformerMeta } from "mdcode";
+import { defineTransform, update } from "mdcode";
 
 describe("update with transformer", () => {
   it("should transform code blocks using custom function", async () => {
@@ -18,7 +18,7 @@ select * from users;
 \`\`\`
     `.trim();
 
-    const transformer = defineTransform(({tag, code}) => {
+    const transformer = defineTransform(({ tag, code }) => {
       if (tag === "sql") {
         return code.toUpperCase();
       }
@@ -40,7 +40,7 @@ console.log('hello');
 
     let receivedMeta: TransformerMeta;
 
-    const transformer = defineTransform(({ meta, code}) => {
+    const transformer = defineTransform(({ meta, code }) => {
       receivedMeta = meta;
       return code;
     });
@@ -60,7 +60,7 @@ const x = 1;
 \`\`\`
     `.trim();
 
-    const transformer = defineTransform(async ({code}) => {
+    const transformer = defineTransform(async ({ code }) => {
       await new Promise(resolve => setTimeout(resolve, 10));
       return code.toUpperCase();
     });
@@ -79,7 +79,7 @@ const x = 1;
 
     let receivedMeta: TransformerMeta;
 
-    const transformer = defineTransform(({ meta, code}) => {
+    const transformer = defineTransform(({ meta, code }) => {
       receivedMeta = meta;
       return code;
     });
@@ -103,7 +103,7 @@ y = 2
 \`\`\`
     `.trim();
 
-    const transformer = defineTransform(({ code}) => code.toUpperCase());
+    const transformer = defineTransform(({ code }) => code.toUpperCase());
 
     const result = await update({ source: markdown, transformer, filter: { lang: "js" } });
 
@@ -123,7 +123,7 @@ const app = {};
 \`\`\`
     `.trim();
 
-    const transformer = defineTransform(({ meta, code}) => {
+    const transformer = defineTransform(({ meta, code }) => {
       if (meta.file?.includes(".spec.") || meta.file?.includes(".test.")) {
         return `// AUTO-GENERATED TEST\n${code}`;
       }
@@ -151,7 +151,7 @@ const prod = true;
 \`\`\`
     `.trim();
 
-    const transformer = defineTransform(({ meta, code}) => {
+    const transformer = defineTransform(({ meta, code }) => {
       if (meta.region === "example") {
         return `/* EXAMPLE */\n${code}`;
       }
@@ -183,7 +183,7 @@ SELECT * FROM users;
 \`\`\`
     `.trim();
 
-    const transformer = defineTransform(({tag, code}) => {
+    const transformer = defineTransform(({ tag, code }) => {
       if (tag === "sql") {
         return code.toUpperCase();
       }

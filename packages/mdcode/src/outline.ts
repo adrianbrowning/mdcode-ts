@@ -71,9 +71,9 @@ export function outline(source: string): OutlineResult {
 
   // Verify proper nesting (each start must be before its corresponding end)
   for (let i = 0; i < regionStarts.length; i++) {
-    const startMarker = regionStarts[i]  || {index: -1};
-    const endMarker = regionEnds[i] || {index: -1};
-      if (startMarker?.index >= endMarker?.index) {
+    const startMarker = regionStarts[i] || { index: -1 };
+    const endMarker = regionEnds[i] || { index: -1 };
+    if (startMarker?.index >= endMarker?.index) {
       throw new Error(
         `Invalid region nesting: #endregion found before #region at position ${endMarker.index}`
       );

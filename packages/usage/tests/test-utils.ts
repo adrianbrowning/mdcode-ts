@@ -2,11 +2,11 @@ import { exec, spawn } from "node:child_process";
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
 import type { Block } from "mdcode";
-import { extract, update, parse } from "mdcode";
+import { extract, parse, update } from "mdcode";
 
 const execAsync = promisify(exec);
 
@@ -128,10 +128,10 @@ export async function runDiff(file1: string, file2: string): Promise<string> {
  */
 export async function execCli(
   args: Array<string>,
-  options?: { stdin?: string; cwd?: string }
-): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
+  options?: { stdin?: string; cwd?: string; }
+): Promise<{ stdout: string; stderr: string; exitCode: number | null; }> {
   return new Promise((resolve, reject) => {
-    const child = spawn("node", [CLI_PATH, ...args], {
+    const child = spawn("node", [ CLI_PATH, ...args ], {
       cwd: options?.cwd || process.cwd(),
     });
 
@@ -146,11 +146,11 @@ export async function execCli(
       stderr += data.toString();
     });
 
-    child.on("error", (error) => {
+    child.on("error", error => {
       reject(error);
     });
 
-    child.on("close", (exitCode) => {
+    child.on("close", exitCode => {
       resolve({ stdout, stderr, exitCode });
     });
 
@@ -165,8 +165,6 @@ export async function execCli(
   });
 }
 
-
-
 export function stripAnsi(text: string) {
-    return text.replace(/\x1b\[[0-9;]*m/g, ''); // eslint-disable-line no-control-regex
+  return text.replace(/\x1b\[[0-9;]*m/g, ""); // eslint-disable-line no-control-regex
 }

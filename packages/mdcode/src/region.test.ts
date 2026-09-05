@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
+import * as assert from "node:assert";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-
 import { describe, it } from "node:test";
-import * as assert from "node:assert"
 
 import { outline, read, replace } from "./region.ts";
 
@@ -18,8 +17,8 @@ describe("region.read", () => {
     const source = await loadFixture("testdoc.js");
     const result = read(source, "empty");
 
-      assert.equal(result.found,true);
-    assert.equal(result.content,"");
+    assert.equal(result.found, true);
+    assert.equal(result.content, "");
   });
 
   it("should read non-empty region", async () => {
@@ -28,8 +27,8 @@ describe("region.read", () => {
 
     const result = read(source, "nonempty");
 
-    assert.equal(result.found,true);
-    assert.equal(result.content,expected);
+    assert.equal(result.found, true);
+    assert.equal(result.content, expected);
   });
 
   it("should read block comment region", async () => {
@@ -38,16 +37,16 @@ describe("region.read", () => {
 
     const result = read(source, "block");
 
-    assert.equal(result.found,true);
-    assert.equal(result.content,expected);
+    assert.equal(result.found, true);
+    assert.equal(result.content, expected);
   });
 
   it("should return not found for missing region", async () => {
     const source = await loadFixture("testdoc.js");
     const result = read(source, "nonexistent");
 
-    assert.equal(result.found,false);
-    assert.equal(result.content,"");
+    assert.equal(result.found, false);
+    assert.equal(result.content, "");
   });
 
   it("should handle regions with special characters in name", () => {
@@ -59,8 +58,8 @@ content here
 
     const result = read(source, "test-region-123");
 
-    assert.equal(result.found,true);
-    assert.equal(result.content,"content here");
+    assert.equal(result.found, true);
+    assert.equal(result.content, "content here");
   });
 });
 
@@ -71,8 +70,8 @@ describe("region.outline", () => {
 
     const result = outline(source);
 
-    assert.equal(result.hasRegions,true);
-    assert.equal(result.content,expected);
+    assert.equal(result.hasRegions, true);
+    assert.equal(result.content, expected);
   });
 
   it("should return original content when no regions", () => {
@@ -84,8 +83,8 @@ function simple() {
 
     const result = outline(source);
 
-    assert.equal(result.hasRegions,false);
-    assert.equal(result.content,source);
+    assert.equal(result.hasRegions, false);
+    assert.equal(result.content, source);
   });
 
   it("should handle nested-looking regions (not truly nested)", () => {
@@ -101,7 +100,7 @@ function outer() {
 
     const result = outline(source);
 
-    assert.equal(result.hasRegions,true);
+    assert.equal(result.hasRegions, true);
     assert.ok(!result.content.includes("function outer"));
   });
 
@@ -116,7 +115,7 @@ function test() {
 
     const result = outline(source);
 
-    assert.ok(result.content.includes("  // #region inner"))
+    assert.ok(result.content.includes("  // #region inner"));
     assert.ok(result.content.includes("  // #endregion"));
     assert.ok(!result.content.includes("const x"));
   });
@@ -128,20 +127,20 @@ describe("region.replace", () => {
 
     // Test replacing empty region
     let result = replace(source, "empty", "/* begin */\n/* end */\n");
-    assert.equal(result.found,true);
+    assert.equal(result.found, true);
 
     // Now replace nonempty region
     const nonemptyContent = read(result.content, "nonempty");
     result = replace(result.content, "nonempty", `/* begin */\n${nonemptyContent.content}\n/* end */\n`);
-    assert.equal(result.found,true);
+    assert.equal(result.found, true);
 
     // Finally replace block region
     const blockContent = read(result.content, "block");
     result = replace(result.content, "block", `/* begin */\n${blockContent.content}\n/* end */\n`);
-    assert.equal(result.found,true);
+    assert.equal(result.found, true);
 
     const expected = await loadFixture("testdocmod.js");
-    assert.equal(result.content,expected);
+    assert.equal(result.content, expected);
   });
 
   it("should return not found for missing region", () => {
@@ -153,8 +152,8 @@ content
 
     const result = replace(source, "nonexistent", "new content");
 
-    assert.equal(result.found,false);
-    assert.equal(result.content,source); // Unchanged
+    assert.equal(result.found, false);
+    assert.equal(result.content, source); // Unchanged
   });
 
   it("should handle empty replacement content", () => {
@@ -166,8 +165,8 @@ old content
 
     const result = replace(source, "test", "");
 
-    assert.equal(result.found,true);
-    assert.equal(result.content,`// #region test\n// #endregion`);
+    assert.equal(result.found, true);
+    assert.equal(result.content, `// #region test\n// #endregion`);
   });
 
   it("should preserve surrounding code", () => {
@@ -187,7 +186,7 @@ function after() {
 
     const result = replace(source, "test", "new content");
 
-    assert.equal(result.found,true);
+    assert.equal(result.found, true);
     assert.ok(result.content.includes("function before"));
     assert.ok(result.content.includes("function after"));
     assert.ok(result.content.includes("new content"));
@@ -208,7 +207,7 @@ content 2
     // Replace only the second region
     const result = replace(source, "second", "updated");
 
-    assert.equal(result.found,true);
+    assert.equal(result.found, true);
     assert.ok(result.content.includes("content 1")); // First region unchanged
     assert.ok(result.content.includes("updated"));
     assert.ok(!result.content.includes("content 2"));
@@ -223,7 +222,7 @@ old content
 
     const result = replace(source, "test", "new content");
 
-    assert.equal(result.found,true);
+    assert.equal(result.found, true);
     assert.ok(result.content.includes("new content"));
     assert.ok(!result.content.includes("old content"));
   });
@@ -234,7 +233,7 @@ describe("region edge cases", () => {
     const source = "// #region test\r\ncontent\r\n// #endregion";
     const result = read(source, "test");
 
-    assert.equal(result.found,true);
+    assert.equal(result.found, true);
     assert.ok(result.content.includes("content"));
   });
 
@@ -242,7 +241,7 @@ describe("region edge cases", () => {
     const source = "// #region test\ncontent\r\n// #endregion";
     const result = read(source, "test");
 
-    assert.equal(result.found,true);
+    assert.equal(result.found, true);
   });
 
   it("should handle whitespace around region markers", () => {
@@ -254,8 +253,8 @@ content
 
     const result = read(source, "test");
 
-    assert.equal(result.found,true);
-    assert.equal(result.content,"content");
+    assert.equal(result.found, true);
+    assert.equal(result.content, "content");
   });
 
   it("should join duplicate regions with same name", () => {
@@ -307,8 +306,8 @@ content 2
 
     const result = read(source, "test");
 
-    assert.equal(result.found,true);
-    assert.equal(result.content,"content 2");
+    assert.equal(result.found, true);
+    assert.equal(result.content, "content 2");
     assert.ok(!result.content.includes("content 1"));
   });
 });
