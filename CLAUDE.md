@@ -15,18 +15,18 @@ This is a **pnpm workspace monorepo** with three packages:
 
 ### Testing (ALWAYS RUN BOTH)
 ```bash
-# Run ALL tests (mdcode + usage packages = 21 total tests)
-pnpm test:all
+# Run ALL tests (mdcode-ts + usage packages = 138 total tests)
+pnpm test
 
 # Watch mode during development
-pnpm --filter mdcode test:watch
+pnpm --filter mdcode-ts test:watch
 
 # Individual packages
-pnpm --filter @gcm/mdcode test          # 16 unit tests
-pnpm --filter @gcm/mdcode-usage test    # 5 E2E tests
+pnpm --filter mdcode-ts test    # 51 unit tests
+pnpm --filter usage test        # 87 E2E tests
 ```
 
-**IMPORTANT**: `pnpm test` only runs mdcode unit tests. Always use `pnpm test:all` before committing.
+**NOTE**: `pnpm test` is `pnpm -r test` — it already covers both packages. `pnpm test:all` also exists but just re-runs `usage` a second time.
 
 ### Building
 ```bash
@@ -139,6 +139,6 @@ import { parse } from './parser';
 ```
 
 ## Before Committing
-1. `pnpm test:all` - Ensure ALL 21 tests pass
+1. `pnpm test` - Ensure ALL 138 tests pass
 2. `pnpm build` - Ensure build succeeds
 3. `pnpm -r lint:ts` - Type check all packages
