@@ -1,5 +1,5 @@
 name: Setup Base
-description: Checkout, install pnpm + Node.js, cache pnpm store, install dependencies
+description: Checkout, install pnpm + Node.js, cache pnpm store, install dependencies, build
 
 inputs:
   node-version:
@@ -53,3 +53,9 @@ runs:
     - name: Install dependencies
       shell: bash
       run: pnpm install --frozen-lockfile
+
+    # ponytail: packages/usage resolves `mdcode` via dist/, which is gitignored.
+    # Build here so every consumer workflow gets it; skip build:false input until a workflow needs it.
+    - name: Build
+      shell: bash
+      run: pnpm build
