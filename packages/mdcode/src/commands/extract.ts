@@ -1,8 +1,9 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { styleText } from "node:util";
 
 import { parse, updateInfoStrings } from "../parser.ts";
+import { replace } from "../region.ts";
 import type { FilterOptions } from "../types.ts";
 
 export type ExtractOptions = {
@@ -13,6 +14,7 @@ export type ExtractOptions = {
   updateSource?: boolean;
   ignoreAnonymous?: boolean;
   sourcePath?: string;
+  force?: boolean;
 };
 
 type ExtractResult = {
@@ -31,6 +33,7 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     quiet = false,
     updateSource = false,
     ignoreAnonymous = false,
+    force = false,
   } = options;
 
   // Validate mutual exclusivity
@@ -106,6 +109,39 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
 
     // If all blocks for this file have regions, combine them with markers
     const allHaveRegions = items.every(item => item.block.meta.region);
+
+    // Existing file + region blocks: splice in place, never synthesize over it
+    const existing = await readFile(filePath, "utf-8").catch(() => null);
+
+    if (existing !== null && allHaveRegions) {
+      let content = existing;
+      for (const { block } of items) {
+        const result = replace(content, block.meta.region!, block.code, block.lang);
+        if (result.found) {
+          content = result.content;
+        }
+        else {
+          // Marker absent: append rather than lose the block
+          const c = getCommentStyle(block.lang);
+          content = `${content.replace(/\n*$/, "\n")}\n${c} #region ${block.meta.region}\n${block.code}\n${c} #endregion ${block.meta.region}\n`;
+        }
+      }
+
+      await writeFile(filePath, content, "utf-8");
+      if (!quiet) {
+        console.error(styleText("green", `✓ Updated ${items.length} region(s) in ${filePath}`));
+      }
+      extractedFiles.push(filePath);
+      continue;
+    }
+
+    // Existing file, but not every block declares a region: overwriting would destroy it
+    if (existing !== null && !force) {
+      if (!quiet) {
+        console.error(styleText("yellow", `⚠ Skipped ${filePath}: exists and has block(s) without region=. Use --force to overwrite.`));
+      }
+      continue;
+    }
 
     if (allHaveRegions && items.length > 1) {
       // Combine multiple regions into one file

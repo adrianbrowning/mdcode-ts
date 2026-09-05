@@ -106,16 +106,28 @@ export function outline(source: string): RegionOutlineResult {
 /**
  * Replace content within a specific region
  * Preserves the region markers and surrounding code
+ * Pass `lang` to use language-specific comment styles; defaults to // and /* *\/.
  */
-export function replace(source: string, regionName: string, newContent: string): RegionReplaceResult {
+export function replace(source: string, regionName: string, newContent: string, lang?: string): RegionReplaceResult {
   const lines = source.split("\n");
   const result: Array<string> = [];
   let inRegion = false;
   let found = false;
 
-  // Match both // #region name and /* #region name */
-  const startPattern = new RegExp(`^\\s*(?://|/\\*)\\s*#region\\s+${escapeRegex(regionName)}(?:\\s|\\*/|$)`);
-  const endPattern = /^\s*(?:\/\/|\/\*)\s*#endregion(?:\s|\*\/|$)/;
+  let startPattern: RegExp;
+  let endPattern: RegExp;
+
+  if (lang) {
+    const styles = getCommentStyle(lang).map(escapeRegex)
+      .join("|");
+    startPattern = new RegExp(`^\\s*(?:${styles})\\s*#region\\s+${escapeRegex(regionName)}(?:\\s|$)`);
+    endPattern = new RegExp(`^\\s*(?:${styles})\\s*#endregion`);
+  }
+  else {
+    // Match both // #region name and /* #region name */
+    startPattern = new RegExp(`^\\s*(?://|/\\*)\\s*#region\\s+${escapeRegex(regionName)}(?:\\s|\\*/|$)`);
+    endPattern = /^\s*(?:\/\/|\/\*)\s*#endregion(?:\s|\*\/|$)/;
+  }
 
   for (const line of lines) {
     if (!inRegion) {

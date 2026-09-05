@@ -15,15 +15,15 @@ This is a **pnpm workspace monorepo** with three packages:
 
 ### Testing (ALWAYS RUN BOTH)
 ```bash
-# Run ALL tests (mdcode-ts + usage packages = 138 total tests)
+# Run ALL tests (mdcode-ts + usage packages )
 pnpm test
 
 # Watch mode during development
 pnpm --filter mdcode-ts test:watch
 
 # Individual packages
-pnpm --filter mdcode-ts test    # 51 unit tests
-pnpm --filter usage test        # 87 E2E tests
+pnpm --filter mdcode-ts test    # unit tests
+pnpm --filter usage test        # E2E tests
 ```
 
 **NOTE**: `pnpm test` is `pnpm -r test` — it already covers both packages. `pnpm test:all` also exists but just re-runs `usage` a second time.
@@ -124,8 +124,8 @@ Original design used `unified` + `remark-parse`, but switched to custom state ma
 
 ### Test Organization
 - **Root tests/** - Parser and transformer unit tests (not used currently)
-- **packages/mdcode/src/*.test.ts** - Co-located unit tests (16 tests)
-- **packages/usage/tests/** - E2E workflow tests (5 tests)
+- **packages/mdcode/src/*.test.ts** - Co-located unit tests (parser, region, extract)
+- **packages/usage/tests/** - E2E workflow tests
 - Import path from root: `../packages/mdcode/src/...`
 
 ### File Imports Must Use .ts Extension
@@ -139,6 +139,6 @@ import { parse } from './parser';
 ```
 
 ## Before Committing
-1. `pnpm test` - Ensure ALL 138 tests pass
+1. `pnpm test` - Ensure ALL tests pass
 2. `pnpm build` - Ensure build succeeds
 3. `pnpm -r lint:ts` - Type check all packages

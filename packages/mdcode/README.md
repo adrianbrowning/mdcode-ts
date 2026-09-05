@@ -293,6 +293,17 @@ mdcode list -l js -f "*.test.js" docs/
 
 Extract code blocks to files based on their `file` metadata.
 
+Extract is non-destructive. When the target file already exists:
+
+- **All blocks for that file declare `region=`** → each region body is spliced in place. Surrounding
+  code, and any regions in the file that the markdown doesn't declare, are preserved.
+- **A declared region has no matching `#region` marker in the file** → the region is appended at the
+  end of the file, wrapped in markers.
+- **Any block for that file has no `region=`** → the file is skipped with a warning, since writing it
+  would replace the whole file. Use `--force` to overwrite.
+
+Files that don't exist yet are always created.
+
 ### Basic Usage
 
 ```bash file=block-22.sh
@@ -404,6 +415,21 @@ mdcode extract --ignore-anonymous -l js -d ./src docs/API.md
 ```
 
 **Note:** The flags `--update-source` and `--ignore-anonymous` are mutually exclusive. Using both will result in an error.
+
+### Force Overwrite
+
+Blocks without `region=` describe a whole file, so extracting one over an existing file replaces it.
+Those files are skipped by default; `--force` overwrites them:
+
+```bash
+# Skipped with a warning if src/demo.ts already exists
+mdcode extract README.md
+
+# Overwrite it
+mdcode extract --force README.md
+```
+
+`--force` has no effect on region blocks — those always splice in place.
 
 ### Stdin Behavior with Update Source
 
@@ -789,6 +815,7 @@ Additional flags by command:
 - `-q, --quiet` - Suppress status messages
 - `--update-source` - Add file metadata to anonymous code blocks and update source
 - `--ignore-anonymous` - Skip blocks without file metadata (mutually exclusive with --update-source)
+- `--force` - Overwrite existing files whose blocks have no `region=` (skipped by default)
 
 **update:**
 - `-d, --dir <dir>` - Working directory for file resolution

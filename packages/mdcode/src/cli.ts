@@ -113,6 +113,7 @@ export async function Execute(
     .option("-q, --quiet", "Suppress status messages")
     .option("--update-source", "Add file metadata to anonymous code blocks")
     .option("--ignore-anonymous", "Skip blocks without file metadata")
+    .option("--force", "Overwrite existing files whose blocks have no region=")
     .action(async (file, options) => {
       try {
         // Validation
@@ -133,6 +134,7 @@ export async function Execute(
           updateSource: options.updateSource,
           ignoreAnonymous: options.ignoreAnonymous,
           sourcePath: file,
+          force: options.force,
         });
 
         // Handle --update-source behavior

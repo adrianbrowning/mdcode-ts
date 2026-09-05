@@ -122,6 +122,26 @@ function test() {
 });
 
 describe("region.replace", () => {
+  it("should replace hash-comment regions when given a lang", () => {
+    const source = [
+      "import sys",
+      "",
+      "# #region greet",
+      "print('old')",
+      "# #endregion greet",
+      "",
+      "sys.exit(0)",
+    ].join("\n");
+
+    const result = replace(source, "greet", "print('new')", "python");
+
+    assert.equal(result.found, true);
+    assert.match(result.content, /# #region greet\nprint\('new'\)\n# #endregion greet/);
+    assert.ok(!result.content.includes("print('old')"));
+    assert.match(result.content, /^import sys/);
+    assert.match(result.content, /sys\.exit\(0\)$/);
+  });
+
   it("should replace content in regions", async () => {
     const source = await loadFixture("testdoc.js");
 
