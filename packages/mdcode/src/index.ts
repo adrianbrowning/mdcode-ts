@@ -26,7 +26,7 @@ export { transform, transformWithFunction } from "./commands/transform.ts";
  *
  * @example
  * ```typescript
- * import mdcode from '@gcm/mdcode';
+ * import mdcode from 'mdcode-ts';
  *
  * const result = await mdcode('/path/to/file.md', (tag, meta, code) => {
  *   if (tag === 'sql') return code.toUpperCase();

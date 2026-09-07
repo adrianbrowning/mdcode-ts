@@ -22,7 +22,7 @@ Comprehensive guide to using mdcode from the command line.
 ### Global Install (npm)
 
 ```bash
-npm install -g mdcode
+npm install -g mdcode-ts
 ```
 
 After installation, you can run `mdcode` from anywhere:
@@ -36,7 +36,7 @@ mdcode list README.md
 ### Global Install (pnpm)
 
 ```bash
-pnpm install -g mdcode
+pnpm install -g mdcode-ts
 ```
 
 Usage is identical to npm installation:
@@ -51,16 +51,16 @@ mdcode --help
 No installation required - run directly:
 
 ```bash
-pnpm dlx mdcode list README.md
-pnpm dlx mdcode extract --lang js docs/*.md
-pnpm dlx mdcode update --transform ./my-transformer.js README.md
+pnpm dlx mdcode-ts list README.md
+pnpm dlx mdcode-ts extract --lang js docs/*.md
+pnpm dlx mdcode-ts update --transform ./my-transformer.js README.md
 ```
 
 ### Run Without Installing (npx)
 
 ```bash
-npx mdcode list README.md
-npx mdcode --help
+npx mdcode-ts list README.md
+npx mdcode-ts --help
 ```
 
 ---
@@ -750,7 +750,7 @@ These features are **not** in the original but are available in this implementat
 
 2. **Library API** - Use mdcode programmatically in Node.js/TypeScript projects
    ```javascript
-   import mdcode from 'mdcode';
+   import mdcode from 'mdcode-ts';
    const result = await mdcode('README.md', transformer);
    ```
 
@@ -779,9 +779,9 @@ sudo apt remove mdcode  # Linux
 
 ```bash
 # Global install
-npm install -g mdcode
+npm install -g mdcode-ts
 # or
-pnpm install -g mdcode
+pnpm install -g mdcode-ts
 ```
 
 ### Step 3: Verify Installation
@@ -841,7 +841,7 @@ Once migrated, you can optionally explore the bonus features:
 mdcode update --transform ./my-transformer.js README.md
 
 # Use as a library in your Node.js projects
-npm install mdcode
+npm install mdcode-ts
 ```
 
 ### Getting Help
@@ -1012,14 +1012,14 @@ mdcode provides a powerful CLI for working with code blocks in Markdown files:
 Install globally and start using it today:
 
 ```bash
-npm install -g mdcode
+npm install -g mdcode-ts
 mdcode list README.md
 ```
 
 Or try it without installing:
 
 ```bash
-pnpm dlx mdcode list README.md
+pnpm dlx mdcode-ts list README.md
 ```
 
 For more information, visit: https://github.com/adrianbrowning/mdcode

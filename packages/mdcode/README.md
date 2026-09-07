@@ -2,7 +2,7 @@
 
 A TypeScript port of [szkiba/mdcode](https://github.com/szkiba/mdcode) - a Markdown code block authoring tool for extracting, updating, and managing code blocks within markdown documents.
 
-[![npm version](https://badge.fury.io/js/@mdcode%2Fmdcode.svg)](https://www.npmjs.com/package/@mdcode/mdcode)
+[![npm version](https://badge.fury.io/js/mdcode-ts.svg)](https://www.npmjs.com/package/mdcode-ts)
 
 ## Drop-in Replacement
 
@@ -82,10 +82,10 @@ Install globally to use the `mdcode` command anywhere:
 
 ```bash file=block-3.sh
 # Using npm
-npm install -g @mdcode/mdcode
+npm install -g mdcode-ts
 
 # Using pnpm
-pnpm install -g @mdcode/mdcode
+pnpm install -g mdcode-ts
 ```
 
 After installation, you can run `mdcode` from anywhere:
@@ -102,12 +102,12 @@ No installation required - run directly:
 
 ```bash file=block-5.sh
 # Using pnpm dlx
-pnpm dlx @mdcode/mdcode list README.md
-pnpm dlx @mdcode/mdcode extract --lang js docs/*.md
+pnpm dlx mdcode-ts list README.md
+pnpm dlx mdcode-ts extract --lang js docs/*.md
 
 # Using npx
-npx @mdcode/mdcode list README.md
-npx @mdcode/mdcode --help
+npx mdcode-ts list README.md
+npx mdcode-ts --help
 ```
 
 ### Project Installation
@@ -116,10 +116,10 @@ Install as a project dependency to use in scripts or via `pnpm exec`:
 
 ```bash file=block-6.sh
 # Using pnpm
-pnpm add -D @mdcode/mdcode
+pnpm add -D mdcode-ts
 
 # Using npm
-npm install --save-dev @mdcode/mdcode
+npm install --save-dev mdcode-ts
 ```
 
 After installation, run via `pnpm exec`:
@@ -841,7 +841,7 @@ Additional flags by command:
 You can use mdcode programmatically in your Node.js or TypeScript projects:
 
 ```bash file=block-54.sh
-pnpm add @mdcode/mdcode
+pnpm add mdcode-ts
 ```
 
 ### Simple API (Default Export)
@@ -849,7 +849,7 @@ pnpm add @mdcode/mdcode
 The simplest way to use mdcode is with the default export:
 
 ```typescript file=block-55.ts
-import mdcode from '@mdcode/mdcode';
+import mdcode from 'mdcode-ts';
 
 // Transform a markdown file
 const result = await mdcode('/path/to/file.md', ({tag, meta, code}) => {
@@ -895,13 +895,13 @@ import {
   type Block,
   type TransformerFunction,
   type FilterOptions,
-} from '@mdcode/mdcode';
+} from 'mdcode-ts';
 ```
 
 ### Parse and Extract Code Blocks
 
 ````typescript file=block-58.ts
-import { parse } from '@mdcode/mdcode';
+import { parse } from 'mdcode-ts';
 
 const markdown = `
 # Example
@@ -929,7 +929,7 @@ const jsBlocks = parse({
 ### Transform Code Blocks
 
 ````typescript file=block-60.ts
-import { update, defineTransform } from '@mdcode/mdcode';
+import { update, defineTransform } from 'mdcode-ts';
 
 const markdown = `
 ```sql
@@ -964,7 +964,7 @@ console.log(result); // Transformed markdown
 ### Async Transformers
 
 ```typescript file=block-62.ts
-import { update, defineTransform } from '@mdcode/mdcode';
+import { update, defineTransform } from 'mdcode-ts';
 
 const transformer = defineTransform(async ({tag, meta, code}) => {
   // Fetch from API, read files, etc.
@@ -978,7 +978,7 @@ const result = await update({ source: markdown, transformer });
 ### Custom Walker for Advanced Processing
 
 ```typescript file=block-63.md
-import { walk, type Block } from '@mdcode/mdcode';
+import { walk, type Block } from 'mdcode-ts';
 
 const result = await walk({
   source: markdown,
@@ -1185,7 +1185,7 @@ These features are **not** in the original but are available in this implementat
 
 2. **Library API** - Use mdcode programmatically in Node.js/TypeScript projects
    ```javascript file=block-72.sh
-   import mdcode from '@mdcode/mdcode';
+   import mdcode from 'mdcode-ts';
    const result = await mdcode('README.md', transformer);
    ```
 
