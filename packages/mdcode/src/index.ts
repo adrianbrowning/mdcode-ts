@@ -9,6 +9,7 @@ export * from "./parser.ts";
 export * from "./cli.ts";
 
 // Export commands for programmatic use
+export type { ExtractOptions, ExtractResult } from "./commands/extract.ts";
 export { extract } from "./commands/extract.ts";
 export { update } from "./commands/update.ts";
 export { list } from "./commands/list.ts";

@@ -6,10 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 TypeScript port of [szkiba/mdcode](https://github.com/szkiba/mdcode) - a Markdown code block authoring tool for extracting, updating, and managing code blocks within markdown documents.
 
-This is a **pnpm workspace monorepo** with three packages:
-- `packages/mdcode` - Main library and CLI
-- `packages/usage` - E2E integration tests
-- `packages/example` - Example usage (no tests)
+This is a **pnpm workspace monorepo** with two packages:
+- `packages/mdcode` - Main library and CLI, published as `mdcode-ts`
+- `packages/usage` - Integration tests that consume the built package
 
 ## Essential Commands
 
@@ -91,7 +90,7 @@ Type signature: `(options: {tag, meta, code}) => string | Promise<string>`
 
 Use `defineTransform()` helper for type safety:
 ```typescript
-import { defineTransform } from 'mdcode';
+import { defineTransform } from 'mdcode-ts';
 
 export default defineTransform(({tag, code}) => {
   if (tag === 'sql') return code.toUpperCase();
@@ -123,10 +122,11 @@ Original design used `unified` + `remark-parse`, but switched to custom state ma
 - No AST overhead for simple code block extraction
 
 ### Test Organization
-- **Root tests/** - Parser and transformer unit tests (not used currently)
-- **packages/mdcode/src/*.test.ts** - Co-located unit tests (parser, region, extract)
-- **packages/usage/tests/** - E2E workflow tests
-- Import path from root: `../packages/mdcode/src/...`
+- **packages/mdcode/src/\*\*/\*.test.ts** - Co-located unit tests (parser, region, commands/extract, commands/update)
+- **packages/mdcode/tests/examples/** - Fixture-driven tests over the worked examples
+- **packages/usage/tests/** - Integration tests; `cli-integration.test.ts` spawns the **built** `dist/main.js`, so run `pnpm build` first
+
+See `TESTING.md` for the full layout.
 
 ### File Imports Must Use .ts Extension
 TypeScript config uses `allowImportingTsExtensions: true`:

@@ -31,6 +31,18 @@ async function readInput(filePath?: string): Promise<string> {
   return Buffer.concat(chunks).toString("utf-8");
 }
 
+/** Flags accepted by `mdcode extract`, so a renamed flag is a compile error. */
+type ExtractCliOptions = {
+  lang?: string;
+  file?: string;
+  meta?: Record<string, string>;
+  dir: string;
+  quiet?: boolean;
+  updateSource?: boolean;
+  ignoreAnonymous?: boolean;
+  force?: boolean;
+};
+
 /**
  * Parse filter options from command-line flags
  */
@@ -114,7 +126,7 @@ export async function Execute(
     .option("--update-source", "Add file metadata to anonymous code blocks")
     .option("--ignore-anonymous", "Skip blocks without file metadata")
     .option("--force", "Overwrite existing files whose blocks have no region=")
-    .action(async (file, options) => {
+    .action(async (file: string | undefined, options: ExtractCliOptions) => {
       try {
         // Validation
         if (options.updateSource && options.ignoreAnonymous) {
@@ -150,6 +162,14 @@ export async function Execute(
             // stdin input - output to stdout
             stdout.write(result.updatedSource);
           }
+        }
+
+        // A refusal to write must be distinguishable from success by CI and by
+        // scripts, so it reports even under --quiet and fails the process.
+        if (result.skippedFiles.length > 0) {
+          stderr.write(styleText("yellow", `⚠ Skipped ${result.skippedFiles.length} file(s); nothing was written for them\n`));
+          // eslint-disable-next-line no-process-exit
+          process.exit(2);
         }
       }
       catch (error: unknown) {

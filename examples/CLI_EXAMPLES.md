@@ -212,6 +212,27 @@ mdcode list --json -l python -m type=example docs/
 
 Extract code blocks to files based on their `file` metadata.
 
+### Existing Files Are Not Overwritten
+
+`extract` never destroys work you did not ask it to touch:
+
+- Blocks with `region=` are **spliced in place** — surrounding code and untouched regions survive.
+- Blocks without `region=` describe a whole file. If that file already exists it is **skipped with a
+  warning**; pass `--force` to overwrite it.
+- A target is also skipped, and left byte-identical, when it is a symlink, is not valid UTF-8, has a
+  region the file never closes, or when the blocks for one file mix `region=` with whole-file blocks.
+
+When anything is skipped, `extract` reports the count even under `--quiet` and exits with a non-zero
+status, so a pipeline cannot mistake "wrote nothing" for success.
+
+```bash
+# Skipped with a warning if the target already exists
+mdcode extract README.md
+
+# Overwrite whole-file targets
+mdcode extract --force README.md
+```
+
 ### Basic Usage
 
 ```bash
@@ -699,7 +720,7 @@ mdcode update -l sql -f queries.sql --stdout README.md
 
 ## Comparison with Original mdcode
 
-This TypeScript implementation is a **drop-in replacement** for the original Go-based [szkiba/mdcode](https://github.com/szkiba/mdcode). It maintains 100% CLI compatibility.
+This TypeScript implementation is a near **drop-in replacement** for the original Go-based [szkiba/mdcode](https://github.com/szkiba/mdcode), with one deliberate difference: `extract` refuses to overwrite pre-existing whole-file targets unless `--force` is given, and exits non-zero when it skips anything. See [Existing Files Are Not Overwritten](#existing-files-are-not-overwritten).
 
 ### Feature Parity
 
@@ -812,7 +833,8 @@ mdcode list -l js README.md
 - ✅ Metadata parsing is the same
 - ✅ Region extraction works the same
 - ✅ Stdin/stdout behavior is identical
-- ✅ Exit codes match original behavior
+- ⚠️ `extract` skips existing whole-file targets instead of overwriting them — add `--force` to keep
+  the original behaviour, and expect exit code 2 when files are skipped
 
 ### Scripts and Automation
 
@@ -851,7 +873,7 @@ If you encounter any issues:
 1. Check the help output: `mdcode --help`
 2. Run with verbose errors (stderr will show details)
 3. Compare output with original using `--json` flag
-4. Open an issue at: https://github.com/adrianbrowning/mdcode/issues
+4. Open an issue at: https://github.com/adrianbrowning/mdcode-ts/issues
 
 ---
 
@@ -860,8 +882,10 @@ If you encounter any issues:
 ### Workflow: Extract, Modify, Update
 
 ```bash
-# 1. Extract code blocks to files
-mdcode extract -d ./src README.md
+# 1. Extract code blocks to files.
+#    --force is needed on re-runs: whole-file targets that already exist are
+#    skipped by default. Region blocks splice in place and never need it.
+mdcode extract --force -d ./src README.md
 
 # 2. Edit the extracted files
 vim ./src/app.js
@@ -918,7 +942,9 @@ mdcode extract -m type=example -d ./docs/examples README.md
 set -e
 
 echo "Extracting code blocks..."
-mdcode extract -q -d ./temp README.md
+# --force so a re-run overwrites the previous run's scratch files rather than
+# skipping them and exiting non-zero.
+mdcode extract -q --force -d ./temp README.md
 
 echo "Running linter..."
 mdcode run -l js "eslint {file}" README.md
@@ -948,8 +974,8 @@ mdcode run -k -l js "node {file}" README.md
 ### 2. Combining with Other Tools
 
 ```bash
-# Format code blocks with prettier
-mdcode extract -l js -d temp README.md && \
+# Format code blocks with prettier (--force so re-runs refresh temp/)
+mdcode extract -l js --force -d temp README.md && \
   prettier --write temp/**/*.js && \
   mdcode update README.md
 
@@ -1022,4 +1048,4 @@ Or try it without installing:
 pnpm dlx mdcode-ts list README.md
 ```
 
-For more information, visit: https://github.com/adrianbrowning/mdcode
+For more information, visit: https://github.com/adrianbrowning/mdcode-ts

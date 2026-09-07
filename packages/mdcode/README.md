@@ -423,7 +423,7 @@ mdcode extract --ignore-anonymous -l js -d ./src docs/API.md
 Blocks without `region=` describe a whole file, so extracting one over an existing file replaces it.
 Those files are skipped by default; `--force` overwrites them:
 
-```bash
+```bash file=block-force.sh
 # Skipped with a warning if src/demo.ts already exists
 mdcode extract README.md
 
