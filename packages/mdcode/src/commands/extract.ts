@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { styleText } from "node:util";
 
 import { parse, updateInfoStrings } from "../parser.ts";
-import { replace } from "../region.ts";
+import { regionMarker, replace } from "../region.ts";
 import type { FilterOptions } from "../types.ts";
 
 export type ExtractOptions = {
@@ -122,8 +122,10 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
         }
         else {
           // Marker absent: append rather than lose the block
-          const c = getCommentStyle(block.lang);
-          content = `${content.replace(/\n*$/, "\n")}\n${c} #region ${block.meta.region}\n${block.code}\n${c} #endregion ${block.meta.region}\n`;
+          const name = block.meta.region!;
+          const open = regionMarker(block.lang, "region", name);
+          const close = regionMarker(block.lang, "endregion", name);
+          content = `${content.replace(/\n*$/, "\n")}\n${open}\n${block.code}\n${close}\n`;
         }
       }
 
@@ -147,13 +149,13 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
       // Combine multiple regions into one file
       const lang = items?.[0]?.block.lang || "text";
 
-      const commentStyle = getCommentStyle(lang);
       const parts: Array<string> = [];
 
       for (const { block } of items) {
-        parts.push(`${commentStyle} #region ${block.meta.region}`);
+        const name = block.meta.region!;
+        parts.push(regionMarker(lang, "region", name));
         parts.push(block.code);
-        parts.push(`${commentStyle} #endregion ${block.meta.region}`);
+        parts.push(regionMarker(lang, "endregion", name));
         parts.push(""); // Empty line between regions
       }
 
@@ -165,11 +167,11 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     else if (items.length === 1 && items[0]?.block.meta.region) {
       // Single region - wrap with markers
       const { block } = items[0];
-      const commentStyle = getCommentStyle(block.lang);
+      const name = block.meta.region!;
       const content = [
-        `${commentStyle} #region ${block.meta.region}`,
+        regionMarker(block.lang, "region", name),
         block.code,
-        `${commentStyle} #endregion ${block.meta.region}`,
+        regionMarker(block.lang, "endregion", name),
       ].join("\n") + "\n";
 
       await writeFile(filePath, content, "utf-8");
@@ -242,37 +244,4 @@ function getExtensionForLang(lang: string): string {
   };
 
   return extensions[lang.toLowerCase()] || ".txt";
-}
-
-/**
- * Get comment style for a given language
- */
-function getCommentStyle(lang: string): string {
-  const styles: Record<string, string> = {
-    js: "//",
-    javascript: "//",
-    ts: "//",
-    typescript: "//",
-    java: "//",
-    c: "//",
-    cpp: "//",
-    "c++": "//",
-    cs: "//",
-    "c#": "//",
-    go: "//",
-    rust: "//",
-    swift: "//",
-    kotlin: "//",
-    php: "//",
-    py: "#",
-    python: "#",
-    rb: "#",
-    ruby: "#",
-    sh: "#",
-    bash: "#",
-    yaml: "#",
-    yml: "#",
-  };
-
-  return styles[lang.toLowerCase()] || "//";
 }

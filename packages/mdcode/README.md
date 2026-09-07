@@ -298,7 +298,9 @@ Extract is non-destructive. When the target file already exists:
 - **All blocks for that file declare `region=`** → each region body is spliced in place. Surrounding
   code, and any regions in the file that the markdown doesn't declare, are preserved.
 - **A declared region has no matching `#region` marker in the file** → the region is appended at the
-  end of the file, wrapped in markers.
+  end of the file, wrapped in markers written with the block language's comment syntax (`//`, `#`,
+  `<!-- -->`). Existing markers are matched in any of that language's comment styles, so `/* #region
+  name */` in a JS file is spliced rather than duplicated.
 - **Any block for that file has no `region=`** → the file is skipped with a warning, since writing it
   would replace the whole file. Use `--force` to overwrite.
 

@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-floating-promises */
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, describe, test } from "node:test";
@@ -9,7 +10,7 @@ import { extract } from "./extract.ts";
 const tempDirs: Array<string> = [];
 
 after(async () => {
-  await Promise.all(tempDirs.map(d => rm(d, { recursive: true, force: true })));
+  await Promise.all(tempDirs.map(async d => rm(d, { recursive: true, force: true })));
 });
 
 async function tempDir(): Promise<string> {
@@ -148,6 +149,57 @@ describe("extract: in-place region splice", () => {
     assert.equal(result.match(/#region greet/g)?.length, 1, "region must not be duplicated");
     assert.match(result, /# #region greet\nprint\('new'\)\n# #endregion greet/);
     assert.match(result, /sys\.exit\(0\)/, "surrounding code must survive");
+  });
+
+  test("splices regions whose markers use block comments", async () => {
+    const dir = await tempDir();
+    const target = await writeSource(dir, "app.js", [
+      "const keep = 1;",
+      "/* #region body */",
+      "old();",
+      "/* #endregion body */",
+      "const tail = 2;",
+      "",
+    ].join("\n"));
+
+    const source = [
+      "```js file=app.js region=body",
+      "fresh();",
+      "```",
+      "",
+    ].join("\n");
+
+    await extract({ source, outputDir: dir, quiet: true });
+
+    const result = await readFile(target, "utf-8");
+
+    assert.equal(result.match(/#region body/g)?.length, 1, "region must not be duplicated");
+    assert.match(result, /\/\* #region body \*\/\nfresh\(\);\n\/\* #endregion body \*\//);
+    assert.doesNotMatch(result, /old\(\);/, "old region body must be gone");
+    assert.match(result, /const keep = 1;[\s\S]*const tail = 2;/, "surrounding code must survive");
+  });
+
+  test("re-matches markers it appended itself, so repeated runs are idempotent", async () => {
+    const dir = await tempDir();
+    const target = await writeSource(dir, "page.html", "<h1>existing</h1>\n");
+
+    const source = [
+      "```html file=page.html region=body",
+      "<p>fresh</p>",
+      "```",
+      "",
+    ].join("\n");
+
+    await extract({ source, outputDir: dir, quiet: true });
+    const first = await readFile(target, "utf-8");
+
+    assert.match(first, /<!-- #region body -->\n<p>fresh<\/p>\n<!-- #endregion body -->/, "marker must use the language's comment syntax");
+
+    await extract({ source, outputDir: dir, quiet: true });
+    const second = await readFile(target, "utf-8");
+
+    assert.equal(second, first, "a second run must splice, not append again");
+    assert.equal(second.match(/#region body/g)?.length, 1, "region must not be duplicated");
   });
 });
 

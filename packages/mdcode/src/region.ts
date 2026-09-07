@@ -19,6 +19,22 @@ export type RegionOutlineResult = {
 };
 
 /**
+ * Build the start/end marker patterns for a region.
+ * Without `lang`, the C-family prefixes (`//` and `/*`) are accepted.
+ */
+function markerPatterns(regionName: string, lang?: string): { start: RegExp; end: RegExp; } {
+  const styles = (lang ? getCommentStyle(lang) : [ "//", "/*" ]).map(escapeRegex)
+    .join("|");
+  const name = escapeRegex(regionName);
+  const tail = "(?:\\s|\\*/|-->|$)";
+
+  return {
+    start: new RegExp(`^\\s*(?:${styles})\\s*#region\\s+${name}${tail}`),
+    end: new RegExp(`^\\s*(?:${styles})\\s*#endregion${tail}`),
+  };
+}
+
+/**
  * Read a specific region from source code.
  * Joins all occurrences of the same-named region.
  * Pass `lang` to use language-specific comment styles; defaults to // and /* *\/.
@@ -29,19 +45,7 @@ export function read(source: string, regionName: string, lang?: string): RegionR
   const regionContent: Array<string> = [];
   let found = false;
 
-  let startPattern: RegExp;
-  let endPattern: RegExp;
-
-  if (lang) {
-    const styles = getCommentStyle(lang).map(escapeRegex)
-      .join("|");
-    startPattern = new RegExp(`^\\s*(?:${styles})\\s*#region\\s+${escapeRegex(regionName)}(?:\\s|$)`);
-    endPattern = new RegExp(`^\\s*(?:${styles})\\s*#endregion`);
-  }
-  else {
-    startPattern = new RegExp(`^\\s*(?://|/\\*)\\s*#region\\s+${escapeRegex(regionName)}(?:\\s|\\*/|$)`);
-    endPattern = /^\s*(?:\/\/|\/\*)\s*#endregion(?:\s|\*\/|$)/;
-  }
+  const { start: startPattern, end: endPattern } = markerPatterns(regionName, lang);
 
   for (const line of lines) {
     if (!inRegion) {
@@ -114,20 +118,7 @@ export function replace(source: string, regionName: string, newContent: string, 
   let inRegion = false;
   let found = false;
 
-  let startPattern: RegExp;
-  let endPattern: RegExp;
-
-  if (lang) {
-    const styles = getCommentStyle(lang).map(escapeRegex)
-      .join("|");
-    startPattern = new RegExp(`^\\s*(?:${styles})\\s*#region\\s+${escapeRegex(regionName)}(?:\\s|$)`);
-    endPattern = new RegExp(`^\\s*(?:${styles})\\s*#endregion`);
-  }
-  else {
-    // Match both // #region name and /* #region name */
-    startPattern = new RegExp(`^\\s*(?://|/\\*)\\s*#region\\s+${escapeRegex(regionName)}(?:\\s|\\*/|$)`);
-    endPattern = /^\s*(?:\/\/|\/\*)\s*#endregion(?:\s|\*\/|$)/;
-  }
+  const { start: startPattern, end: endPattern } = markerPatterns(regionName, lang);
 
   for (const line of lines) {
     if (!inRegion) {
@@ -159,25 +150,27 @@ export function replace(source: string, regionName: string, newContent: string, 
 }
 
 /**
- * Get comment prefix(es) for a given language
+ * Get comment prefix(es) recognised for a given language.
+ * The first entry is the canonical prefix used when writing new markers;
+ * the rest are additional prefixes accepted when matching existing markers.
  */
 export function getCommentStyle(lang: string): Array<string> {
   const styles: Record<string, Array<string>> = {
-    js: [ "//" ],
-    javascript: [ "//" ],
-    ts: [ "//" ],
-    typescript: [ "//" ],
-    java: [ "//" ],
-    c: [ "//" ],
-    cpp: [ "//" ],
-    "c++": [ "//" ],
-    cs: [ "//" ],
-    "c#": [ "//" ],
-    go: [ "//" ],
-    rust: [ "//" ],
-    swift: [ "//" ],
-    kotlin: [ "//" ],
-    php: [ "//" ],
+    js: [ "//", "/*" ],
+    javascript: [ "//", "/*" ],
+    ts: [ "//", "/*" ],
+    typescript: [ "//", "/*" ],
+    java: [ "//", "/*" ],
+    c: [ "//", "/*" ],
+    cpp: [ "//", "/*" ],
+    "c++": [ "//", "/*" ],
+    cs: [ "//", "/*" ],
+    "c#": [ "//", "/*" ],
+    go: [ "//", "/*" ],
+    rust: [ "//", "/*" ],
+    swift: [ "//", "/*" ],
+    kotlin: [ "//", "/*" ],
+    php: [ "//", "/*" ],
     py: [ "#" ],
     python: [ "#" ],
     rb: [ "#" ],
@@ -190,7 +183,18 @@ export function getCommentStyle(lang: string): Array<string> {
     xml: [ "<!--" ],
   };
 
-  return styles[lang.toLowerCase()] || [ "//" ];
+  return styles[lang.toLowerCase()] || [ "//", "/*" ];
+}
+
+/**
+ * Render a region marker line using the language's canonical comment style,
+ * closing block comments (`/* *\/`, `<!-- -->`) so the marker stays valid syntax.
+ */
+export function regionMarker(lang: string, kind: "region" | "endregion", name: string): string {
+  const prefix = getCommentStyle(lang)[0]!;
+  const closers: Record<string, string> = { "/*": " */", "<!--": " -->" };
+
+  return `${prefix} #${kind} ${name}${closers[prefix] ?? ""}`;
 }
 
 /**
