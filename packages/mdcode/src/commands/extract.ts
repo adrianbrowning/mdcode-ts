@@ -14,7 +14,6 @@ export type ExtractOptions = {
   quiet?: boolean;
   updateSource?: boolean;
   ignoreAnonymous?: boolean;
-  sourcePath?: string;
   force?: boolean;
 };
 
@@ -167,6 +166,13 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
       continue;
     }
 
+    // Several blocks each claiming to be the whole file only agree if they are
+    // byte-identical; otherwise picking one would silently discard the others.
+    if (withRegion.length === 0 && new Set(items.map(item => item.block.code)).size > 1) {
+      skip(display, `${items.length} whole-file blocks disagree about its contents`);
+      continue;
+    }
+
     if (existing !== undefined && withRegion.length === items.length) {
       const spliced = await spliceInPlace(display, items, { quiet, skip });
 
@@ -282,6 +288,14 @@ function spliceRefusal(result: { unclosed: Array<string>; duplicated: Array<stri
  * Write via a sibling temp file and rename, so an interrupted or out-of-space
  * write cannot leave a hand-written source file truncated. rename() drops the
  * destination's permissions, so they are copied over first.
+ *
+ * Tradeoff: rename() replaces the file rather than rewriting it, so the target
+ * gets a new inode. Hard links to the old file keep the old contents, and
+ * extended attributes and ACLs are not carried over. Both are accepted because
+ * the alternative — truncate and rewrite in place — can leave a source file
+ * half-written, which is worse. It also means a symlinked target would be
+ * replaced rather than followed, which is why the splice path refuses symlinks
+ * outright instead of relying on this.
  */
 async function writeAtomic(target: string, content: string, mode?: number): Promise<void> {
   const temp = join(dirname(target), `.${basename(target)}.mdcode-${process.pid}`);

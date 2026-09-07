@@ -145,7 +145,6 @@ export async function Execute(
           quiet: options.quiet,
           updateSource: options.updateSource,
           ignoreAnonymous: options.ignoreAnonymous,
-          sourcePath: file,
           force: options.force,
         });
 

@@ -312,6 +312,22 @@ curl https://example.com/docs.md | mdcode extract -q
 
 Update markdown code blocks from source files or transform them with custom functions.
 
+### `file=` Is Trusted, By Design
+
+`update` reads whatever path a block's `file=` names, including paths that leave the markdown's own
+directory — `file=../src/app.js` from a `docs/` folder is normal and supported. The path is an
+explicit instruction from whoever wrote the markdown, so it is honoured as written and is **not**
+confined to `--base-path`.
+
+The consequence is that `update` will inline the contents of any file the process can read, and those
+contents land in the markdown. Treat markdown from an untrusted source the way you would treat a
+script from an untrusted source: review it before running `update` over it, and do not run `update`
+on contributor-supplied markdown in an environment holding secrets.
+
+(`extract`, which *writes*, is confined to `--dir` and refuses paths that escape it. The asymmetry is
+deliberate: reading a path you named is what you asked for, whereas writing outside the output
+directory never is.)
+
 ### Update from Source Files (Default Mode)
 
 Updates code blocks by reading from files specified in the `file` metadata attribute:

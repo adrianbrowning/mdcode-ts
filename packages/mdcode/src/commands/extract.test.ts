@@ -447,18 +447,20 @@ describe("extract: write fidelity", () => {
 });
 
 describe("extract: reporting", () => {
-  test("aliased non-region blocks resolve to one file, one write, and no false skip", async () => {
+  test("aliased non-region blocks resolve to one group, one write, and no false skip", async () => {
     const dir = await tempDir();
     await mkdir(join(dir, "real"), { recursive: true });
     await symlink(join(dir, "real"), join(dir, "link"), "dir");
 
+    // Same content via two spellings: the point under test is that they resolve
+    // to one target, not what happens when they disagree.
     const source = [
       "```typescript file=./real/demo.ts",
-      "const first = 1;",
+      "const shared = 1;",
       "```",
       "",
       "```typescript file=./link/demo.ts",
-      "const second = 2;",
+      "const shared = 1;",
       "```",
       "",
     ].join("\n");
@@ -467,7 +469,33 @@ describe("extract: reporting", () => {
 
     assert.equal(result.extractedFiles.length, 1, "one physical file must be reported once");
     assert.deepEqual(result.skippedFiles, [], "a file this run just created must not report as pre-existing");
-    assert.deepEqual(await readdir(join(dir, "real")), [ "demo.ts" ]);
+    assert.deepEqual(await readdir(join(dir, "real")), [ "demo.ts" ], "no second copy via the link");
+  });
+
+  test("refuses whole-file blocks that disagree, and allows identical ones", async () => {
+    const dir = await tempDir();
+
+    const disagreeing = [
+      "```typescript file=d.ts",
+      "const first = 1;",
+      "```",
+      "",
+      "```typescript file=d.ts",
+      "const second = 2;",
+      "```",
+      "",
+    ].join("\n");
+
+    const refused = await extract({ source: disagreeing, outputDir: dir, quiet: true });
+
+    assert.deepEqual(refused.extractedFiles, [], "one of the two blocks would have been discarded");
+    assert.equal(refused.skippedFiles.length, 1);
+
+    const agreeing = disagreeing.replace("const second = 2;", "const first = 1;");
+    const accepted = await extract({ source: agreeing, outputDir: dir, quiet: true });
+
+    assert.equal(accepted.extractedFiles.length, 1, "identical blocks are not ambiguous");
+    assert.equal(await readFile(join(dir, "d.ts"), "utf-8"), "const first = 1;");
   });
 
   test("names the file and the reason when it refuses to write", async () => {
