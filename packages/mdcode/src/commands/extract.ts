@@ -151,11 +151,11 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
       group.items.push({ block, index });
     }
     else {
-      groups.set(key, { display, items: [ { block, index } ] });
+      groups.set(key, { display, items: [{ block, index }] });
     }
   }
 
-  for (const [ , { display, items } ] of groups) {
+  for (const [ , { display, items }] of groups) {
     const withRegion = items.filter(item => item.block.meta.region !== undefined);
     const existing = await stat(display).catch(rethrowUnlessMissing);
 
@@ -244,7 +244,7 @@ async function spliceInPlace(
   }
 
   const edits = new Map<string, RegionEdit>(
-    items.map(({ block }) => [ block.meta.region!, { code: block.code, lang: block.lang } ])
+    items.map(({ block }) => [ block.meta.region!, { code: block.code, lang: block.lang }])
   );
   const result = spliceRegions(existing, edits);
 

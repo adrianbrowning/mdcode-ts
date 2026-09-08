@@ -204,7 +204,7 @@ type Marker = {
  * file round-trips byte-for-byte.
  */
 function splitLines(source: string): Array<RawLine> {
-  return source.split(/(?<=\n)/).map((raw) => {
+  return source.split(/(?<=\n)/).map(raw => {
     const eol = /\r?\n$/.exec(raw)?.[0] ?? "";
 
     return { text: eol ? raw.slice(0, -eol.length) : raw, eol };
@@ -476,7 +476,7 @@ export function spliceRegions(source: string, edits: ReadonlyMap<string, RegionE
  * surrounding code. Thin wrapper over `spliceRegions`.
  */
 export function replace(source: string, regionName: string, newContent: string, lang?: string): RegionReplaceResult {
-  const result = spliceRegions(source, new Map([ [ regionName, { code: newContent, lang } ] ]));
+  const result = spliceRegions(source, new Map([[ regionName, { code: newContent, lang }]]));
 
   return {
     content: result.content,

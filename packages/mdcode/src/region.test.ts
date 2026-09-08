@@ -404,7 +404,7 @@ describe("region.replace refuses to destroy", () => {
   it("refuses a duplicated region name rather than doubling both bodies", () => {
     const source = "// #region a\none\n// #endregion\n// #region a\ntwo\n// #endregion\n";
 
-    const result = spliceRegions(source, new Map([ [ "a", { code: "X", lang: "ts" } ] ]));
+    const result = spliceRegions(source, new Map([[ "a", { code: "X", lang: "ts" }]]));
 
     assert.equal(result.ok, false);
     assert.deepEqual(result.duplicated, [ "a" ]);
@@ -414,7 +414,7 @@ describe("region.replace refuses to destroy", () => {
   it("refuses a region nested inside one of the same name", () => {
     const source = "// #region a\nouter\n// #region a\ninner\n// #endregion a\n// #endregion a\n";
 
-    const result = spliceRegions(source, new Map([ [ "a", { code: "X", lang: "ts" } ] ]));
+    const result = spliceRegions(source, new Map([[ "a", { code: "X", lang: "ts" }]]));
 
     assert.equal(result.ok, false);
     assert.deepEqual(result.duplicated, [ "a" ]);
@@ -501,9 +501,9 @@ describe("region.spliceRegions", () => {
     ].join("\n");
 
     const result = spliceRegions(source, new Map([
-      [ "a", { code: "new a", lang: "ts" } ],
-      [ "b", { code: "new b", lang: "ts" } ],
-      [ "c", { code: "new c", lang: "ts" } ],
+      [ "a", { code: "new a", lang: "ts" }],
+      [ "b", { code: "new b", lang: "ts" }],
+      [ "c", { code: "new c", lang: "ts" }],
     ]));
 
     assert.equal(result.ok, true);
@@ -526,8 +526,8 @@ describe("region.spliceRegions", () => {
     ].join("\n");
 
     const result = spliceRegions(source, new Map([
-      [ "a", { code: "new a", lang: "python" } ],
-      [ "b", { code: "new b", lang: "ts" } ],
+      [ "a", { code: "new a", lang: "python" }],
+      [ "b", { code: "new b", lang: "ts" }],
     ]));
 
     assert.equal(result.ok, true);
@@ -548,8 +548,8 @@ describe("region.spliceRegions", () => {
     ].join("\n");
 
     const result = spliceRegions(source, new Map([
-      [ "outer", { code: "NEW OUTER", lang: "ts" } ],
-      [ "inner", { code: "NEW INNER", lang: "ts" } ],
+      [ "outer", { code: "NEW OUTER", lang: "ts" }],
+      [ "inner", { code: "NEW INNER", lang: "ts" }],
     ]));
 
     assert.equal(result.ok, false, "nested requested regions have no well-defined result");
@@ -561,7 +561,7 @@ describe("region.spliceRegions", () => {
   it("preserves a target that has no final newline", () => {
     const source = "head\n// #region a\nold\n// #endregion a";
 
-    const result = spliceRegions(source, new Map([ [ "a", { code: "new", lang: "ts" } ] ]));
+    const result = spliceRegions(source, new Map([[ "a", { code: "new", lang: "ts" }]]));
 
     assert.equal(result.ok, true);
     assert.equal(result.content, "head\n// #region a\nnew\n// #endregion a");
@@ -570,7 +570,7 @@ describe("region.spliceRegions", () => {
   it("empties a region without collapsing its markers", () => {
     const source = "head\n// #region a\nold\nmore old\n// #endregion a\ntail\n";
 
-    const result = spliceRegions(source, new Map([ [ "a", { code: "", lang: "ts" } ] ]));
+    const result = spliceRegions(source, new Map([[ "a", { code: "", lang: "ts" }]]));
 
     assert.equal(result.ok, true);
     assert.equal(result.content, "head\n// #region a\n// #endregion a\ntail\n");
@@ -579,7 +579,7 @@ describe("region.spliceRegions", () => {
   it("does not match a marker written in another language's syntax", () => {
     const source = "-- #region a\nold\n-- #endregion a\n";
 
-    const result = spliceRegions(source, new Map([ [ "a", { code: "new", lang: "ts" } ] ]));
+    const result = spliceRegions(source, new Map([[ "a", { code: "new", lang: "ts" }]]));
 
     assert.deepEqual(result.unmatched, [ "a" ], "a SQL marker must not open a TypeScript region");
     assert.equal(result.content, source);
