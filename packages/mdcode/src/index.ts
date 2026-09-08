@@ -9,6 +9,7 @@ export * from "./parser.ts";
 export * from "./cli.ts";
 
 // Export commands for programmatic use
+export type { ExtractOptions, ExtractResult } from "./commands/extract.ts";
 export { extract } from "./commands/extract.ts";
 export { update } from "./commands/update.ts";
 export { list } from "./commands/list.ts";
@@ -26,7 +27,7 @@ export { transform, transformWithFunction } from "./commands/transform.ts";
  *
  * @example
  * ```typescript
- * import mdcode from '@gcm/mdcode';
+ * import mdcode from 'mdcode-ts';
  *
  * const result = await mdcode('/path/to/file.md', (tag, meta, code) => {
  *   if (tag === 'sql') return code.toUpperCase();

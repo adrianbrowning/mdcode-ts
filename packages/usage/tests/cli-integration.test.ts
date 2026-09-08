@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
@@ -215,6 +215,53 @@ const y = 2;
       assert.strictEqual(result2.exitCode, 0, "Should exit successfully");
       assert.ok(result2.stdout.includes("env=dev") || result2.stdout.includes("const y"), "Should include dev block");
       assert.ok(!result2.stdout.includes("const x"), "Should not include prod block");
+    });
+  });
+
+  describe("extract refusal is observable", () => {
+    const markdown = [
+      "```js file=s.js",
+      "console.log('from markdown');",
+      "```",
+    ].join("\n");
+
+    it("reports and fails even under --quiet when nothing was written", async () => {
+      const tmpDir = await mkdtemp(join(tmpdir(), "mdcode-cli-skip-"));
+
+      try {
+        const stale = join(tmpDir, "s.js");
+        await writeFile(stale, "console.log('stale');\n", "utf-8");
+
+        const result = await execCli([ "extract", "-q", "-d", tmpDir ], { stdin: markdown });
+
+        assert.notStrictEqual(result.exitCode, 0, "a run that wrote nothing must not look green");
+        assert.match(result.stderr, /Skipped 1 file/, "the refusal must be reported despite --quiet");
+        assert.strictEqual(
+          await readFile(stale, "utf-8"),
+          "console.log('stale');\n",
+          "the existing file must be untouched"
+        );
+      }
+      finally {
+        await rm(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("succeeds and overwrites with --force", async () => {
+      const tmpDir = await mkdtemp(join(tmpdir(), "mdcode-cli-force-"));
+
+      try {
+        const stale = join(tmpDir, "s.js");
+        await writeFile(stale, "console.log('stale');\n", "utf-8");
+
+        const result = await execCli([ "extract", "-q", "-d", tmpDir, "--force" ], { stdin: markdown });
+
+        assert.strictEqual(result.exitCode, 0, "--force is a successful outcome");
+        assert.match(await readFile(stale, "utf-8"), /from markdown/);
+      }
+      finally {
+        await rm(tmpDir, { recursive: true, force: true });
+      }
     });
   });
 });

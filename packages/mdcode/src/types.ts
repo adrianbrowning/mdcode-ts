@@ -93,7 +93,7 @@ export type TransformerFunction = (options: { tag: string;
  *
  * @example
  * ```typescript
- * import { defineTransform } from 'mdcode';
+ * import { defineTransform } from 'mdcode-ts';
  *
  * export default defineTransform(({tag, code}) => {
  *   if (tag === 'sql') {

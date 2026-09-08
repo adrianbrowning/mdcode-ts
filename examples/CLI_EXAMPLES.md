@@ -22,7 +22,7 @@ Comprehensive guide to using mdcode from the command line.
 ### Global Install (npm)
 
 ```bash
-npm install -g mdcode
+npm install -g mdcode-ts
 ```
 
 After installation, you can run `mdcode` from anywhere:
@@ -36,7 +36,7 @@ mdcode list README.md
 ### Global Install (pnpm)
 
 ```bash
-pnpm install -g mdcode
+pnpm install -g mdcode-ts
 ```
 
 Usage is identical to npm installation:
@@ -51,16 +51,16 @@ mdcode --help
 No installation required - run directly:
 
 ```bash
-pnpm dlx mdcode list README.md
-pnpm dlx mdcode extract --lang js docs/*.md
-pnpm dlx mdcode update --transform ./my-transformer.js README.md
+pnpm dlx mdcode-ts list README.md
+pnpm dlx mdcode-ts extract --lang js docs/*.md
+pnpm dlx mdcode-ts update --transform ./my-transformer.js README.md
 ```
 
 ### Run Without Installing (npx)
 
 ```bash
-npx mdcode list README.md
-npx mdcode --help
+npx mdcode-ts list README.md
+npx mdcode-ts --help
 ```
 
 ---
@@ -212,6 +212,27 @@ mdcode list --json -l python -m type=example docs/
 
 Extract code blocks to files based on their `file` metadata.
 
+### Existing Files Are Not Overwritten
+
+`extract` never destroys work you did not ask it to touch:
+
+- Blocks with `region=` are **spliced in place** — surrounding code and untouched regions survive.
+- Blocks without `region=` describe a whole file. If that file already exists it is **skipped with a
+  warning**; pass `--force` to overwrite it.
+- A target is also skipped, and left byte-identical, when it is a symlink, is not valid UTF-8, has a
+  region the file never closes, or when the blocks for one file mix `region=` with whole-file blocks.
+
+When anything is skipped, `extract` reports the count even under `--quiet` and exits with a non-zero
+status, so a pipeline cannot mistake "wrote nothing" for success.
+
+```bash
+# Skipped with a warning if the target already exists
+mdcode extract README.md
+
+# Overwrite whole-file targets
+mdcode extract --force README.md
+```
+
 ### Basic Usage
 
 ```bash
@@ -290,6 +311,22 @@ curl https://example.com/docs.md | mdcode extract -q
 ## Update Command
 
 Update markdown code blocks from source files or transform them with custom functions.
+
+### `file=` Is Trusted, By Design
+
+`update` reads whatever path a block's `file=` names, including paths that leave the markdown's own
+directory — `file=../src/app.js` from a `docs/` folder is normal and supported. The path is an
+explicit instruction from whoever wrote the markdown, so it is honoured as written and is **not**
+confined to `--base-path`.
+
+The consequence is that `update` will inline the contents of any file the process can read, and those
+contents land in the markdown. Treat markdown from an untrusted source the way you would treat a
+script from an untrusted source: review it before running `update` over it, and do not run `update`
+on contributor-supplied markdown in an environment holding secrets.
+
+(`extract`, which *writes*, is confined to `--dir` and refuses paths that escape it. The asymmetry is
+deliberate: reading a path you named is what you asked for, whereas writing outside the output
+directory never is.)
 
 ### Update from Source Files (Default Mode)
 
@@ -699,7 +736,7 @@ mdcode update -l sql -f queries.sql --stdout README.md
 
 ## Comparison with Original mdcode
 
-This TypeScript implementation is a **drop-in replacement** for the original Go-based [szkiba/mdcode](https://github.com/szkiba/mdcode). It maintains 100% CLI compatibility.
+This TypeScript implementation is a near **drop-in replacement** for the original Go-based [szkiba/mdcode](https://github.com/szkiba/mdcode), with one deliberate difference: `extract` refuses to overwrite pre-existing whole-file targets unless `--force` is given, and exits non-zero when it skips anything. See [Existing Files Are Not Overwritten](#existing-files-are-not-overwritten).
 
 ### Feature Parity
 
@@ -750,7 +787,7 @@ These features are **not** in the original but are available in this implementat
 
 2. **Library API** - Use mdcode programmatically in Node.js/TypeScript projects
    ```javascript
-   import mdcode from 'mdcode';
+   import mdcode from 'mdcode-ts';
    const result = await mdcode('README.md', transformer);
    ```
 
@@ -779,9 +816,9 @@ sudo apt remove mdcode  # Linux
 
 ```bash
 # Global install
-npm install -g mdcode
+npm install -g mdcode-ts
 # or
-pnpm install -g mdcode
+pnpm install -g mdcode-ts
 ```
 
 ### Step 3: Verify Installation
@@ -812,7 +849,8 @@ mdcode list -l js README.md
 - ✅ Metadata parsing is the same
 - ✅ Region extraction works the same
 - ✅ Stdin/stdout behavior is identical
-- ✅ Exit codes match original behavior
+- ⚠️ `extract` skips existing whole-file targets instead of overwriting them — add `--force` to keep
+  the original behaviour, and expect exit code 2 when files are skipped
 
 ### Scripts and Automation
 
@@ -841,7 +879,7 @@ Once migrated, you can optionally explore the bonus features:
 mdcode update --transform ./my-transformer.js README.md
 
 # Use as a library in your Node.js projects
-npm install mdcode
+npm install mdcode-ts
 ```
 
 ### Getting Help
@@ -851,7 +889,7 @@ If you encounter any issues:
 1. Check the help output: `mdcode --help`
 2. Run with verbose errors (stderr will show details)
 3. Compare output with original using `--json` flag
-4. Open an issue at: https://github.com/adrianbrowning/mdcode/issues
+4. Open an issue at: https://github.com/adrianbrowning/mdcode-ts/issues
 
 ---
 
@@ -860,8 +898,10 @@ If you encounter any issues:
 ### Workflow: Extract, Modify, Update
 
 ```bash
-# 1. Extract code blocks to files
-mdcode extract -d ./src README.md
+# 1. Extract code blocks to files.
+#    --force is needed on re-runs: whole-file targets that already exist are
+#    skipped by default. Region blocks splice in place and never need it.
+mdcode extract --force -d ./src README.md
 
 # 2. Edit the extracted files
 vim ./src/app.js
@@ -918,7 +958,9 @@ mdcode extract -m type=example -d ./docs/examples README.md
 set -e
 
 echo "Extracting code blocks..."
-mdcode extract -q -d ./temp README.md
+# --force so a re-run overwrites the previous run's scratch files rather than
+# skipping them and exiting non-zero.
+mdcode extract -q --force -d ./temp README.md
 
 echo "Running linter..."
 mdcode run -l js "eslint {file}" README.md
@@ -948,8 +990,8 @@ mdcode run -k -l js "node {file}" README.md
 ### 2. Combining with Other Tools
 
 ```bash
-# Format code blocks with prettier
-mdcode extract -l js -d temp README.md && \
+# Format code blocks with prettier (--force so re-runs refresh temp/)
+mdcode extract -l js --force -d temp README.md && \
   prettier --write temp/**/*.js && \
   mdcode update README.md
 
@@ -1012,14 +1054,14 @@ mdcode provides a powerful CLI for working with code blocks in Markdown files:
 Install globally and start using it today:
 
 ```bash
-npm install -g mdcode
+npm install -g mdcode-ts
 mdcode list README.md
 ```
 
 Or try it without installing:
 
 ```bash
-pnpm dlx mdcode list README.md
+pnpm dlx mdcode-ts list README.md
 ```
 
-For more information, visit: https://github.com/adrianbrowning/mdcode
+For more information, visit: https://github.com/adrianbrowning/mdcode-ts
