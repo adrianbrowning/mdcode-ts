@@ -1,0 +1,193 @@
+{
+  "version": 1,
+  "compiledAt": "2026-09-26T00:00:00.000Z",
+  "compiledBy": "claude",
+  "sources": [
+    {
+      "path": "CLAUDE.md",
+      "sha": "345843d4d1f71678e9231deae3e9b15cb1bc2a148e909893d57123ae5e8b550e",
+      "scope": "**/*"
+    }
+  ],
+  "rules": [
+    {
+      "id": "run-both-test-packages",
+      "text": "Testing (ALWAYS RUN BOTH)",
+      "source": {
+        "path": "CLAUDE.md",
+        "line": 16
+      },
+      "check": {
+        "type": "unenforceable",
+        "reason": "about which commands the agent runs, not the code"
+      },
+      "status": "active"
+    },
+    {
+      "id": "no-unified-remark",
+      "text": "Custom line-by-line state machine for parsing markdown (no unified/remark)",
+      "source": {
+        "path": "CLAUDE.md",
+        "line": 54
+      },
+      "scope": [
+        "packages/mdcode/**/*.ts",
+        "packages/mdcode/package.json"
+      ],
+      "check": {
+        "type": "lint",
+        "how": "no-restricted-imports for unified, remark, remark-* and mdast packages; grep package.json dependencies",
+        "pattern": "(from\\s+['\"](unified|remark[\\w-]*|mdast[\\w-]*)['\"]|\"(unified|remark[\\w-]*)\"\\s*:)"
+      },
+      "status": "active"
+    },
+    {
+      "id": "use-define-transform",
+      "text": "Use `defineTransform()` helper for type safety.",
+      "source": {
+        "path": "CLAUDE.md",
+        "line": 92
+      },
+      "scope": [
+        "packages/usage/**/*.ts",
+        "packages/example/**/*.ts",
+        "packages/mdcode/src/**/*.test.ts",
+        "**/*transform*.ts",
+        "**/*transform*.mts"
+      ],
+      "when": "edit",
+      "check": {
+        "type": "model",
+        "question": {
+          "type": "boolean",
+          "instructions": "Among the added lines, is there `export default`, `const transformer =` or `transformer:` followed directly by an arrow function or `function` taking `{ tag, meta, code }`, with no `defineTransform(` around it? Answer false if no transformer is added.",
+          "criteria": {
+            "true": "export default ({ tag, code }) => tag === 'sql' ? code.toUpperCase() : code;",
+            "false": "export default defineTransform(({tag, code}) => {\n  if (tag === 'sql') return code.toUpperCase();\n  return code;\n});"
+          }
+        }
+      },
+      "status": "active",
+      "calibration": {
+        "at": "2026-09-26T15:12:04.977Z",
+        "hunks": 3,
+        "median": 0.8683,
+        "min": 0.8596,
+        "max": 0.9016,
+        "fired": 3,
+        "verdict": "skipped"
+      }
+    },
+    {
+      "id": "zshy-bundler-only",
+      "text": "zshy - TypeScript bundler (not tsc, not rollup)",
+      "source": {
+        "path": "CLAUDE.md",
+        "line": 111
+      },
+      "scope": [
+        "**/package.json",
+        "**/rollup.config.*"
+      ],
+      "check": {
+        "type": "lint",
+        "how": "grep package.json build scripts and dependencies for rollup or a tsc emit build; path check for rollup.config.*",
+        "pattern": "\"(build|dev)\"\\s*:\\s*\"[^\"]*\\b(tsc(?![^\"]*--noEmit)|rollup)\\b|\"rollup\"\\s*:"
+      },
+      "status": "active"
+    },
+    {
+      "id": "node-test-runner-only",
+      "text": "node:test - Native test runner (NOT vitest, jest, or mocha)",
+      "source": {
+        "path": "CLAUDE.md",
+        "line": 112
+      },
+      "scope": [
+        "**/*.ts",
+        "**/*.mts",
+        "**/package.json"
+      ],
+      "check": {
+        "type": "lint",
+        "how": "no-restricted-imports for vitest, jest, @jest/*, mocha; grep package.json for those dependencies",
+        "pattern": "(from\\s+['\"](vitest|jest|@jest/[\\w-]+|mocha)['\"]|\"(vitest|jest|mocha)\"\\s*:)"
+      },
+      "status": "active"
+    },
+    {
+      "id": "tsconfig-strict-verbatim",
+      "text": "TypeScript: strict mode, `verbatimModuleSyntax: true`, ES2022 target",
+      "source": {
+        "path": "CLAUDE.md",
+        "line": 115
+      },
+      "scope": [
+        "**/tsconfig*.json"
+      ],
+      "check": {
+        "type": "deferred",
+        "reason": "asserts options are present, which needs the resolved config including extends, not a diff"
+      },
+      "status": "active"
+    },
+    {
+      "id": "ts-extension-imports",
+      "text": "File Imports Must Use .ts Extension",
+      "source": {
+        "path": "CLAUDE.md",
+        "line": 131
+      },
+      "scope": [
+        "**/*.ts",
+        "**/*.mts"
+      ],
+      "check": {
+        "type": "lint",
+        "how": "node/file-extension-in-import (already set to always in shared/.eslintrc.json)",
+        "pattern": "from\\s+['\"]\\.{1,2}/[^'\"]*(?<!\\.ts)(?<!\\.json)['\"]",
+        "overlaps": "node/file-extension-in-import"
+      },
+      "status": "active"
+    },
+    {
+      "id": "before-commit-tests",
+      "text": "Before Committing: `pnpm test` - Ensure ALL 138 tests pass",
+      "source": {
+        "path": "CLAUDE.md",
+        "line": 142
+      },
+      "check": {
+        "type": "unenforceable",
+        "reason": "about running commands before a commit, not the code"
+      },
+      "status": "active"
+    },
+    {
+      "id": "before-commit-build",
+      "text": "Before Committing: `pnpm build` - Ensure build succeeds",
+      "source": {
+        "path": "CLAUDE.md",
+        "line": 143
+      },
+      "check": {
+        "type": "unenforceable",
+        "reason": "about running commands before a commit, not the code"
+      },
+      "status": "active"
+    },
+    {
+      "id": "before-commit-typecheck",
+      "text": "Before Committing: `pnpm -r lint:ts` - Type check all packages",
+      "source": {
+        "path": "CLAUDE.md",
+        "line": 144
+      },
+      "check": {
+        "type": "unenforceable",
+        "reason": "about running commands before a commit, not the code"
+      },
+      "status": "active"
+    }
+  ]
+}
