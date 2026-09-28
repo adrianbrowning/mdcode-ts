@@ -293,13 +293,16 @@ describe("extract: file= outside the output directory", () => {
     ].join("\n"));
   });
 
-  test("writes anonymous blocks inside the output directory", async () => {
+  test("writes anonymous blocks inside the output directory, whatever their language tag", async () => {
     const dir = await tempDir();
     const out = join(dir, "out");
 
-    const result = await extract({ source: "```sh\necho hi\n```\n", outputDir: out, quiet: true });
+    // The generated name derives from the language tag; a path-like tag must not steer it.
+    const source = "```sh\necho hi\n```\n\n```../../evil\npwned\n```\n";
+    const result = await extract({ source, outputDir: out, quiet: true });
 
-    assert.deepEqual(result.extractedFiles, [ join(out, "block-1.sh") ]);
+    assert.deepEqual(result.extractedFiles, [ join(out, "block-1.sh"), join(out, "block-2.txt") ]);
+    assert.deepEqual((await readdir(out)).sort(), [ "block-1.sh", "block-2.txt" ]);
     assert.deepEqual(await readdir(dir), [ "out" ], "nothing may be written beside the output directory");
   });
 });
