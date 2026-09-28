@@ -142,3 +142,17 @@ import { parse } from './parser';
 1. `pnpm test` - Ensure ALL 138 tests pass
 2. `pnpm build` - Ensure build succeeds
 3. `pnpm -r lint:ts` - Type check all packages
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for adrianbrowning/mdcode-ts (`gh` CLI). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one root `CONTEXT.md` plus `docs/adr/`. See `docs/agents/domain.md`.
