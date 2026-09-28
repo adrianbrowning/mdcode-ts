@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
@@ -258,6 +258,57 @@ const y = 2;
 
         assert.strictEqual(result.exitCode, 0, "--force is a successful outcome");
         assert.match(await readFile(stale, "utf-8"), /from markdown/);
+      }
+      finally {
+        await rm(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("emits the whole --update-source document to a pipe when a file is skipped", async () => {
+      const tmpDir = await mkdtemp(join(tmpdir(), "mdcode-cli-pipe-"));
+
+      try {
+        await writeFile(join(tmpDir, "s.js"), "console.log('stale');\n", "utf-8");
+
+        // Anonymous blocks gain file=block-N.js; together they exceed one 64 KiB pipe buffer.
+        const input = [ "```js file=s.js\nconsole.log('from markdown');\n```\n" ];
+        const expected = [ ...input ];
+        for (let i = 0; i < 4000; i++) {
+          input.push(`\`\`\`js\nconsole.log(${i});\n\`\`\`\n`);
+          expected.push(`\`\`\`js file=block-${i + 2}.js\nconsole.log(${i});\n\`\`\`\n`);
+        }
+        const expectedOutput = expected.join("\n");
+        assert.ok(expectedOutput.length > 65536, "the document must overflow a pipe buffer");
+
+        const result = await execCli([ "extract", "--update-source", "-q", "-d", tmpDir ], { stdin: input.join("\n") });
+
+        assert.strictEqual(result.exitCode, 2, "the skipped s.js must still fail the run");
+        assert.strictEqual(result.stdout.length, expectedOutput.length, "stdout must not be truncated");
+        assert.strictEqual(result.stdout, expectedOutput);
+      }
+      finally {
+        await rm(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("splices a relative file= outside the default output directory and exits 0", async () => {
+      const tmpDir = await mkdtemp(join(tmpdir(), "mdcode-cli-outside-"));
+
+      try {
+        const docs = join(tmpDir, "docs");
+        const target = join(tmpDir, "outside", "target.ts");
+        await mkdir(docs, { recursive: true });
+        await mkdir(join(tmpDir, "outside"), { recursive: true });
+        await writeFile(target, "keep();\n// #region x\nold();\n// #endregion x\nkeep();\n", "utf-8");
+
+        const markdown = "```ts file=../outside/target.ts region=x\nfresh();\n```\n";
+        const result = await execCli([ "extract", "-q" ], { stdin: markdown, cwd: docs });
+
+        assert.strictEqual(result.exitCode, 0);
+        assert.strictEqual(
+          await readFile(target, "utf-8"),
+          "keep();\n// #region x\nfresh();\n// #endregion x\nkeep();\n"
+        );
       }
       finally {
         await rm(tmpDir, { recursive: true, force: true });

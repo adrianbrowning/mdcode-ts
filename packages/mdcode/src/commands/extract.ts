@@ -1,5 +1,5 @@
 import { chmod, lstat, mkdir, readFile, realpath, rename, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { styleText } from "node:util";
 
 import { parse, updateInfoStrings } from "../parser.ts";
@@ -83,13 +83,6 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
 
   const extractedFiles: Array<string> = [];
   const skippedFiles: Array<string> = [];
-  const root = resolve(outputDir);
-
-  // The root must exist before it can be canonicalised: realpath on a missing
-  // directory falls back to the lexical path, and on macOS comparing a lexical
-  // /var/... root against a resolved /private/var/... target reads as an escape.
-  await mkdir(root, { recursive: true });
-  const canonicalRoot = await realpath(root).catch(() => root);
 
   const skip = (path: string, reason: string): void => {
     skippedFiles.push(path);
@@ -115,6 +108,8 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     let declared = block.meta.file;
 
     if (declared === undefined) {
+      // A generated name has no directory part, so joined onto outputDir it
+      // always lands inside it.
       const generated = `block-${index + 1}${getExtensionForLang(block.lang)}`;
       declared = generated;
 
@@ -122,14 +117,15 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
         metadataUpdates.set(index, { file: generated });
       }
     }
-
-    const display = join(outputDir, declared);
-
-    // Reject an escape before creating any directory for it.
-    if (isAbsolute(declared) || escapesRoot(root, display)) {
-      skip(display, `file= must stay inside ${outputDir}`);
+    else if (isAbsolute(declared)) {
+      // An explicit relative file= is honoured as written, even when it leaves
+      // outputDir (`../../shared-tests/a.ts`). An absolute path would ignore
+      // outputDir entirely, so it is refused.
+      skip(declared, "file= must be a relative path");
       continue;
     }
+
+    const display = join(outputDir, declared);
 
     if (block.meta.region !== undefined && !isValidRegionName(block.meta.region)) {
       skip(display, `invalid region name ${JSON.stringify(block.meta.region)}`);
@@ -139,11 +135,6 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     await mkdir(dirname(display), { recursive: true });
 
     const key = await resolveTarget(display);
-
-    if (escapesRoot(canonicalRoot, key)) {
-      skip(display, `file= resolves outside ${outputDir}`);
-      continue;
-    }
 
     const group = groups.get(key);
 
@@ -315,13 +306,6 @@ function rethrowUnlessMissing(error: unknown): undefined {
     return undefined;
   }
   throw error;
-}
-
-/** True when `path` is not inside `root`. */
-function escapesRoot(root: string, path: string): boolean {
-  const rel = relative(root, resolve(path));
-
-  return rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel);
 }
 
 /**

@@ -121,7 +121,7 @@ export async function Execute(
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
     .option("-m, --meta <key=value...>", "Filter by custom metadata")
-    .option("-d, --dir <dir>", "Output directory (default: current directory)", ".")
+    .option("-d, --dir <dir>", "Directory that relative file= paths resolve against; they may leave it (e.g. file=../x.ts). Absolute file= paths are refused (default: current directory)", ".")
     .option("-q, --quiet", "Suppress status messages")
     .option("--update-source", "Add file metadata to anonymous code blocks")
     .option("--ignore-anonymous", "Skip blocks without file metadata")
@@ -165,10 +165,11 @@ export async function Execute(
 
         // A refusal to write must be distinguishable from success by CI and by
         // scripts, so it reports even under --quiet and fails the process.
+        // exitCode rather than process.exit(): exiting would drop whatever of
+        // the --update-source markdown is still buffered for a piped stdout.
         if (result.skippedFiles.length > 0) {
           stderr.write(styleText("yellow", `⚠ Skipped ${result.skippedFiles.length} file(s); nothing was written for them\n`));
-          // eslint-disable-next-line no-process-exit
-          process.exit(2);
+          process.exitCode = 2;
         }
       }
       catch (error: unknown) {

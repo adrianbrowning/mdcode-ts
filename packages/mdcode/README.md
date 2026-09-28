@@ -306,6 +306,17 @@ Extract is non-destructive. When the target file already exists:
 
 Files that don't exist yet are always created.
 
+`file=` paths resolve against `--dir` (default: the current directory):
+
+- **Relative `file=`** → honoured as written, even when it leaves `--dir`, so
+  `file=../../shared-tests/where.ts` splices into that file. Two spellings of one file (a symlinked
+  directory, `./a.ts` vs `a.ts`, `..` traversal) are treated as one target.
+- **Absolute `file=`** → skipped with a warning.
+- **No `file=`** → written as `block-N.<ext>` directly inside `--dir`.
+
+Whenever a file is skipped, `extract` prints a summary (even under `--quiet`) and exits with status 2.
+With `--update-source` on stdin, the updated markdown is still written to stdout in full first.
+
 ### Basic Usage
 
 ```bash file=block-22.sh

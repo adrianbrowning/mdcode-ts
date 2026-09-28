@@ -1,10 +1,13 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { chmod, lstat, mkdir, mkdtemp, readdir, readFile, readlink, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, describe, mock, test } from "node:test";
+import { promisify } from "node:util";
 
+import type { ExtractResult } from "./extract.ts";
 import { extract } from "./extract.ts";
 
 const tempDirs: Array<string> = [];
@@ -239,27 +242,69 @@ describe("extract: --force for non-region overwrites", () => {
   });
 });
 
-describe("extract: refuses unsafe targets", () => {
-  test("refuses a file= that escapes the output directory", async () => {
+describe("extract: file= outside the output directory", () => {
+  test("splices a relative file= that leaves the default output directory", async () => {
     const dir = await tempDir();
-    const outside = await writeSource(dir, "outside.txt", "PRECIOUS\n");
-    const out = join(dir, "out");
-    await mkdir(out, { recursive: true });
+    const target = await writeSource(dir, "outside/target.ts", [
+      `import { x } from "./x.ts";`,
+      "",
+      "// #region x",
+      "const old = 1;",
+      "// #endregion x",
+      "",
+      "export { x };",
+      "",
+    ].join("\n"));
+    const docs = join(dir, "docs");
+    await mkdir(docs, { recursive: true });
 
     const source = [
-      "```text file=../outside.txt region=alpha",
-      "pwned",
+      "```typescript file=../outside/target.ts region=x",
+      "const fresh = 2;",
       "```",
       "",
     ].join("\n");
 
-    const result = await extract({ source, outputDir: out, quiet: true, force: true });
+    // outputDir is left at its default ("."), which is relative to the process
+    // cwd; a child process gets its own cwd without disturbing this runner's.
+    // The child is a string --eval script, so it can only reach extract.ts
+    // through import() of the resolved URL.
+    const { stdout } = await promisify(execFile)(process.execPath, [
+      // Node 22 before 22.18 only strips types from extract.ts with this flag.
+      "--experimental-strip-types",
+      "--input-type=module",
+      "--eval",
+      `const { extract } = await import(${JSON.stringify(import.meta.resolve("./extract.ts"))});
+       console.log(JSON.stringify(await extract({ source: process.env.MD_SOURCE, quiet: true })));`,
+    ], { cwd: docs, env: { ...process.env, MD_SOURCE: source } });
+    const result = JSON.parse(stdout) as ExtractResult;
 
-    assert.equal(await readFile(outside, "utf-8"), "PRECIOUS\n", "a path outside --dir must not be written");
-    assert.deepEqual(result.extractedFiles, []);
-    assert.equal(result.skippedFiles.length, 1);
+    assert.deepEqual(result.skippedFiles, []);
+    assert.deepEqual(result.extractedFiles, [ "../outside/target.ts" ]);
+    assert.equal(await readFile(target, "utf-8"), [
+      `import { x } from "./x.ts";`,
+      "",
+      "// #region x",
+      "const fresh = 2;",
+      "// #endregion x",
+      "",
+      "export { x };",
+      "",
+    ].join("\n"));
   });
 
+  test("writes anonymous blocks inside the output directory", async () => {
+    const dir = await tempDir();
+    const out = join(dir, "out");
+
+    const result = await extract({ source: "```sh\necho hi\n```\n", outputDir: out, quiet: true });
+
+    assert.deepEqual(result.extractedFiles, [ join(out, "block-1.sh") ]);
+    assert.deepEqual(await readdir(dir), [ "out" ], "nothing may be written beside the output directory");
+  });
+});
+
+describe("extract: refuses unsafe targets", () => {
   test("refuses an absolute file=", async () => {
     const dir = await tempDir();
     const outside = await writeSource(dir, "abs.txt", "PRECIOUS\n");
@@ -275,6 +320,7 @@ describe("extract: refuses unsafe targets", () => {
 
     assert.equal(await readFile(outside, "utf-8"), "PRECIOUS\n");
     assert.deepEqual(result.extractedFiles, []);
+    assert.deepEqual(result.skippedFiles, [ outside ]);
   });
 
   test("refuses to splice through a symlinked target, leaving the link and its target intact", async () => {

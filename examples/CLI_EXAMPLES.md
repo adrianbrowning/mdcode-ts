@@ -324,9 +324,9 @@ contents land in the markdown. Treat markdown from an untrusted source the way y
 script from an untrusted source: review it before running `update` over it, and do not run `update`
 on contributor-supplied markdown in an environment holding secrets.
 
-(`extract`, which *writes*, is confined to `--dir` and refuses paths that escape it. The asymmetry is
-deliberate: reading a path you named is what you asked for, whereas writing outside the output
-directory never is.)
+`extract` trusts `file=` the same way when it *writes*: a relative path is resolved against `--dir`
+and honoured even when it leaves it, so `extract` writes wherever the markdown points. Only absolute
+`file=` paths are refused. Review untrusted markdown before running `extract` over it, too.
 
 ### Update from Source Files (Default Mode)
 

@@ -12,6 +12,11 @@ code and untouched regions survive, and aliased `file=` paths pointing at one fi
 single write. Region markers are written and matched in the block language's own comment syntax, so
 shell, SQL, CSS and block-comment markers splice instead of being duplicated.
 
+A relative `file=` is honoured as written even when it resolves outside `--dir`
+(`file=../../shared-tests/where.ts`). An absolute `file=` is skipped. Generated `block-N.ext` names
+for blocks without `file=` always land inside `--dir`. A skip sets exit status 2 without cutting off
+`--update-source` markdown piped to stdout.
+
 A target is left byte-identical rather than spliced when it is a symlink, is not valid UTF-8, has a
 region it never closes or names inconsistently, declares a region twice, or when the blocks for one
 file mix `region=` with whole-file blocks. Writes go through a temp file and `rename`, preserving the
