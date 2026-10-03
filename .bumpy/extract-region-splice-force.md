@@ -19,8 +19,10 @@ for blocks without `file=` always land inside `--dir`. A skip sets exit status 2
 
 A target is left byte-identical rather than spliced when it is a symlink, is not valid UTF-8, has a
 region it never closes or names inconsistently, declares a region twice, or when the blocks for one
-file mix `region=` with whole-file blocks. Writes go through a temp file and `rename`, preserving the
-target's permission bits, so an interrupted write cannot truncate a source file.
+file mix `region=` with whole-file blocks. Two blocks that declare the same `region=` for one file
+are refused, whether the file exists or not, rather than keeping only one body. Writes go through a
+temp file and `rename`, preserving the target's permission bits, so an interrupted write cannot
+truncate a source file.
 
 Install and import docs now name the published package `mdcode-ts`; they previously pointed at a
 name that resolved to the upstream fork.

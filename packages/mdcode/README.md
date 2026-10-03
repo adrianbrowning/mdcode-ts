@@ -303,8 +303,10 @@ Extract is non-destructive. When the target file already exists:
   name */` in a JS file is spliced rather than duplicated.
 - **Any block for that file has no `region=`** → the file is skipped with a warning, since writing it
   would replace the whole file. Use `--force` to overwrite.
+- **Two blocks for that file declare the same `region=`** → the file is skipped with a warning
+  rather than keeping only one body. This also applies when the file doesn't exist yet.
 
-Files that don't exist yet are always created.
+Otherwise, files that don't exist yet are created.
 
 `file=` paths resolve against `--dir` (default: the current directory):
 

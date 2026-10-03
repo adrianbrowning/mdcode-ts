@@ -425,6 +425,29 @@ describe("extract: refuses unsafe targets", () => {
     assert.equal(await readFile(target, "utf-8"), original, "an unclosed region must never be written");
     assert.deepEqual(result.skippedFiles, [ target ]);
   });
+
+  test("refuses two blocks that declare the same region, for existing and new targets", async () => {
+    const dir = await tempDir();
+    const original = [
+      "// #region alpha",
+      "const alpha = 1;",
+      "// #endregion alpha",
+      "",
+    ].join("\n");
+    const existing = await writeSource(dir, "dup.ts", original);
+    const block = (file: string, body: string): string => [ `\`\`\`typescript file=${file} region=alpha`, body, "```", "" ].join("\n");
+
+    const spliced = await extract({ source: block("dup.ts", "const first = 1;") + block("dup.ts", "const second = 2;"), outputDir: dir, quiet: true });
+
+    assert.equal(await readFile(existing, "utf-8"), original, "a splice would silently keep only one body");
+    assert.deepEqual(spliced.skippedFiles, [ existing ]);
+
+    const created = await extract({ source: block("new.ts", "const first = 1;") + block("new.ts", "const second = 2;"), outputDir: dir, quiet: true });
+
+    assert.deepEqual(created.extractedFiles, []);
+    assert.equal(created.skippedFiles.length, 1);
+    await assert.rejects(readFile(join(dir, "new.ts"), "utf-8"), { code: "ENOENT" });
+  });
 });
 
 describe("extract: write fidelity", () => {

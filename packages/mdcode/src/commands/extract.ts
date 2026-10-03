@@ -164,6 +164,16 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
       continue;
     }
 
+    // Two blocks naming one region cannot both land: a splice would keep only
+    // the last body, and a fresh file would get two markers that every later
+    // splice refuses as duplicated.
+    const regionNames = withRegion.map(item => item.block.meta.region!);
+
+    if (new Set(regionNames).size !== regionNames.length) {
+      skip(display, "two blocks for this file declare the same region=");
+      continue;
+    }
+
     if (existing !== undefined && withRegion.length === items.length) {
       const spliced = await spliceInPlace(display, items, { quiet, skip });
 
