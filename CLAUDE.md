@@ -51,7 +51,7 @@ node --experimental-strip-types packages/mdcode/src/main.ts list README.md
 
 ### Core Parsing Strategy (packages/mdcode/src/parser.ts)
 - **Custom line-by-line state machine** for parsing markdown (no unified/remark)
-- Parses fenced code blocks (3-4 backticks) with metadata from info string
+- Parses CommonMark backtick and tilde fences (3+ characters, any indent) with metadata from info string; `scanFences()` is shared by `parse()` and `updateInfoStrings()` so block indices always agree
 - Extracts: language, metadata (key=value pairs), code content, position offsets
 - Two main functions:
   - `parse()` - Extract blocks as array

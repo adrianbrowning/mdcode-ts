@@ -404,12 +404,11 @@ echo "hello"
 ```
 ````
 **After:**
-``````file=block-29.md
-````markdown
+````markdown file=block-29.md
 ```bash file=block-1.sh
 echo "hello"
+```
 ````
-``````
 
 
 This enables bidirectional sync workflow:
@@ -1095,6 +1094,26 @@ Supported metadata:
 - `outline`: Extract only the structure without implementation details
 - `name`: Custom name for the block (useful with run command)
 - Custom key=value pairs for filtering
+
+### Code Fences
+
+mdcode follows CommonMark's fenced-code-block rules, with one exception for indentation:
+
+- **Opening fence:** three or more backticks (`` ``` ``) or tildes (`~~~`), then the info string. A
+  backtick fence's info string can't contain a backtick, since CommonMark reads that line as inline
+  code. Tilde fences have no such limit.
+- **Indentation:** an opening fence may be indented by any amount, so fences inside nested list items
+  are found. (CommonMark allows at most three spaces outside a list.) Code is taken verbatim; its
+  indentation is not stripped.
+- **Closing fence:** the same character, at least as many of them as the opener, indented at most
+  three spaces more than the opener, and followed only by spaces or tabs. Anything else, such as
+  `` ``` `` inside a `~~~` block or a shorter run, is part of the code. That's how to show a fenced
+  block inside another: use a longer fence, or the other character, on the outside.
+- **Unclosed fence:** yields no block. Everything after it is treated as its content, the way Markdown
+  renderers display it, so mdcode never rewrites that part of the document.
+
+When `extract --update-source` adds `file=` to a block, the opening fence's indentation, character
+and length are kept as written.
 
 ### Region Extraction
 
