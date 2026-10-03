@@ -31,6 +31,18 @@ async function readInput(filePath?: string): Promise<string> {
   return Buffer.concat(chunks).toString("utf-8");
 }
 
+/** Flags accepted by `mdcode extract`, so a renamed flag is a compile error. */
+type ExtractCliOptions = {
+  lang?: string;
+  file?: string;
+  meta?: Record<string, string>;
+  dir: string;
+  quiet?: boolean;
+  updateSource?: boolean;
+  ignoreAnonymous?: boolean;
+  force?: boolean;
+};
+
 /**
  * Parse filter options from command-line flags
  */
@@ -109,11 +121,12 @@ export async function Execute(
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
     .option("-m, --meta <key=value...>", "Filter by custom metadata")
-    .option("-d, --dir <dir>", "Output directory (default: current directory)", ".")
+    .option("-d, --dir <dir>", "Directory that relative file= paths resolve against; they may leave it (e.g. file=../x.ts). Absolute file= paths are refused (default: current directory)", ".")
     .option("-q, --quiet", "Suppress status messages")
     .option("--update-source", "Add file metadata to anonymous code blocks")
     .option("--ignore-anonymous", "Skip blocks without file metadata")
-    .action(async (file, options) => {
+    .option("--force", "Overwrite existing files whose blocks have no region=")
+    .action(async (file: string | undefined, options: ExtractCliOptions) => {
       try {
         // Validation
         if (options.updateSource && options.ignoreAnonymous) {
@@ -132,7 +145,7 @@ export async function Execute(
           quiet: options.quiet,
           updateSource: options.updateSource,
           ignoreAnonymous: options.ignoreAnonymous,
-          sourcePath: file,
+          force: options.force,
         });
 
         // Handle --update-source behavior
@@ -148,6 +161,15 @@ export async function Execute(
             // stdin input - output to stdout
             stdout.write(result.updatedSource);
           }
+        }
+
+        // A refusal to write must be distinguishable from success by CI and by
+        // scripts, so it reports even under --quiet and fails the process.
+        // exitCode rather than process.exit(): exiting would drop whatever of
+        // the --update-source markdown is still buffered for a piped stdout.
+        if (result.skippedFiles.length > 0) {
+          stderr.write(styleText("yellow", `⚠ Skipped ${result.skippedFiles.length} file(s); nothing was written for them\n`));
+          process.exitCode = 2;
         }
       }
       catch (error: unknown) {

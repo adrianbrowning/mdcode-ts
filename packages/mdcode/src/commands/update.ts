@@ -53,7 +53,13 @@ export async function update(options: UpdateOptions): Promise<string> {
           }
           // If a region is specified (and not using outline), extract only that region
           else if (block.meta.region) {
-            fileContent = readRegion(fileContent, block.meta.region, block.lang).content/*.trim()*/;
+            const region = readRegion(fileContent, block.meta.region, block.lang);
+
+            if (!region.found) {
+              throw new Error(`region ${block.meta.region} not found or not closed in ${filePath}`);
+            }
+
+            fileContent = region.content;
           }
 
           currentCode = fileContent;

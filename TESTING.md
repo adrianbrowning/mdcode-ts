@@ -2,52 +2,64 @@
 
 ## Running All Tests
 
-### Full Test Suite (ALWAYS RUN THIS)
 ```bash
-pnpm -w run test:all
+pnpm test
 ```
-This runs tests for all packages in the workspace:
-- Main mdcode package (16 unit tests)
-- Usage package (5 E2E tests)
-Total: **21 tests**
 
-**Note**: `pnpm test` only runs the mdcode unit tests. Use `pnpm -w run test:all` to run everything.
+`pnpm test` is `pnpm -r test`: it already runs **both** packages — `mdcode-ts` unit tests and the
+`usage` integration tests. (`pnpm test:all` also exists, but it just runs the `usage` package a
+second time.)
+
+Test counts are deliberately not recorded here; they rot. Run the suite to see them.
 
 ### Individual Package Tests
-```bash
-# Main mdcode package (unit tests)
-pnpm --filter @gcm/mdcode test
 
-# Usage package (E2E tests)
-pnpm --filter @gcm/mdcode-usage test
-cd packages/usage && pnpm test  # Alternative
+```bash
+# mdcode-ts unit tests
+pnpm --filter mdcode-ts test
+
+# Watch mode
+pnpm --filter mdcode-ts test:watch
+
+# usage integration tests
+pnpm --filter usage test
 ```
 
 ## Test Structure
 
+Two packages, `packages/mdcode` (published as `mdcode-ts`) and `packages/usage`.
+
 ### Test Locations
-- **Root tests**: `/tests/` - Core functionality tests
-  - `parser.test.ts` - Markdown parsing and walking (8 tests)
-  - `transform.test.ts` - Transformer functionality (8 tests)
-- **E2E tests**: `packages/usage/tests/e2e.test.ts` - End-to-end integration (5 tests)
-- **Example package**: `packages/example/` - No tests, just runnable examples
+
+- **Co-located unit tests** — `packages/mdcode/src/**/*.test.ts`
+  - `region.test.ts` — marker matching, region splicing, and its refusal cases
+  - `parser.test.ts` — info-string and fenced-block parsing
+  - `commands/extract.test.ts` — in-place splicing, `--force`, and every refusal path
+  - `commands/update.test.ts` — filling blocks from source regions
+- **Fixture-driven tests** — `packages/mdcode/tests/examples/integration.test.ts`, against the
+  worked examples under `packages/mdcode/tests/examples/`
+- **Integration tests** — `packages/usage/tests/`
+  - `cli-integration.test.ts` spawns the **built** CLI at `packages/mdcode/dist/main.js`
+  - the rest exercise the public library API as an external consumer would
 
 ### Important Notes
-- Import paths from root tests must use `../packages/mdcode/src/...`
-- **ALWAYS test all packages** - run `pnpm test` from workspace root
-- E2E tests validate extract/update workflows with real files
+
+- `packages/usage/tests/cli-integration.test.ts` runs `dist/`, not `src/`. **Run `pnpm build` before
+  it** or you will be testing the previous build.
+- Region fixtures live in `packages/mdcode/tests/testdata/region/` and are compared byte-for-byte, so
+  trailing newlines matter.
+- Tests that assert on warnings use `mock.method(console, "error", …)` with `mock.restoreAll()` in a
+  `finally`, so a failing assertion cannot leak the stub into sibling tests.
 
 ## Before Committing
-1. **`pnpm -w run test:all`** - Ensure ALL 21 tests pass (mdcode + usage packages)
-2. **`pnpm build`** - Ensure build succeeds
-3. **Test examples** - Manually run at least one example:
-   ```bash
-   pnpm --filter @gcm/mdcode-example example:list
-   pnpm --filter @gcm/mdcode-example example:extract
-   ```
+
+1. **`pnpm test`** — all packages pass
+2. **`pnpm build`** — build succeeds, and refreshes `dist/` for the CLI tests
+3. **`pnpm -r lint`** — type check and ESLint are clean
 
 ## Adding New Tests
-- **Parser/core**: Add to `/tests/parser.test.ts`
-- **Transform**: Add to `/tests/transform.test.ts`
-- **E2E workflows**: Add to `packages/usage/tests/e2e.test.ts`
-- **New commands**: Add unit tests to root `/tests/` or create new test file
+
+- **Region/marker behaviour** → `packages/mdcode/src/region.test.ts`
+- **A command's behaviour** → `packages/mdcode/src/commands/<command>.test.ts`
+- **CLI flags, exit codes, stderr** → `packages/usage/tests/cli-integration.test.ts`
+- **Public API as a consumer sees it** → `packages/usage/tests/library-usage.test.ts`
