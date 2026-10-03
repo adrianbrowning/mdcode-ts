@@ -63,156 +63,102 @@ function matchesFilter(block: Block, filter?: FilterOptions): boolean {
   return true;
 }
 
+/** A complete fenced code block, located by offsets into the markdown source. */
+interface FencedBlock {
+  /** Start of the opening fence line. */
+  openStart: number;
+  /** End of the opening fence line, before its line ending. */
+  openEnd: number;
+  /** The opening line's indentation and fence characters, as written. */
+  opener: string;
+  info: string;
+  /** Code runs from after the opening line's ending to the start of the closing fence line. */
+  codeStart: number;
+  codeEnd: number;
+}
+
+const OPENING_FENCE = /^([ \t]*)(`{3,}|~{3,})(.*)$/;
+const CLOSING_FENCE = /^([ \t]*)(`{3,}|~{3,})[ \t]*$/;
+
 /**
- * State machine for parsing code blocks
+ * Find every complete fenced code block, following CommonMark's fence rules
+ * except that an opening fence may have any indentation, since mdcode does not
+ * track list containers and fences nested in list items must still be found.
+ *
+ * - Opening fence: three or more backticks or tildes. A backtick fence's info
+ *   string may not contain a backtick (CommonMark reads that line as inline code).
+ * - Closing fence: the same character, at least as long as the opener, indented
+ *   at most three columns more than the opener, followed only by spaces or tabs.
+ * - An opening fence that is never closed yields no block, and the rest of the
+ *   document is treated as its content, as Markdown renderers show it.
  */
-interface ParserState {
-  inCodeBlock: boolean;
-  fenceChar: string; // '`'
-  fenceLength: number; // 3 or 4
-  fenceIndent: string;
-  blockStart: number; // offset where fence starts
-  codeStart: number; // offset where code content starts
-  currentBlock: Partial<Block>;
-  codeLines: Array<string>;
+function scanFences(source: string): Array<FencedBlock> {
+  const blocks: Array<FencedBlock> = [];
+  // Capturing split alternates line text and line ending: [text, eol, text, ...].
+  const lines = source.split(/(\r?\n)/);
+  let open: (Omit<FencedBlock, "codeEnd"> & { char: string; length: number; indent: number; }) | undefined;
+  let offset = 0;
+
+  for (let i = 0; i < lines.length; i += 2) {
+    const text = lines[i]!;
+    const lineStart = offset;
+
+    offset += text.length + (lines[i + 1]?.length ?? 0);
+
+    if (open === undefined) {
+      const [ , indent = "", fence = "", info = "" ] = OPENING_FENCE.exec(text) ?? [];
+
+      if (fence === "" || (fence.startsWith("`") && info.includes("`"))) {
+        continue;
+      }
+
+      open = {
+        openStart: lineStart,
+        openEnd: lineStart + text.length,
+        opener: indent + fence,
+        info,
+        codeStart: offset,
+        char: fence[0]!,
+        length: fence.length,
+        indent: indent.length,
+      };
+      continue;
+    }
+
+    const [ , indent = "", fence = "" ] = CLOSING_FENCE.exec(text) ?? [];
+
+    if (fence.startsWith(open.char) && fence.length >= open.length && indent.length <= open.indent + 3) {
+      const { openStart, openEnd, opener, info, codeStart } = open;
+
+      blocks.push({ openStart, openEnd, opener, info, codeStart, codeEnd: lineStart });
+      open = undefined;
+    }
+  }
+
+  return blocks;
 }
 
 /**
- * Parse markdown and extract all code blocks using line-by-line state machine
+ * Parse markdown and extract all fenced code blocks
  */
 export function parse(options: ParseOptions): Array<Block> {
   const { source, filter } = options;
   const blocks: Array<Block> = [];
 
-  const state: ParserState = {
-    inCodeBlock: false,
-    fenceChar: "",
-    fenceLength: 0,
-    fenceIndent: "",
-    blockStart: 0,
-    codeStart: 0,
-    currentBlock: {},
-    codeLines: [],
-  };
+  for (const fenced of scanFences(source)) {
+    const { lang, meta } = parseInfoString(fenced.info);
+    // The newline before the closing fence ends the last line; it is not code.
+    const code = source.slice(fenced.codeStart, fenced.codeEnd).replace(/\r?\n$/, "");
+    const block: Block = {
+      lang,
+      meta,
+      code,
+      position: { start: fenced.codeStart, end: fenced.codeEnd },
+    };
 
-  let offset = 0;
-
-  // Split source into lines while preserving line endings
-  const lines = source.split(/(\r?\n)/);
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i] || "";
-
-    // Skip newline-only entries from split
-    if (line === "\n" || line === "\r\n") {
-      offset += line.length;
-      continue;
+    if (matchesFilter(block, filter)) {
+      blocks.push(block);
     }
-
-    if (!state.inCodeBlock) {
-      // Look for opening fence
-      const match = line.match(/^(\s*)(```+)(.*)$/);
-
-      if (match) {
-        const indent = match[1] || "";
-        const fence = match[2] || "";
-        const info = match[3] || "";
-
-        // Only support backtick fences (3 or 4)
-        if (fence[0] === "`" && (fence.length === 3 || fence.length === 4)) {
-          state.inCodeBlock = true;
-          state.fenceChar = "`";
-          state.fenceLength = fence.length;
-          state.fenceIndent = indent;
-          state.blockStart = offset;
-
-          // Parse info string
-          const { lang, meta } = parseInfoString(info);
-          state.currentBlock = { lang, meta };
-          state.codeLines = [];
-
-          // Move past the opening fence line and newline
-          offset += line.length;
-          if (i + 1 < lines.length && (lines[i + 1] === "\n" || lines[i + 1] === "\r\n")) {
-            offset += lines[i + 1]!.length;
-            i++; // Skip the newline
-          }
-          state.codeStart = offset;
-          continue;
-        }
-      }
-    }
-    else {
-      // Look for closing fence
-      const match = line.match(/^(\s*)(```+)\s*$/);
-
-      if (match) {
-        const indent = match[1] || "";
-        const fence = match[2] || "";
-
-        // Check if this is a matching closing fence
-        if (
-          fence[0] === state.fenceChar &&
-          fence.length >= state.fenceLength &&
-          indent.length <= state.fenceIndent.length
-        ) {
-          // Found closing fence - finalize the block
-          let code = state.codeLines.join("");
-
-          // Remove trailing newline to match remark-parse behavior
-          if (code.endsWith("\r\n")) {
-            code = code.slice(0, -2);
-          }
-          else if (code.endsWith("\n") || code.endsWith("\r")) {
-            code = code.slice(0, -1);
-          }
-
-          const codeEnd = offset;
-
-          const block: Block = {
-            lang: state.currentBlock.lang || "",
-            meta: state.currentBlock.meta || {},
-            code,
-            position: {
-              start: state.codeStart,
-              end: codeEnd,
-            },
-          };
-
-          // Apply filter and add if matches
-          if (matchesFilter(block, filter)) {
-            blocks.push(block);
-          }
-
-          // Reset state
-          state.inCodeBlock = false;
-          state.fenceChar = "";
-          state.fenceLength = 0;
-          state.fenceIndent = "";
-          state.currentBlock = {};
-          state.codeLines = [];
-
-          offset += line.length;
-          if (i + 1 < lines.length && (lines[i + 1] === "\n" || lines[i + 1] === "\r\n")) {
-            offset += lines[i + 1]!.length;
-            i++; // Skip the newline
-          }
-          continue;
-        }
-      }
-
-      // Inside code block - collect the line
-      state.codeLines.push(line);
-      offset += line.length;
-      if (i + 1 < lines.length && (lines[i + 1] === "\n" || lines[i + 1] === "\r\n")) {
-        state.codeLines.push(lines[i + 1]!);
-        offset += lines[i + 1]!.length;
-        i++; // Skip the newline
-      }
-      continue;
-    }
-
-    offset += line.length;
   }
 
   return blocks;
@@ -232,87 +178,23 @@ export function updateInfoStrings(
     return source;
   }
 
-  // Track fence positions as we scan through the source
-  const lines = source.split(/(\r?\n)/);
-  let offset = 0;
-  let blockIndex = 0;
+  const fences = scanFences(source);
+  let result = source;
 
-  // Build list of replacements: { start, end, newLine }
-  type Replacement = { start: number; end: number; newLine: string; };
-  const replacements: Array<Replacement> = [];
-  let inCodeBlock = false;
+  // Back to front, so each edit leaves the offsets of earlier fences valid.
+  for (let index = fences.length - 1; index >= 0; index--) {
+    const update = updates.get(index);
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i] || "";
-
-    // Skip newline-only entries
-    if (line === "\n" || line === "\r\n") {
-      offset += line.length;
+    if (!update) {
       continue;
     }
 
-    if (!inCodeBlock) {
-      // Look for opening fence
-      const match = line.match(/^(\s*)(```+)(.*)$/);
+    const { openStart, openEnd, opener, info } = fences[index]!;
+    const { lang, meta } = parseInfoString(info);
+    const metaParts = Object.entries({ ...meta, ...update }).map(([ k, v ]) => `${k}=${v}`);
+    const newInfo = [ lang, ...metaParts ].filter(Boolean).join(" ");
 
-      if (match) {
-        const indent = match[1] || "";
-        const fence = match[2] || "";
-        const info = match[3] || "";
-
-        // Only backtick fences (3 or 4)
-        if (fence[0] === "`" && (fence.length === 3 || fence.length === 4)) {
-          inCodeBlock = true;
-
-          // Check if this block needs updating
-          const update = updates.get(blockIndex);
-
-          if (update) {
-            // Parse existing info string
-            const { lang, meta } = parseInfoString(info);
-
-            // Merge updates
-            const newMeta = { ...meta, ...update };
-
-            // Build new info string
-            const metaParts = Object.entries(newMeta).map(([ k, v ]) => `${k}=${v}`);
-            const newInfo = [ lang, ...metaParts ].filter(Boolean).join(" ");
-
-            // Record replacement
-            const lineStart = offset;
-            const lineEnd = offset + line.length;
-            const newLine = `${indent}${fence}${newInfo}`;
-
-            replacements.push({ start: lineStart, end: lineEnd, newLine });
-          }
-
-          blockIndex++;
-        }
-      }
-    }
-    else {
-      // Look for closing fence
-      const match = line.match(/^(\s*)(```+)\s*$/);
-
-      if (match) {
-        inCodeBlock = false;
-      }
-    }
-
-    offset += line.length;
-    // Account for newline after this line
-    if (i + 1 < lines.length && (lines[i + 1] === "\n" || lines[i + 1] === "\r\n")) {
-      offset += lines[i + 1]!.length;
-      i++; // Skip the newline
-    }
-  }
-
-  // Apply replacements in reverse order to maintain correct offsets
-  replacements.sort((a, b) => b.start - a.start);
-  let result = source;
-
-  for (const { start, end, newLine } of replacements) {
-    result = result.substring(0, start) + newLine + result.substring(end);
+    result = result.slice(0, openStart) + opener + newInfo + result.slice(openEnd);
   }
 
   return result;

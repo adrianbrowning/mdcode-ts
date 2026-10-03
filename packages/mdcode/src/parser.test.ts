@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 
-import { parse, walk } from "./parser.ts";
+import { parse, updateInfoStrings, walk } from "./parser.ts";
 
 // Helper to load test fixtures
 async function loadFixture(filename: string): Promise<string> {
@@ -118,6 +118,76 @@ describe("parse", () => {
 
     assert.equal(blocks.length, 1);
     assert.equal(blocks[0]?.meta.region, "main");
+  });
+});
+
+describe("fenced code blocks", () => {
+  const blocksOf = (source: string): Array<[ string, string ]> => parse({ source }).map(block => [ block.lang, block.code ]);
+
+  it("parses backtick and tilde fences of any length from three up", () => {
+    for (const char of [ "`", "~" ]) {
+      for (const length of [ 3, 4, 5, 8 ]) {
+        const fence = char.repeat(length);
+
+        assert.deepEqual(blocksOf(`${fence}js\ncode\n${fence}\n`), [[ "js", "code" ]], `${fence} fence`);
+      }
+    }
+  });
+
+  it("closes only on the same character, at least as long as the opener", () => {
+    const source = [ "````md", "```", "~~~~", "~~~```", "````" ].join("\n");
+
+    assert.deepEqual(blocksOf(source), [[ "md", "```\n~~~~\n~~~```" ]]);
+    assert.deepEqual(blocksOf("~~~\n~~~```\n~~~\n"), [[ "", "~~~```" ]], "a mixed run is content");
+  });
+
+  it("closes on up to three extra columns of indent and trailing whitespace only", () => {
+    assert.deepEqual(blocksOf("```js\na\n   ``` \t\n"), [[ "js", "a" ]]);
+    assert.deepEqual(blocksOf("```js\n    ```\n``` x\nb\n```\n"), [[ "js", "    ```\n``` x\nb" ]]);
+  });
+
+  it("finds fences nested in list items and keeps their code verbatim", () => {
+    const source = [ "1. step", "    - sub", "      ```sh", "      echo hi", "      ```", "" ].join("\n");
+
+    assert.deepEqual(blocksOf(source), [[ "sh", "      echo hi" ]]);
+  });
+
+  it("rejects a backtick info string containing a backtick, but not a tilde one", () => {
+    assert.deepEqual(blocksOf("``` js `x`\ncode\n```\n"), [], "the opener is inline code; the later ``` never closes");
+    assert.deepEqual(blocksOf("~~~ js `x`\ncode\n~~~\n"), [[ "js", "code" ]]);
+    // commonmark.js 0.31 renders this the same way: the bare ``` after the
+    // inline-code line opens a fence, and the ```sh block below is its content.
+    assert.deepEqual(blocksOf("``` js `x`\ncode\n```\n\n```sh\nls\n```\n"), [[ "", "\n```sh\nls" ]]);
+  });
+
+  it("yields no block for an unclosed fence and leaves the markdown around it alone", async () => {
+    const source = "```a\n1\n```\n\n````b\n2\n```\n\ntail\n";
+
+    assert.deepEqual(blocksOf(source), [[ "a", "1" ]]);
+
+    const result = await walk({ source, walker: block => ({ ...block, code: "X" }) });
+
+    assert.equal(result.source, "```a\nX\n```\n\n````b\n2\n```\n\ntail\n");
+  });
+
+  it("keeps CRLF line endings out of the code", () => {
+    assert.deepEqual(blocksOf("~~~sh\r\nls\r\n~~~\r\n"), [[ "sh", "ls" ]]);
+  });
+});
+
+describe("updateInfoStrings", () => {
+  it("keeps each opener's indentation, character, and length", () => {
+    const source = "  ~~~~~sh\nls\n  ~~~~~\n";
+
+    assert.equal(updateInfoStrings(source, new Map([[ 0, { file: "a.sh" }]])), "  ~~~~~sh file=a.sh\nls\n  ~~~~~\n");
+  });
+
+  it("numbers blocks exactly as parse does when one fence contains another", () => {
+    const source = "````markdown\n```bash\necho hi\n```\n````\n\n```sh\nls\n```\n";
+    const updated = updateInfoStrings(source, new Map([[ 1, { file: "block-2.sh" }]]));
+
+    assert.equal(updated, "````markdown\n```bash\necho hi\n```\n````\n\n```sh file=block-2.sh\nls\n```\n");
+    assert.deepEqual(parse({ source: updated }).map(block => block.meta), [{}, { file: "block-2.sh" }]);
   });
 });
 
