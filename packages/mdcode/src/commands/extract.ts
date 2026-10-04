@@ -5,45 +5,66 @@ import { styleText } from "node:util";
 import { parse, updateInfoStrings } from "../parser.ts";
 import type { RegionEdit } from "../region.ts";
 import { isValidRegionName, spliceRegions, wrapRegion } from "../region.ts";
-import type { FilterOptions } from "../types.ts";
+import type { BlockRef, ResultError } from "../result.ts";
+import { blockRef } from "../result.ts";
+import type { Block, FilterOptions } from "../types.ts";
 
 export type ExtractOptions = {
   source: string;
   filter?: FilterOptions;
   outputDir?: string;
-  quiet?: boolean;
   updateSource?: boolean;
   ignoreAnonymous?: boolean;
   force?: boolean;
 };
 
-export type ExtractResult = {
-  extractedFiles: Array<string>;
-  /** Targets deliberately left untouched; each one also produced a warning. */
-  skippedFiles: Array<string>;
-  updatedSource?: string;
+/** What extract did with one target file. */
+export type ExtractTarget = {
+  /** The file= path joined onto outputDir, or the file= path itself when it was refused as absolute. */
+  path: string;
+  /**
+   * `written`: created or overwritten whole. `spliced`: regions replaced or appended
+   * in an existing file. `skipped`: left untouched; `reason` says why.
+   */
+  action: "written" | "spliced" | "skipped";
+  /** The blocks that target this file, in document order. */
+  blocks: Array<BlockRef>;
+  /** The region= names written, when the blocks are region blocks. */
+  regions: Array<string>;
+  reason?: string;
 };
 
-type BlockRef = {
-  block: { meta: Record<string, string>; lang: string; code: string; };
+export type ExtractResult = {
+  /** One entry per target file, in the order they were processed. */
+  targets: Array<ExtractTarget>;
+  /** The markdown with file= added to anonymous blocks; only with updateSource, and only when something was added. */
+  updatedSource?: string;
+  /** One extract_skipped error per skipped target. */
+  errors: Array<ResultError>;
+};
+
+type Item = {
+  block: Block;
   index: number;
+  /** The block-N name extract made up, when the block has no file=. */
+  generated?: string;
 };
 
 type TargetGroup = {
   /** Path as written in the markdown, for messages. */
   display: string;
-  items: Array<BlockRef>;
+  items: Array<Item>;
 };
 
 /**
  * Extract code blocks to files based on their metadata
+ * @throws {MetadataError} when the document's metadata is invalid
  */
 export async function extract(options: ExtractOptions): Promise<ExtractResult> {
   const {
     source,
     filter,
     outputDir = ".",
-    quiet = false,
     updateSource = false,
     ignoreAnonymous = false,
     force = false,
@@ -63,31 +84,29 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
   // Filter anonymous blocks if requested
   if (ignoreAnonymous) {
     blocks = blocks.filter(b => b.meta.file);
-    if (blocks.length === 0) {
-      if (!quiet) {
-        console.error(styleText("yellow", "No code blocks with file metadata found."));
-      }
-      return { extractedFiles: [], skippedFiles: [] };
-    }
   }
 
-  if (blocks.length === 0) {
-    if (!quiet) {
-      console.error(styleText("yellow", "No code blocks found to extract."));
-    }
-    return { extractedFiles: [], skippedFiles: [] };
-  }
-
-  // Track generated filenames for anonymous blocks (for --update-source)
+  // Generated filenames for anonymous blocks whose file was written (for --update-source)
   const metadataUpdates = new Map<number, Record<string, string>>();
 
-  const extractedFiles: Array<string> = [];
-  const skippedFiles: Array<string> = [];
+  const targets: Array<ExtractTarget> = [];
+  const errors: Array<ResultError> = [];
 
-  const skip = (path: string, reason: string): void => {
-    skippedFiles.push(path);
-    if (!quiet) {
-      console.error(styleText("yellow", `⚠ Skipped ${path}: ${reason}`));
+  const record = (path: string, action: ExtractTarget["action"], items: Array<Item>, reason?: string): void => {
+    const regions = items.flatMap(({ block }) => block.meta.region === undefined ? [] : [ block.meta.region ]);
+    targets.push({ path, action, blocks: items.map(({ block }) => blockRef(block)), regions, ...(reason === undefined ? {} : { reason }) });
+
+    if (reason !== undefined) {
+      errors.push({ code: "extract_skipped", message: reason, path });
+      return;
+    }
+
+    // A skipped block keeps its info string: a file= naming a file extract did
+    // not write would make a later update read someone else's file into it.
+    for (const { index, generated } of items) {
+      if (updateSource && generated !== undefined && index >= 0) {
+        metadataUpdates.set(index, { file: generated });
+      }
     }
   };
 
@@ -106,43 +125,38 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     }
 
     let declared = block.meta.file;
+    let generated: string | undefined;
 
     if (declared === undefined) {
       // A generated name has no directory part, so joined onto outputDir it
       // always lands inside it.
-      const generated = `block-${index + 1}${getExtensionForLang(block.lang)}`;
+      generated = `block-${index + 1}${getExtensionForLang(block.lang)}`;
       declared = generated;
-
-      if (updateSource && index >= 0) {
-        metadataUpdates.set(index, { file: generated });
-      }
     }
     else if (isAbsolute(declared)) {
       // An explicit relative file= is honoured as written, even when it leaves
       // outputDir (`../../shared-tests/a.ts`). An absolute path would ignore
       // outputDir entirely, so it is refused.
-      skip(declared, "file= must be a relative path");
+      record(declared, "skipped", [{ block, index }], "file= must be a relative path");
       continue;
     }
 
     const display = join(outputDir, declared);
 
     if (block.meta.region !== undefined && !isValidRegionName(block.meta.region)) {
-      skip(display, `invalid region name ${JSON.stringify(block.meta.region)}`);
+      record(display, "skipped", [{ block, index, generated }], `invalid region name ${JSON.stringify(block.meta.region)}`);
       continue;
     }
-
-    await mkdir(dirname(display), { recursive: true });
 
     const key = await resolveTarget(display);
 
     const group = groups.get(key);
 
     if (group) {
-      group.items.push({ block, index });
+      group.items.push({ block, index, generated });
     }
     else {
-      groups.set(key, { display, items: [{ block, index }] });
+      groups.set(key, { display, items: [{ block, index, generated }] });
     }
   }
 
@@ -153,14 +167,14 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     // A group mixing whole-file and region blocks has no coherent result: the
     // whole-file block would erase the very region the other block splices.
     if (withRegion.length > 0 && withRegion.length !== items.length) {
-      skip(display, "blocks for this file mix region= with whole-file blocks");
+      record(display, "skipped", items, "blocks for this file mix region= with whole-file blocks");
       continue;
     }
 
     // Several blocks each claiming to be the whole file only agree if they are
     // byte-identical; otherwise picking one would silently discard the others.
     if (withRegion.length === 0 && new Set(items.map(item => item.block.code)).size > 1) {
-      skip(display, `${items.length} whole-file blocks disagree about its contents`);
+      record(display, "skipped", items, `${items.length} whole-file blocks disagree about its contents`);
       continue;
     }
 
@@ -170,21 +184,19 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     const regionNames = withRegion.map(item => item.block.meta.region!);
 
     if (new Set(regionNames).size !== regionNames.length) {
-      skip(display, "two blocks for this file declare the same region=");
+      record(display, "skipped", items, "two blocks for this file declare the same region=");
       continue;
     }
 
     if (existing !== undefined && withRegion.length === items.length) {
-      const spliced = await spliceInPlace(display, items, { quiet, skip });
+      const refusal = await spliceInPlace(display, items);
 
-      if (spliced) {
-        extractedFiles.push(display);
-      }
+      record(display, refusal === undefined ? "spliced" : "skipped", items, refusal);
       continue;
     }
 
     if (existing !== undefined && !force) {
-      skip(display, "exists and has block(s) without region=. Use --force to overwrite.");
+      record(display, "skipped", items, "exists and has block(s) without region=. Use --force to overwrite.");
       continue;
     }
 
@@ -192,43 +204,50 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
       ? items.map(({ block }) => wrapRegion(block.lang, block.meta.region!, block.code)).join("\n")
       : items[0]!.block.code;
 
+    await mkdir(dirname(display), { recursive: true });
     await writeAtomic(display, content, existing?.mode);
-
-    if (!quiet) {
-      const what = withRegion.length === items.length && items.length > 1
-        ? `${items.length} region(s) to`
-        : "to";
-      console.error(styleText("green", `✓ Extracted ${what} ${display}`));
-    }
-    extractedFiles.push(display);
+    record(display, "written", items);
   }
 
-  // Update source if requested
-  let updatedSourceContent: string | undefined;
+  const result: ExtractResult = { targets, errors };
+
   if (updateSource && metadataUpdates.size > 0) {
-    updatedSourceContent = updateInfoStrings(source, metadataUpdates);
+    result.updatedSource = updateInfoStrings(source, metadataUpdates);
   }
 
-  return { extractedFiles, skippedFiles, updatedSource: updatedSourceContent };
+  return result;
+}
+
+/** Human-readable progress lines for an extract result, as the CLI prints them on stderr. */
+export function formatExtract({ targets }: Pick<ExtractResult, "targets">, options: { ignoreAnonymous?: boolean; }): Array<string> {
+  if (targets.length === 0) {
+    return [ styleText("yellow", options.ignoreAnonymous ? "No code blocks with file metadata found." : "No code blocks found to extract.") ];
+  }
+
+  return targets.map(({ path, action, blocks, regions, reason }) => {
+    if (action === "skipped") {
+      return styleText("yellow", `⚠ Skipped ${path}: ${reason}`);
+    }
+
+    if (action === "spliced") {
+      return styleText("green", `✓ Updated ${blocks.length} region(s) in ${path}`);
+    }
+
+    const what = regions.length > 1 ? `${regions.length} region(s) to` : "to";
+    return styleText("green", `✓ Extracted ${what} ${path}`);
+  });
 }
 
 /**
  * Splice every region block for one existing file in a single pass, appending
- * any region the file does not already declare. Returns false when the file was
- * left untouched.
+ * any region the file does not already declare. Returns why the file was left
+ * untouched, or undefined when it was written.
  */
-async function spliceInPlace(
-  target: string,
-  items: Array<BlockRef>,
-  reporters: { quiet: boolean; skip: (path: string, reason: string) => void; }
-): Promise<boolean> {
-  const { quiet, skip } = reporters;
-
+async function spliceInPlace(target: string, items: Array<Item>): Promise<string | undefined> {
   // rename() would replace a symlink with a regular file rather than write
   // through it; refuse outright so the link's meaning is never silently changed.
   if ((await lstat(target)).isSymbolicLink()) {
-    skip(target, "target is a symlink; refusing to splice through it");
-    return false;
+    return "target is a symlink; refusing to splice through it";
   }
 
   const raw = await readFile(target);
@@ -240,8 +259,7 @@ async function spliceInPlace(
     existing = new TextDecoder("utf-8", { fatal: true }).decode(raw);
   }
   catch {
-    skip(target, "not valid UTF-8");
-    return false;
+    return "not valid UTF-8";
   }
 
   const edits = new Map<string, RegionEdit>(
@@ -250,8 +268,7 @@ async function spliceInPlace(
   const result = spliceRegions(existing, edits);
 
   if (!result.ok) {
-    skip(target, spliceRefusal(result));
-    return false;
+    return spliceRefusal(result);
   }
 
   let content = result.content;
@@ -265,12 +282,7 @@ async function spliceInPlace(
   }
 
   await writeAtomic(target, content, (await stat(target)).mode);
-
-  if (!quiet) {
-    console.error(styleText("green", `✓ Updated ${items.length} region(s) in ${target}`));
-  }
-
-  return true;
+  return undefined;
 }
 
 /** Explain, in one clause, why a splice was refused. */
@@ -319,14 +331,28 @@ function rethrowUnlessMissing(error: unknown): undefined {
 }
 
 /**
- * Canonical identity for a target: the realpath of its parent (which exists by
- * now) plus its own name, so aliased spellings collapse to one key without
- * requiring the file itself to exist.
+ * Canonical identity for a target: the realpath of its nearest existing
+ * ancestor plus the rest of the path, so aliased spellings collapse to one key
+ * without the file, or directories still to be created, having to exist.
  */
 async function resolveTarget(path: string): Promise<string> {
-  const parent = await realpath(dirname(path)).catch(() => resolve(dirname(path)));
+  const absolute = resolve(path);
+  let existing = dirname(absolute);
 
-  return join(parent, basename(path));
+  for (;;) {
+    try {
+      return join(await realpath(existing), absolute.slice(existing.length));
+    }
+    catch (error: unknown) {
+      rethrowUnlessMissing(error);
+
+      const parent = dirname(existing);
+      if (parent === existing) {
+        return absolute;
+      }
+      existing = parent;
+    }
+  }
 }
 
 /**

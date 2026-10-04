@@ -25,7 +25,7 @@ select * from users;
       return code;
     });
 
-    const result = await update({ source: markdown, transformer });
+    const { source: result } = await update({ source: markdown, transformer });
 
     assert.ok(result.includes("SELECT * FROM USERS;"));
     assert.ok(result.includes("const x = 1;"));
@@ -65,7 +65,7 @@ const x = 1;
       return code.toUpperCase();
     });
 
-    const result = await update({ source: markdown, transformer });
+    const { source: result } = await update({ source: markdown, transformer });
 
     assert.ok(result.includes("CONST X = 1;"));
   });
@@ -105,7 +105,7 @@ y = 2
 
     const transformer = defineTransform(({ code }) => code.toUpperCase());
 
-    const result = await update({ source: markdown, transformer, filter: { lang: "js" } });
+    const { source: result } = await update({ source: markdown, transformer, filter: { lang: "js" } });
 
     // Only JS should be transformed
     assert.ok(result.includes("CONST X = 1;"));
@@ -130,7 +130,7 @@ const app = {};
       return code;
     });
 
-    const result = await update({ source: markdown, transformer });
+    const { source: result } = await update({ source: markdown, transformer });
 
     assert.ok(result.includes("// AUTO-GENERATED TEST"));
     assert.ok(result.includes("test('something'"));
@@ -158,7 +158,7 @@ const prod = true;
       return code;
     });
 
-    const result = await update({ source: markdown, transformer });
+    const { source: result } = await update({ source: markdown, transformer });
 
     assert.ok(result.includes("/* EXAMPLE */"));
     assert.ok(result.includes("const example = true"));
@@ -191,7 +191,7 @@ SELECT * FROM users;
       return code;
     });
 
-    const result = await update({ source: markdown, transformer });
+    const { source: result } = await update({ source: markdown, transformer });
 
     // SQL should be uppercase
     assert.ok(result.includes("SELECT * FROM USERS;"));

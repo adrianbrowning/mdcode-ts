@@ -3,7 +3,7 @@ import * as assert from "node:assert";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { after, describe, it, mock } from "node:test";
+import { after, describe, it } from "node:test";
 
 import { update } from "./update.ts";
 
@@ -20,25 +20,6 @@ async function writeSource(dir: string, relative: string, content: string): Prom
   await mkdir(dirname(target), { recursive: true });
   await writeFile(target, content, "utf-8");
   return target;
-}
-
-/**
- * Capture console.error for the duration of one test; update.ts reports region
- * failures there. `mock.restoreAll()` in a `finally` keeps the stub from leaking
- * into sibling tests even when an assertion throws.
- */
-async function captureStderr(run: () => Promise<string>): Promise<{ result: string; stderr: string; }> {
-  const lines: Array<string> = [];
-  mock.method(console, "error", (...args: Array<unknown>) => {
-    lines.push(args.map(String).join(" "));
-  });
-
-  try {
-    return { result: await run(), stderr: lines.join("\n") };
-  }
-  finally {
-    mock.restoreAll();
-  }
 }
 
 after(async () => {
@@ -62,11 +43,12 @@ describe("update from file regions", () => {
       "",
     ].join("\n");
 
-    const { result, stderr } = await captureStderr(async () => update({ source, basePath: dir, quiet: true }));
+    const result = await update({ source, basePath: dir });
 
-    assert.equal(result, source, "an unterminated region must not rewrite the markdown block");
-    assert.match(stderr, /Failed to read a\.js/);
-    assert.match(stderr, /alpha/);
+    assert.equal(result.source, source, "an unterminated region must not rewrite the markdown block");
+    assert.deepStrictEqual(result.blocks.map(block => block.changed), [ false ]);
+    assert.deepStrictEqual(result.errors.map(({ code, line, path }) => ({ code, line, path })), [{ code: "read_failed", line: 1, path: "a.js" }]);
+    assert.match(result.errors[0]!.message, /alpha/);
   });
 
   it("leaves the block unchanged and reports when the region is absent", async () => {
@@ -80,10 +62,10 @@ describe("update from file regions", () => {
       "",
     ].join("\n");
 
-    const { result, stderr } = await captureStderr(async () => update({ source, basePath: dir, quiet: true }));
+    const result = await update({ source, basePath: dir });
 
-    assert.equal(result, source, "a missing region must not empty the markdown block");
-    assert.match(stderr, /Failed to read a\.js/);
+    assert.equal(result.source, source, "a missing region must not empty the markdown block");
+    assert.deepStrictEqual(result.errors.map(error => error.code), [ "read_failed" ]);
   });
 
   it("still fills the block from a well-formed region", async () => {
@@ -103,9 +85,11 @@ describe("update from file regions", () => {
       "",
     ].join("\n");
 
-    const result = await update({ source, basePath: dir, quiet: true });
+    const result = await update({ source, basePath: dir });
 
-    assert.match(result, /const inside = 2;/);
-    assert.ok(!result.includes("ORIGINAL"));
+    assert.match(result.source, /const inside = 2;/);
+    assert.ok(!result.source.includes("ORIGINAL"));
+    assert.deepStrictEqual(result.blocks, [{ name: null, line: 1, lang: "js", changed: true, read: { file: "a.js", region: "alpha" }, transformed: false }]);
+    assert.deepStrictEqual(result.errors, []);
   });
 });

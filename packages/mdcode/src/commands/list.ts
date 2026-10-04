@@ -2,30 +2,45 @@ import { styleText } from "node:util";
 
 import { formatMetaValue } from "../metadata.ts";
 import { parse } from "../parser.ts";
-import type { Block, FilterOptions } from "../types.ts";
+import type { BlockRef } from "../result.ts";
+import { blockRef } from "../result.ts";
+import type { FilterOptions } from "../types.ts";
 
 export interface ListOptions {
   source: string;
   filter?: FilterOptions;
-  json?: boolean;
+}
+
+export interface ListedBlock extends BlockRef {
+  /** 1-based line of the closing fence. */
+  endLine: number;
+  lang: string;
+  meta: Record<string, string>;
+  code: string;
+}
+
+export interface ListResult {
+  blocks: Array<ListedBlock>;
 }
 
 /**
- * List all code blocks with their metadata
+ * List code blocks with their metadata, code, and location
+ * @throws {MetadataError} when the document's metadata is invalid
  */
-export function list(options: ListOptions): string {
-  const { source, filter, json } = options;
-  const blocks = parse({ source, filter });
+export function list(options: ListOptions): ListResult {
+  const blocks = parse(options).map(block => ({
+    ...blockRef(block),
+    endLine: block.position?.endLine ?? 0,
+    lang: block.lang,
+    meta: block.meta,
+    code: block.code,
+  }));
 
-  if (json) {
-    // JSON output: one object per line, with metadata spread at top level.
-    // `name` comes right after `lang` because it is the block's identity.
-    return blocks
-      .map(block => JSON.stringify({ lang: block.lang, ...(block.name === undefined ? {} : { name: block.name }), ...block.meta }))
-      .join("\n");
-  }
+  return { blocks };
+}
 
-  // Default text output
+/** Human-readable listing, as `mdcode list` prints it without --json. */
+export function formatList({ blocks }: ListResult): string {
   if (blocks.length === 0) {
     return styleText("yellow", "No code blocks found.");
   }
@@ -36,9 +51,8 @@ export function list(options: ListOptions): string {
 
   blocks.forEach((block, index) => {
     const lang = block.lang || "(no language)";
-    output.push(styleText("bold", `[${index + 1}] ${block.name === undefined ? lang : `${block.name} (${lang})`}`));
+    output.push(styleText("bold", `[${index + 1}] ${block.name === null ? lang : `${block.name} (${lang})`}`));
 
-    // Display metadata
     if (Object.keys(block.meta).length > 0) {
       const metaStr = Object.entries(block.meta)
         .map(([ key, value ]) => `${styleText("green", key)}=${formatMetaValue(value)}`)
@@ -46,44 +60,19 @@ export function list(options: ListOptions): string {
       output.push(`  Metadata: ${metaStr}`);
     }
 
-    // Display code preview (first 3 lines)
+    // Code preview: the first 3 lines
     const lines = block.code.split("\n");
     const preview = lines.slice(0, 3).join("\n");
-    const hasMore = lines.length > 3;
 
     output.push(styleText("gray", "  Preview:"));
     output.push(styleText("gray", "  " + preview.split("\n").join("\n  ")));
 
-    if (hasMore) {
+    if (lines.length > 3) {
       output.push(styleText("gray", `  ... (${lines.length - 3} more lines)`));
     }
 
-    output.push(""); // Empty line between blocks
+    output.push("");
   });
-
-  return output.join("\n");
-}
-
-/**
- * Format a single block for display
- */
-export function formatBlock(block: Block): string {
-  const output: Array<string> = [];
-
-  // Header
-  output.push(styleText([ "bold", "cyan" ], `Language: ${block.lang || "(none)"}`));
-
-  // Metadata
-  if (Object.keys(block.meta).length > 0) {
-    output.push(styleText("bold", "Metadata:"));
-    for (const [ key, value ] of Object.entries(block.meta)) {
-      output.push(`  ${styleText("green", key)}: ${value}`);
-    }
-  }
-
-  // Code
-  output.push(styleText("bold", "Code:"));
-  output.push(styleText("gray", block.code));
 
   return output.join("\n");
 }
