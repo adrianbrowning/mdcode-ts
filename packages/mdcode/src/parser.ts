@@ -55,6 +55,8 @@ interface FencedBlock {
   /** Code runs from after the opening line's ending to the start of the closing fence line. */
   codeStart: number;
   codeEnd: number;
+  /** 1-based line number of the closing fence. */
+  endLine: number;
 }
 
 const OPENING_FENCE = /^([ \t]*)(`{3,}|~{3,})(.*)$/;
@@ -76,7 +78,7 @@ function scanFences(source: string): Array<FencedBlock> {
   const blocks: Array<FencedBlock> = [];
   // Capturing split alternates line text and line ending: [text, eol, text, ...].
   const lines = source.split(/(\r?\n)/);
-  let open: (Omit<FencedBlock, "codeEnd"> & { char: string; length: number; indent: number; }) | undefined;
+  let open: (Omit<FencedBlock, "codeEnd" | "endLine"> & { char: string; length: number; indent: number; }) | undefined;
   let offset = 0;
 
   for (let i = 0; i < lines.length; i += 2) {
@@ -111,7 +113,7 @@ function scanFences(source: string): Array<FencedBlock> {
     if (fence.startsWith(open.char) && fence.length >= open.length && indent.length <= open.indent + 3) {
       const { line, openStart, openEnd, opener, info, codeStart } = open;
 
-      blocks.push({ line, openStart, openEnd, opener, info, codeStart, codeEnd: lineStart });
+      blocks.push({ line, openStart, openEnd, opener, info, codeStart, codeEnd: lineStart, endLine: i / 2 + 1 });
       open = undefined;
     }
   }
@@ -186,7 +188,7 @@ export function parse(options: ParseOptions): Array<Block> {
       ...(meta.name === undefined ? {} : { name: meta.name }),
       meta,
       code,
-      position: { start: fenced.codeStart, end: fenced.codeEnd },
+      position: { start: fenced.codeStart, end: fenced.codeEnd, line: fenced.line, endLine: fenced.endLine },
     };
 
     if (matchesFilter(block, filter)) {

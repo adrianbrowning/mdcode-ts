@@ -68,8 +68,8 @@ export async function runExtract(
   outputDir: string
 ): Promise<Array<string>> {
   const source = await readFile(mdFile, "utf-8");
-  const { extractedFiles } = await extract({ source, outputDir });
-  return extractedFiles;
+  const { targets } = await extract({ source, outputDir });
+  return targets.filter(target => target.action !== "skipped").map(target => target.path);
 }
 
 /**
@@ -79,7 +79,7 @@ export async function runUpdate(mdFile: string, basePath?: string): Promise<stri
   const source = await readFile(mdFile, "utf-8");
   // If no basePath provided, use the directory of the markdown file
   const resolvedBasePath = basePath || dirname(mdFile);
-  return update({ source, basePath: resolvedBasePath });
+  return (await update({ source, basePath: resolvedBasePath })).source;
 }
 
 /**
@@ -163,8 +163,4 @@ export async function execCli(
       child.stdin.end();
     }
   });
-}
-
-export function stripAnsi(text: string) {
-  return text.replace(/\x1b\[[0-9;]*m/g, ""); // eslint-disable-line no-control-regex
 }

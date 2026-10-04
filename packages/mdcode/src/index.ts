@@ -10,12 +10,20 @@ export type { MetadataProblem } from "./metadata.ts";
 export { MetadataError } from "./metadata.ts";
 export * from "./cli.ts";
 
+// The JSON contract printed by --json
+export type { BlockRef, CommandName, Envelope, ErrorCode, ResultError } from "./result.ts";
+export { CONTRACT_VERSION } from "./result.ts";
+
 // Export commands for programmatic use
-export type { ExtractOptions, ExtractResult } from "./commands/extract.ts";
+export type { ExtractOptions, ExtractResult, ExtractTarget } from "./commands/extract.ts";
 export { extract } from "./commands/extract.ts";
+export type { UpdatedBlock, UpdateOptions, UpdateResult } from "./commands/update.ts";
 export { update } from "./commands/update.ts";
+export type { ListedBlock, ListOptions, ListResult } from "./commands/list.ts";
 export { list } from "./commands/list.ts";
+export type { RunBlockResult, RunOptions, RunResult } from "./commands/run.ts";
 export { run } from "./commands/run.ts";
+export type { DumpedFile, DumpOptions, DumpResult } from "./commands/dump.ts";
 export { dump } from "./commands/dump.ts";
 export { transform, transformWithFunction } from "./commands/transform.ts";
 
@@ -43,7 +51,7 @@ async function mdcode(
   filter?: FilterOptions
 ): Promise<string> {
   const source = await readFile(filePath, "utf-8");
-  return update({ source, transformer, filter });
+  return (await update({ source, transformer, filter })).source;
 }
 
 export default mdcode;

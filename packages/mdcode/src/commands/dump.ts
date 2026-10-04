@@ -3,81 +3,75 @@ import { styleText } from "node:util";
 import { pack } from "tar-stream";
 
 import { parse } from "../parser.ts";
+import type { BlockRef } from "../result.ts";
+import { blockRef } from "../result.ts";
 import type { FilterOptions } from "../types.ts";
 
 export interface DumpOptions {
   source: string;
   filter?: FilterOptions;
-  quiet?: boolean;
+}
+
+export interface DumpedFile extends BlockRef {
+  /** The entry's path inside the archive: the block's file=, or a generated block-N name. */
+  path: string;
+  /** Size of the entry in bytes. */
+  size: number;
+}
+
+export interface DumpResult {
+  /** One entry per selected block, in document order. */
+  files: Array<DumpedFile>;
+  /** The tar archive; empty (zero bytes) when no block was selected. */
+  archive: Uint8Array;
 }
 
 /**
  * Create a tar archive of code blocks
+ * @throws {MetadataError} when the document's metadata is invalid
  */
-export async function dump(options: DumpOptions): Promise<Uint8Array> {
-  const { source, filter, quiet = false } = options;
-  const blocks = parse({ source, filter });
+export async function dump(options: DumpOptions): Promise<DumpResult> {
+  const blocks = parse(options);
 
   if (blocks.length === 0) {
-    if (!quiet) {
-      console.error(styleText("yellow", "No code blocks found to dump."));
-    }
-    return new Uint8Array(0);
+    return { files: [], archive: new Uint8Array(0) };
   }
 
-  // Create tar archive using tar-stream
   const packStream = pack();
   const chunks: Array<Buffer> = [];
+  const files: Array<DumpedFile> = [];
 
-  // Collect chunks
   packStream.on("data", (chunk: Buffer) => {
     chunks.push(chunk);
   });
 
-  // Add files to tar archive
   for (const [ index, block ] of blocks.entries()) {
-    // Determine filename
-    let filename: string;
-    if (block.meta.file) {
-      filename = block.meta.file;
-    }
-    else {
-      const ext = getExtension(block.lang);
-      filename = `block-${index + 1}${ext}`;
-    }
-
+    const path = block.meta.file || `block-${index + 1}${getExtension(block.lang)}`;
     const content = Buffer.from(block.code, "utf-8");
 
-    // Create entry in tar
-    packStream.entry({ name: filename }, content);
-
-    if (!quiet) {
-      console.error(styleText("green", `✓ Added ${filename} to archive`));
-    }
+    packStream.entry({ name: path }, content);
+    files.push({ ...blockRef(block), path, size: content.length });
   }
 
-  // Finalize the archive
   packStream.finalize();
 
-  // Wait for stream to finish
   await new Promise<void>(resolve => {
     packStream.on("end", resolve);
   });
 
-  if (!quiet) {
-    console.error(styleText([ "bold", "green" ], `\nCreated tar archive with ${blocks.length} file(s).`));
+  return { files, archive: Buffer.concat(chunks) };
+}
+
+/** Human-readable progress lines for a dump result, as the CLI prints them on stderr. */
+export function formatDump({ files }: DumpResult): Array<string> {
+  if (files.length === 0) {
+    return [ styleText("yellow", "No code blocks found to dump.") ];
   }
 
-  // Combine all chunks into a single Uint8Array
-  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-  const result = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  return result;
+  return [
+    ...files.map(file => styleText("green", `✓ Added ${file.path} to archive`)),
+    styleText([ "bold", "green" ], `\nCreated tar archive with ${files.length} file(s).`),
+  ];
 }
 
 /**

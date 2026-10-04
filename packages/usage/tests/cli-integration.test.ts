@@ -249,9 +249,9 @@ const y = 2;
       assert.doesNotMatch(text.stdout, /setup/);
 
       const json = await execCli([ "list", "--json" ], { stdin: markdown });
-      assert.deepStrictEqual(json.stdout.trim().split("\n").map(line => JSON.parse(line)), [
-        { lang: "js", name: "setup", file: "setup.js" },
-        { lang: "js", name: "quick start", file: "getting started.js" },
+      assert.deepStrictEqual(JSON.parse(json.stdout).result.blocks.map(({ name, meta }: { name: string; meta: unknown; }) => ({ name, meta })), [
+        { name: "setup", meta: { name: "setup", file: "setup.js" } },
+        { name: "quick start", meta: { name: "quick start", file: "getting started.js" } },
       ]);
     });
 

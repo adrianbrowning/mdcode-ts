@@ -10,10 +10,16 @@ export interface Block {
   meta: Record<string, string>;
   /** The actual code content */
   code: string;
-  /** Optional position information in the source markdown (character offsets) */
+  /** Where the block sits in the source markdown */
   position?: {
+    /** Character offset where the code starts (just after the opening fence line) */
     start: number;
+    /** Character offset where the code ends (the start of the closing fence line) */
     end: number;
+    /** 1-based line number of the opening fence */
+    line: number;
+    /** 1-based line number of the closing fence */
+    endLine: number;
   };
 }
 

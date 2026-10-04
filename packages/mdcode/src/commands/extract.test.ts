@@ -4,7 +4,7 @@ import { execFile } from "node:child_process";
 import { chmod, lstat, mkdir, mkdtemp, readdir, readFile, readlink, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { after, describe, mock, test } from "node:test";
+import { after, describe, test } from "node:test";
 import { promisify } from "node:util";
 
 import type { ExtractResult } from "./extract.ts";
@@ -20,6 +20,16 @@ async function tempDir(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "mdcode-extract-"));
   tempDirs.push(dir);
   return dir;
+}
+
+/** Paths extract wrote or spliced. */
+function written(result: ExtractResult): Array<string> {
+  return result.targets.filter(target => target.action !== "skipped").map(target => target.path);
+}
+
+/** Paths extract left untouched. */
+function skipped(result: ExtractResult): Array<string> {
+  return result.targets.filter(target => target.action === "skipped").map(target => target.path);
 }
 
 async function writeSource(dir: string, relPath: string, content: string): Promise<string> {
@@ -54,7 +64,7 @@ describe("extract: in-place region splice", () => {
       "",
     ].join("\n");
 
-    await extract({ source, outputDir: dir, quiet: true });
+    await extract({ source, outputDir: dir });
 
     const result = await readFile(target, "utf-8");
 
@@ -84,7 +94,7 @@ describe("extract: in-place region splice", () => {
       "",
     ].join("\n");
 
-    await extract({ source, outputDir: dir, quiet: true });
+    await extract({ source, outputDir: dir });
 
     const result = await readFile(target, "utf-8");
 
@@ -117,7 +127,7 @@ describe("extract: in-place region splice", () => {
       "",
     ].join("\n");
 
-    await extract({ source, outputDir: dir, quiet: true });
+    await extract({ source, outputDir: dir });
 
     const result = await readFile(target, "utf-8");
 
@@ -145,7 +155,7 @@ describe("extract: in-place region splice", () => {
       "",
     ].join("\n");
 
-    await extract({ source, outputDir: dir, quiet: true });
+    await extract({ source, outputDir: dir });
 
     const result = await readFile(target, "utf-8");
 
@@ -172,7 +182,7 @@ describe("extract: in-place region splice", () => {
       "",
     ].join("\n");
 
-    await extract({ source, outputDir: dir, quiet: true });
+    await extract({ source, outputDir: dir });
 
     const result = await readFile(target, "utf-8");
 
@@ -193,12 +203,12 @@ describe("extract: in-place region splice", () => {
       "",
     ].join("\n");
 
-    await extract({ source, outputDir: dir, quiet: true });
+    await extract({ source, outputDir: dir });
     const first = await readFile(target, "utf-8");
 
     assert.match(first, /<!-- #region body -->\n<p>fresh<\/p>\n<!-- #endregion body -->/, "marker must use the language's comment syntax");
 
-    await extract({ source, outputDir: dir, quiet: true });
+    await extract({ source, outputDir: dir });
     const second = await readFile(target, "utf-8");
 
     assert.equal(second, first, "a second run must splice, not append again");
@@ -219,7 +229,7 @@ describe("extract: --force for non-region overwrites", () => {
     const original = "const original = true;\n";
     const target = await writeSource(dir, "src/demo.ts", original);
 
-    await extract({ source, outputDir: dir, quiet: true });
+    await extract({ source, outputDir: dir });
 
     assert.equal(await readFile(target, "utf-8"), original, "file must not be overwritten");
   });
@@ -228,7 +238,7 @@ describe("extract: --force for non-region overwrites", () => {
     const dir = await tempDir();
     const target = await writeSource(dir, "src/demo.ts", "const original = true;\n");
 
-    await extract({ source, outputDir: dir, quiet: true, force: true });
+    await extract({ source, outputDir: dir, force: true });
 
     assert.equal(await readFile(target, "utf-8"), "const replaced = true;", "force must overwrite");
   });
@@ -236,7 +246,7 @@ describe("extract: --force for non-region overwrites", () => {
   test("still creates a missing file without force", async () => {
     const dir = await tempDir();
 
-    await extract({ source, outputDir: dir, quiet: true });
+    await extract({ source, outputDir: dir });
 
     assert.equal(await readFile(join(dir, "src/demo.ts"), "utf-8"), "const replaced = true;");
   });
@@ -247,7 +257,7 @@ describe("extract: block names", () => {
     const dir = await tempDir();
     const source = "```sh name=\"quick start\"\nls\n```\n";
 
-    const result = await extract({ source, outputDir: dir, quiet: true, updateSource: true });
+    const result = await extract({ source, outputDir: dir, updateSource: true });
 
     assert.equal(result.updatedSource, "```sh name=\"quick start\" file=block-1.sh\nls\n```\n");
   });
@@ -256,7 +266,7 @@ describe("extract: block names", () => {
     const dir = await tempDir();
     const source = "```js name=a file=a.js\n1\n```\n\n```js name=a file=b.js\n2\n```\n";
 
-    await assert.rejects(extract({ source, outputDir: dir, quiet: true }), { name: "MetadataError" });
+    await assert.rejects(extract({ source, outputDir: dir }), { name: "MetadataError" });
     assert.deepEqual(await readdir(dir), []);
   });
 });
@@ -298,8 +308,8 @@ describe("extract: file= outside the output directory", () => {
     ], { cwd: docs, env: { ...process.env, MD_SOURCE: source } });
     const result = JSON.parse(stdout) as ExtractResult;
 
-    assert.deepEqual(result.skippedFiles, []);
-    assert.deepEqual(result.extractedFiles, [ "../outside/target.ts" ]);
+    assert.deepEqual(skipped(result), []);
+    assert.deepEqual(written(result), [ "../outside/target.ts" ]);
     assert.equal(await readFile(target, "utf-8"), [
       `import { x } from "./x.ts";`,
       "",
@@ -318,9 +328,9 @@ describe("extract: file= outside the output directory", () => {
 
     // The generated name derives from the language tag; a path-like tag must not steer it.
     const source = "```sh\necho hi\n```\n\n```../../evil\npwned\n```\n";
-    const result = await extract({ source, outputDir: out, quiet: true });
+    const result = await extract({ source, outputDir: out });
 
-    assert.deepEqual(result.extractedFiles, [ join(out, "block-1.sh"), join(out, "block-2.txt") ]);
+    assert.deepEqual(written(result), [ join(out, "block-1.sh"), join(out, "block-2.txt") ]);
     assert.deepEqual((await readdir(out)).sort(), [ "block-1.sh", "block-2.txt" ]);
     assert.deepEqual(await readdir(dir), [ "out" ], "nothing may be written beside the output directory");
   });
@@ -338,11 +348,11 @@ describe("extract: refuses unsafe targets", () => {
       "",
     ].join("\n");
 
-    const result = await extract({ source, outputDir: join(dir, "out"), quiet: true, force: true });
+    const result = await extract({ source, outputDir: join(dir, "out"), force: true });
 
     assert.equal(await readFile(outside, "utf-8"), "PRECIOUS\n");
-    assert.deepEqual(result.extractedFiles, []);
-    assert.deepEqual(result.skippedFiles, [ outside ]);
+    assert.deepEqual(written(result), []);
+    assert.deepEqual(skipped(result), [ outside ]);
   });
 
   test("refuses to splice through a symlinked target, leaving the link and its target intact", async () => {
@@ -362,12 +372,12 @@ describe("extract: refuses unsafe targets", () => {
       "",
     ].join("\n");
 
-    const result = await extract({ source, outputDir: dir, quiet: true });
+    const result = await extract({ source, outputDir: dir });
 
     assert.ok(!(await readFile(real, "utf-8")).includes("99"), "the link target must not be rewritten");
     assert.ok((await lstat(join(dir, "link.ts"))).isSymbolicLink(), "the link must still be a link");
     assert.equal(await readlink(join(dir, "link.ts")), real);
-    assert.deepEqual(result.skippedFiles, [ join(dir, "link.ts") ]);
+    assert.deepEqual(skipped(result), [ join(dir, "link.ts") ]);
   });
 
   test("refuses a target that is not valid UTF-8, byte for byte", async () => {
@@ -387,10 +397,10 @@ describe("extract: refuses unsafe targets", () => {
       "",
     ].join("\n");
 
-    const result = await extract({ source, outputDir: dir, quiet: true });
+    const result = await extract({ source, outputDir: dir });
 
     assert.ok(bytes.equals(await readFile(target)), "invalid bytes must survive untouched");
-    assert.deepEqual(result.skippedFiles, [ target ]);
+    assert.deepEqual(skipped(result), [ target ]);
   });
 
   test("refuses a group mixing region and whole-file blocks, even with force", async () => {
@@ -415,10 +425,10 @@ describe("extract: refuses unsafe targets", () => {
       "",
     ].join("\n");
 
-    const result = await extract({ source, outputDir: dir, quiet: true, force: true });
+    const result = await extract({ source, outputDir: dir, force: true });
 
     assert.equal(await readFile(target, "utf-8"), original, "a mixed group has no coherent result");
-    assert.deepEqual(result.skippedFiles, [ target ]);
+    assert.deepEqual(skipped(result), [ target ]);
   });
 
   test("refuses to splice a region the target never closes", async () => {
@@ -439,10 +449,10 @@ describe("extract: refuses unsafe targets", () => {
       "",
     ].join("\n");
 
-    const result = await extract({ source, outputDir: dir, quiet: true });
+    const result = await extract({ source, outputDir: dir });
 
     assert.equal(await readFile(target, "utf-8"), original, "an unclosed region must never be written");
-    assert.deepEqual(result.skippedFiles, [ target ]);
+    assert.deepEqual(skipped(result), [ target ]);
   });
 
   test("refuses two blocks that declare the same region, for existing and new targets", async () => {
@@ -456,15 +466,15 @@ describe("extract: refuses unsafe targets", () => {
     const existing = await writeSource(dir, "dup.ts", original);
     const block = (file: string, body: string): string => [ `\`\`\`typescript file=${file} region=alpha`, body, "```", "" ].join("\n");
 
-    const spliced = await extract({ source: block("dup.ts", "const first = 1;") + block("dup.ts", "const second = 2;"), outputDir: dir, quiet: true });
+    const spliced = await extract({ source: block("dup.ts", "const first = 1;") + block("dup.ts", "const second = 2;"), outputDir: dir });
 
     assert.equal(await readFile(existing, "utf-8"), original, "a splice would silently keep only one body");
-    assert.deepEqual(spliced.skippedFiles, [ existing ]);
+    assert.deepEqual(skipped(spliced), [ existing ]);
 
-    const created = await extract({ source: block("new.ts", "const first = 1;") + block("new.ts", "const second = 2;"), outputDir: dir, quiet: true });
+    const created = await extract({ source: block("new.ts", "const first = 1;") + block("new.ts", "const second = 2;"), outputDir: dir });
 
-    assert.deepEqual(created.extractedFiles, []);
-    assert.equal(created.skippedFiles.length, 1);
+    assert.deepEqual(written(created), []);
+    assert.equal(skipped(created).length, 1);
     await assert.rejects(readFile(join(dir, "new.ts"), "utf-8"), { code: "ENOENT" });
   });
 });
@@ -488,7 +498,7 @@ describe("extract: write fidelity", () => {
       "",
     ].join("\n");
 
-    await extract({ source, outputDir: dir, quiet: true });
+    await extract({ source, outputDir: dir });
 
     assert.match(await readFile(target, "utf-8"), /echo new/);
     assert.equal((await stat(target)).mode & 0o777, 0o755, "an executable target must stay executable");
@@ -512,10 +522,10 @@ describe("extract: write fidelity", () => {
       "",
     ].join("\n");
 
-    const result = await extract({ source, outputDir: dir, quiet: true });
+    const result = await extract({ source, outputDir: dir });
 
     assert.equal(await readFile(target, "utf-8"), original, "an outline block describes shape, not content");
-    assert.deepEqual(result.extractedFiles, []);
+    assert.deepEqual(written(result), []);
   });
 
   test("leaves no temp file behind after an atomic write", async () => {
@@ -529,7 +539,7 @@ describe("extract: write fidelity", () => {
       "",
     ].join("\n");
 
-    await extract({ source, outputDir: dir, quiet: true });
+    await extract({ source, outputDir: dir });
 
     const entries = await readdir(dir);
 
@@ -556,10 +566,10 @@ describe("extract: reporting", () => {
       "",
     ].join("\n");
 
-    const result = await extract({ source, outputDir: dir, quiet: true });
+    const result = await extract({ source, outputDir: dir });
 
-    assert.equal(result.extractedFiles.length, 1, "one physical file must be reported once");
-    assert.deepEqual(result.skippedFiles, [], "a file this run just created must not report as pre-existing");
+    assert.equal(written(result).length, 1, "one physical file must be reported once");
+    assert.deepEqual(skipped(result), [], "a file this run just created must not report as pre-existing");
     assert.deepEqual(await readdir(join(dir, "real")), [ "demo.ts" ], "no second copy via the link");
   });
 
@@ -577,41 +587,51 @@ describe("extract: reporting", () => {
       "",
     ].join("\n");
 
-    const refused = await extract({ source: disagreeing, outputDir: dir, quiet: true });
+    const refused = await extract({ source: disagreeing, outputDir: dir });
 
-    assert.deepEqual(refused.extractedFiles, [], "one of the two blocks would have been discarded");
-    assert.equal(refused.skippedFiles.length, 1);
+    assert.deepEqual(written(refused), [], "one of the two blocks would have been discarded");
+    assert.equal(skipped(refused).length, 1);
 
     const agreeing = disagreeing.replace("const second = 2;", "const first = 1;");
-    const accepted = await extract({ source: agreeing, outputDir: dir, quiet: true });
+    const accepted = await extract({ source: agreeing, outputDir: dir });
 
-    assert.equal(accepted.extractedFiles.length, 1, "identical blocks are not ambiguous");
+    assert.equal(written(accepted).length, 1, "identical blocks are not ambiguous");
     assert.equal(await readFile(join(dir, "d.ts"), "utf-8"), "const first = 1;");
   });
 
   test("names the file and the reason when it refuses to write", async () => {
     const dir = await tempDir();
     const target = await writeSource(dir, "s.ts", "const original = true;\n");
-    const lines: Array<string> = [];
-    mock.method(console, "error", (...args: Array<unknown>) => {
-      lines.push(args.map(String).join(" "));
+
+    const result = await extract({
+      source: "```typescript file=s.ts\nconst replaced = true;\n```\n",
+      outputDir: dir,
     });
 
-    try {
-      const result = await extract({
-        source: "```typescript file=s.ts\nconst replaced = true;\n```\n",
-        outputDir: dir,
-      });
+    assert.deepEqual(skipped(result), [ target ]);
+    assert.deepEqual(result.errors.map(({ code, path }) => ({ code, path })), [{ code: "extract_skipped", path: target }]);
+    assert.match(result.errors[0]!.message, /--force/, "the reason must name the way forward");
+    assert.equal(result.targets[0]!.reason, result.errors[0]!.message);
+  });
 
-      const stderr = lines.join("\n");
+  test("creates nothing for a target it refuses", async () => {
+    const dir = await tempDir();
+    const source = "```ts file=new/dir/a.ts region=r\none\n```\n\n```ts file=new/dir/a.ts\ntwo\n```\n";
 
-      assert.match(stderr, /Skipped/);
-      assert.match(stderr, /s\.ts/, "the warning must name the file");
-      assert.match(stderr, /--force/, "the warning must name the way forward");
-      assert.deepEqual(result.skippedFiles, [ target ]);
-    }
-    finally {
-      mock.restoreAll();
-    }
+    const result = await extract({ source, outputDir: dir });
+
+    assert.deepEqual(skipped(result), [ join(dir, "new/dir/a.ts") ]);
+    assert.deepEqual(await readdir(dir), [], "no directory may be created for a skipped target");
+  });
+
+  test("adds file= only to anonymous blocks whose file was written", async () => {
+    const dir = await tempDir();
+    await writeSource(dir, "block-1.sh", "precious\n");
+    const source = "```sh\nls\n```\n\n```sh\npwd\n```\n";
+
+    const result = await extract({ source, outputDir: dir, updateSource: true });
+
+    assert.deepEqual(skipped(result), [ join(dir, "block-1.sh") ]);
+    assert.equal(result.updatedSource, "```sh\nls\n```\n\n```sh file=block-2.sh\npwd\n```\n");
   });
 });

@@ -270,7 +270,7 @@ select * from users;
         return code;
       };
 
-      const result = await update({ source: markdown, transformer });
+      const { source: result } = await update({ source: markdown, transformer });
 
       assert.ok(result.includes("SELECT * FROM USERS;"));
     });
@@ -289,7 +289,7 @@ test('example');
         return code;
       });
 
-      const result = await update({ source: markdown, transformer });
+      const { source: result } = await update({ source: markdown, transformer });
 
       assert.ok(result.includes("// AUTO-GENERATED"));
       assert.ok(result.includes("test('example')"));
@@ -308,7 +308,7 @@ const x = 1;
         return code.toUpperCase();
       });
 
-      const result = await update({ source: markdown, transformer });
+      const { source: result } = await update({ source: markdown, transformer });
 
       assert.ok(result.includes("CONST X = 1;"));
     });
@@ -325,7 +325,7 @@ const x = 1;
       });
 
       // Should not throw, just log error and return original
-      const result = await update({ source: markdown, transformer });
+      const { source: result } = await update({ source: markdown, transformer });
 
       // Original code should be preserved
       assert.ok(result.includes("const x = 1;"));
@@ -437,7 +437,7 @@ select * from users;
         return code;
       });
 
-      const result = await update({ source: markdown, transformer });
+      const { source: result } = await update({ source: markdown, transformer });
 
       assert.ok(result.includes("'use strict';"));
       assert.ok(result.includes("const x = 1;"));
@@ -467,7 +467,7 @@ const demo = {};
         return code;
       });
 
-      const result = await update({ source: markdown, transformer });
+      const { source: result } = await update({ source: markdown, transformer });
 
       assert.ok(result.includes("'use strict'"));
       assert.ok(result.includes("const config = {}"));

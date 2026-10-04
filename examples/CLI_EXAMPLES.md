@@ -128,7 +128,7 @@ cat README.md | mdcode list
 
 ### JSON Output
 
-Output blocks as JSON (one JSON object per line):
+Print one JSON envelope whose `result.blocks` lists every selected block:
 
 ```bash
 # JSON output
@@ -140,10 +140,40 @@ mdcode list --json docs/API.md
 
 **JSON Format:**
 ```json
-{"lang":"js","file":"app.js","region":"main"}
-{"lang":"python","file":"script.py"}
-{"lang":"sql"}
+{
+  "version": 1,
+  "command": "list",
+  "ok": true,
+  "result": {
+    "blocks": [
+      {
+        "name": "hello",
+        "line": 3,
+        "endLine": 5,
+        "lang": "js",
+        "meta": {
+          "name": "hello",
+          "file": "hello.js"
+        },
+        "code": "console.log(\"hello\");"
+      },
+      {
+        "name": null,
+        "line": 7,
+        "endLine": 9,
+        "lang": "sh",
+        "meta": {},
+        "code": "echo hi"
+      }
+    ]
+  },
+  "errors": []
+}
 ```
+
+`name` is `null` for a block without `name=` metadata. `line` and `endLine` are the opening and closing
+fence lines in this version of the document. Every command accepts `--json`; the package README
+documents the full contract.
 
 ### Filter by Language
 
@@ -943,7 +973,7 @@ mdcode extract -l sql -d ./queries README.md
 mdcode list --json README.md > blocks.json
 
 # Process with jq or other tools
-cat blocks.json | jq -r '.lang' | sort | uniq -c
+cat blocks.json | jq -r '.result.blocks[].lang' | sort | uniq -c
 
 # Extract examples to documentation
 mdcode extract -m type=example -d ./docs/examples README.md
@@ -1015,13 +1045,13 @@ grep -A 10 "## Examples" README.md | \
 
 ```bash
 # How many JavaScript blocks?
-mdcode list -l js --json README.md | wc -l
+mdcode list -l js --json README.md | jq '.result.blocks | length'
 
 # What languages are used?
-mdcode list --json README.md | jq -r .lang | sort | uniq
+mdcode list --json README.md | jq -r '.result.blocks[].lang' | sort | uniq
 
 # Find blocks with specific metadata
-mdcode list --json README.md | jq 'select(.region == "main")'
+mdcode list --json README.md | jq '.result.blocks[] | select(.meta.region == "main")'
 ```
 
 ### 5. Batch Processing

@@ -219,25 +219,20 @@ cat README.md | mdcode list
 
 ### JSON Output
 
-Output blocks as JSON (one JSON object per line):
+`--json` prints one JSON envelope. Its `result.blocks` lists every selected block with its name,
+fence lines, language, metadata and code:
 
 ```bash file=block-16.sh
 # JSON output
 mdcode list --json README.md
 
-# Short form
-mdcode list --json docs/API.md
+# With a filter
+mdcode list --json -l js docs/API.md
 ```
 
-**JSON Format:**
-```json file=block-17.json
-{"lang":"js","name":"quick start","file":"app.js","region":"main"}
-{"lang":"python","file":"script.py"}
-{"lang":"sql"}
-```
+See [JSON Contract](#json-contract) for the envelope, an example, and the result of every command.
 
-A block's `name` comes right after `lang` when it has one. In the text output, a named block is listed by
-its name, as in `[1] quick start (js)`.
+In the text output, a named block is listed by its name, as in `[1] quick start (js)`.
 
 ### Filter by Language
 
@@ -649,7 +644,7 @@ mdcode run --keep "node {file}" README.md
 # Short form
 mdcode run -k "python {file}" docs/
 
-# The command will print the temp directory location
+# After the blocks, the command prints "Working directory: <path>"
 ```
 
 ### Combined Examples
@@ -837,17 +832,15 @@ mdcode dump --name "quick start" -o quick-start.tar README.md
 
 ## CLI Flags Reference
 
-All commands support these common filtering flags:
+All commands support these common flags:
 
 - `-l, --lang <lang>` - Filter by language
 - `-f, --file <file>` - Filter by file metadata pattern
 - `-m, --meta <key=value>` - Filter by custom metadata (can specify multiple times)
 - `-n, --name <name>` - Select the block with this `name` metadata
+- `--json` - Print one versioned JSON envelope instead of text; see [JSON Contract](#json-contract)
 
 Additional flags by command:
-
-**list:**
-- `--json` - Output as JSON (one object per line)
 
 **extract:**
 - `-d, --dir <dir>` - Output directory (default: current directory)
@@ -867,8 +860,382 @@ Additional flags by command:
 - `-d, --dir <dir>` - Custom working directory
 
 **dump:**
-- `-o, --out <file>` - Output file (default: stdout)
+- `-o, --out <file>` - Output file (default: stdout; required with `--json`)
 - `-q, --quiet` - Suppress status messages
+
+---
+
+## JSON Contract
+
+Every command accepts `--json`. With it, the command prints exactly one JSON object, the envelope, on
+stdout and nothing else: no colours and no progress text. Without `--json`, the output is text.
+
+### Envelope
+
+- `version` - The contract version, currently `1`. It changes only when the contract changes
+  incompatibly. The library exports it as `CONTRACT_VERSION`.
+- `command` - The command that ran: `list`, `extract`, `update`, `run` or `dump`.
+- `ok` - `true` when `errors` is empty.
+- `result` - What the command did, described below. It is `null` when the command failed before doing
+  any work: invalid metadata, bad flags, unreadable input, or a transform module that could not be
+  loaded.
+- `errors` - Everything that went wrong. A command can fail for some blocks and still report a result
+  for all of them.
+
+### Errors
+
+Each error has a `code` and a `message`. These fields are added when they apply:
+
+- `line` - The 1-based line of the opening fence of the block concerned
+- `name` - The name of the block concerned, when it has one
+- `path` - The file concerned: an extract target, a `file=` source, the transform module, or an output
+  path
+
+| Code | Meaning |
+|------|---------|
+| `invalid_metadata` | A block's info string breaks the metadata grammar, or two blocks share a name |
+| `invalid_usage` | Bad flags or flag combinations, including unknown options |
+| `io_error` | Reading the markdown or writing an output failed |
+| `invalid_transform` | The `--transform` module could not be loaded or has no default function export |
+| `extract_skipped` | `extract` left a target file untouched |
+| `read_failed` | `update` could not read a block's `file=` or region |
+| `transform_failed` | `update`'s transformer threw for a block |
+| `command_failed` | `run`'s command exited non-zero for a block |
+| `unexpected_error` | Anything else |
+
+### Block References
+
+Results and errors point at a block with `name` and `line`:
+
+- `name` is the block's stable identifier, taken from its `name=` metadata. It is unique within a
+  document and does not change when other parts of the document are edited. It is `null` for an
+  unnamed block, and errors leave it out.
+- `line` is the 1-based line of the block's opening fence. It locates the block in this version of
+  the document only. Any edit above the block moves it, so it is not an identifier.
+
+mdcode does not generate IDs or derive them from positions. To refer to a block durably, give it a
+`name=`.
+
+### Schema
+
+The schema below is written out from the types the library exports (`Envelope`, `ResultError`,
+`ErrorCode`, `BlockRef`, `ListedBlock`, `ExtractTarget`, `UpdatedBlock`, `RunBlockResult` and
+`DumpedFile`). Under `--json`, `errors` moves from a command's result to the envelope, and the CLI adds
+the fields only it knows about, such as `written` and `out`.
+
+```typescript file=block-96.ts
+interface Envelope<R> {
+  version: 1;
+  command: "list" | "extract" | "update" | "run" | "dump";
+  ok: boolean;
+  /** null when the command failed before doing any work */
+  result: R | null;
+  errors: Array<ResultError>;
+}
+
+interface ResultError {
+  code: ErrorCode;
+  message: string;
+  /** 1-based line of the opening fence of the block concerned */
+  line?: number;
+  /** Name of the block concerned, when it has one */
+  name?: string;
+  /** An extract target, a file= source, the transform module, an output path */
+  path?: string;
+}
+
+type ErrorCode =
+  | "invalid_metadata"
+  | "invalid_usage"
+  | "io_error"
+  | "invalid_transform"
+  | "extract_skipped"
+  | "read_failed"
+  | "transform_failed"
+  | "command_failed"
+  | "unexpected_error";
+
+interface BlockRef {
+  /** The block's name= metadata; null for an unnamed block */
+  name: string | null;
+  /** 1-based line of the opening fence */
+  line: number;
+}
+
+// mdcode list --json
+type ListEnvelope = Envelope<{
+  blocks: Array<BlockRef & {
+    /** 1-based line of the closing fence */
+    endLine: number;
+    lang: string;
+    meta: Record<string, string>;
+    code: string;
+  }>;
+}>;
+
+// mdcode extract --json
+type ExtractEnvelope = Envelope<{
+  targets: Array<{
+    path: string;
+    action: "written" | "spliced" | "skipped";
+    /** The blocks that target this file, in document order */
+    blocks: Array<BlockRef>;
+    /** The region= names written */
+    regions: Array<string>;
+    /** Why the target was skipped */
+    reason?: string;
+  }>;
+  /** --update-source on stdin: the updated markdown */
+  updatedSource?: string;
+  /** --update-source on a file: the markdown file that was rewritten */
+  written?: string;
+}>;
+
+// mdcode update --json
+type UpdatedBlock = BlockRef & {
+  lang: string;
+  /** Whether the block's code is different in the resulting markdown */
+  changed: boolean;
+  /** Set when the block's code was read from its file= */
+  read?: { file: string; region?: string; outline?: true };
+  /** Whether the transformer changed the code */
+  transformed: boolean;
+};
+type UpdateEnvelope = Envelope<
+  /** Updated in place */
+  | { blocks: Array<UpdatedBlock>; written: string }
+  /** Input from stdin, or --stdout */
+  | { blocks: Array<UpdatedBlock>; source: string }
+>;
+
+// mdcode run --json
+type RunEnvelope = Envelope<{
+  /** Where block files were written; removed afterwards unless --keep or --dir was given */
+  workingDir: string;
+  blocks: Array<BlockRef & {
+    lang: string;
+    /** 0 on success; a command killed by the timeout reports 1 */
+    exitCode: number;
+    stdout: string;
+    stderr: string;
+  }>;
+}>;
+
+// mdcode dump --json --out <file>
+type DumpEnvelope = Envelope<{
+  /** The archive path given with --out */
+  out: string;
+  files: Array<BlockRef & {
+    /** The entry's path inside the archive: the block's file=, or a generated block-N name */
+    path: string;
+    /** Size of the entry in bytes */
+    size: number;
+  }>;
+}>;
+```
+
+### Results by Command
+
+- `list` - One entry per selected block. `endLine` is the line of the closing fence, and `meta` holds
+  every metadata key, including `name` and `file`.
+- `extract` - One entry per target file, in the order they were processed. `written` means the file
+  was created or overwritten whole, `spliced` means regions were replaced or appended in an existing
+  file, and `skipped` means the file was left untouched; `reason` says why, and each skipped target
+  also adds an `extract_skipped` error. With `--update-source`, when a block gained `file=`: from
+  stdin, `updatedSource` holds the updated markdown; from a file, the file is rewritten and `written`
+  holds its path.
+- `update` - One entry per selected block, in document order. `written` holds the markdown path when
+  the file was updated in place. `source` holds the updated markdown when it would otherwise go to
+  stdout: input from stdin, or `--stdout`. When a block's `file=` cannot be read, its original code is
+  kept and still passed to the transformer. When the transformer throws, the block keeps the code it
+  had before the transform.
+- `run` - One entry per selected block, with the command's exit code and output. Each block whose
+  command failed adds a `command_failed` error.
+- `dump` - `dump --json` needs `--out <file>`. The archive is written to that file and never encoded
+  into the JSON. Without `--out`, the command fails with `invalid_usage`.
+
+### Examples
+
+`mdcode list --json guide.md` on this document:
+
+````markdown file=block-97.md
+# Guide
+
+```js name=hello file=hello.js
+console.log("hello");
+```
+
+```sh
+echo hi
+```
+````
+
+```json file=block-98.json
+{
+  "version": 1,
+  "command": "list",
+  "ok": true,
+  "result": {
+    "blocks": [
+      {
+        "name": "hello",
+        "line": 3,
+        "endLine": 5,
+        "lang": "js",
+        "meta": {
+          "name": "hello",
+          "file": "hello.js"
+        },
+        "code": "console.log(\"hello\");"
+      },
+      {
+        "name": null,
+        "line": 7,
+        "endLine": 9,
+        "lang": "sh",
+        "meta": {},
+        "code": "echo hi"
+      }
+    ]
+  },
+  "errors": []
+}
+```
+
+`mdcode run --json "sh {file}" checks.md`, where the second block fails, exits 1:
+
+````markdown file=block-99.md
+# Checks
+
+```sh name=passes
+echo ok
+```
+
+```sh
+echo "boom" >&2
+exit 3
+```
+````
+
+```json file=block-100.json
+{
+  "version": 1,
+  "command": "run",
+  "ok": false,
+  "result": {
+    "workingDir": "/work/.mdcode-tmp",
+    "blocks": [
+      {
+        "name": "passes",
+        "line": 3,
+        "lang": "sh",
+        "exitCode": 0,
+        "stdout": "ok\n",
+        "stderr": ""
+      },
+      {
+        "name": null,
+        "line": 7,
+        "lang": "sh",
+        "exitCode": 3,
+        "stdout": "",
+        "stderr": "boom\n"
+      }
+    ]
+  },
+  "errors": [
+    {
+      "code": "command_failed",
+      "message": "command exited with code 3",
+      "line": 7
+    }
+  ]
+}
+```
+
+`mdcode list --json broken.md`, where two blocks share a name and one has an unterminated quote,
+fails before doing any work, so `result` is `null`:
+
+````markdown file=block-101.md
+# Broken
+
+```js name=setup
+let a = 1;
+```
+
+```js name=setup file="unterminated.js
+let b = 2;
+```
+````
+
+```json file=block-102.json
+{
+  "version": 1,
+  "command": "list",
+  "ok": false,
+  "result": null,
+  "errors": [
+    {
+      "code": "invalid_metadata",
+      "message": "duplicate name \"setup\" on lines 3, 7; names must be unique within a document",
+      "line": 3
+    },
+    {
+      "code": "invalid_metadata",
+      "message": "unterminated quoted value for \"file\"; add the closing \"",
+      "line": 7
+    }
+  ]
+}
+```
+
+`mdcode dump --json guide.md`, without `--out`:
+
+```json file=block-103.json
+{
+  "version": 1,
+  "command": "dump",
+  "ok": false,
+  "result": null,
+  "errors": [
+    {
+      "code": "invalid_usage",
+      "message": "dump --json needs --out <file> for the archive"
+    }
+  ]
+}
+```
+
+The envelope works with `jq`:
+
+```bash file=block-104.sh
+# Languages used in a document
+mdcode list --json README.md | jq -r '.result.blocks[].lang' | sort | uniq -c
+
+# Blocks in the main region
+mdcode list --json README.md | jq '.result.blocks[] | select(.meta.region == "main")'
+```
+
+### Exit Codes
+
+Exit codes are the same with and without `--json`:
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `1` | Any error |
+| `2` | `extract` skipped one or more targets |
+
+### Changes from Earlier Versions
+
+- `list --json` used to print one JSON object per block (NDJSON). It now prints the envelope; read the
+  blocks from `result.blocks`.
+- `run` exits 1 when any block's command fails. It used to exit 0.
+- `update` exits 1 when a `file=` read or the transformer fails. It used to exit 0.
+- `run --keep` prints `Working directory: <path>` after the blocks instead of before them.
+- A transform module that cannot be loaded is reported as `could not load transform file: ...`.
+- The library functions return structured results and print nothing; see
+  [API Reference](#api-reference).
 
 ---
 
@@ -925,6 +1292,10 @@ import {
   parse,
   walk,
   update,
+  list,
+  extract,
+  run,
+  dump,
   transform,
   transformWithFunction,
   defineTransform,
@@ -993,8 +1364,9 @@ const transformer = defineTransform(({tag, meta, code}) => {
 });
 
 // Apply transformation
-const result = await update({ source: markdown, transformer });
-console.log(result); // Transformed markdown
+const { source, blocks, errors } = await update({ source: markdown, transformer });
+console.log(source); // Transformed markdown
+console.log(blocks); // [{ name: null, line: 2, lang: 'sql', changed: true, transformed: true }, ...]
 ````
 
 ### Async Transformers
@@ -1008,7 +1380,7 @@ const transformer = defineTransform(async ({tag, meta, code}) => {
   return formatted;
 });
 
-const result = await update({ source: markdown, transformer });
+const { source } = await update({ source: markdown, transformer });
 ```
 
 ### Custom Walker for Advanced Processing
@@ -1066,7 +1438,8 @@ Extract code blocks from markdown.
 
 - **options.source** - The markdown source string
 - **options.filter** - Optional filter criteria
-- **Returns** - Array of Block objects. A named block also has `name` set.
+- **Returns** - Array of Block objects. A named block also has `name` set. Each block's `position`
+  includes `line` and `endLine`, the 1-based lines of its opening and closing fences.
 - **Throws** - `MetadataError` when any block's metadata is malformed or two blocks share a name. Its
   `problems` array lists each problem with the line of the block's opening fence.
 
@@ -1079,7 +1452,7 @@ Walk through and optionally transform code blocks.
 - **options.filter** - Optional filter criteria
 - **Returns** - Promise of WalkResult with source, blocks, and modified flag
 
-#### `update(options: UpdateOptions): Promise<string>`
+#### `update(options: UpdateOptions): Promise<UpdateResult>`
 
 Update code blocks from files or via transformer.
 
@@ -1087,7 +1460,56 @@ Update code blocks from files or via transformer.
 - **options.transformer** - Optional transformer function
 - **options.filter** - Optional filter criteria
 - **options.basePath** - Base path for file resolution (default: '.')
-- **Returns** - Promise of transformed markdown string
+- **Returns** - Promise of `{ source, blocks, errors }`: the updated markdown, one `UpdatedBlock` per
+  selected block, and a `read_failed` or `transform_failed` error for each block whose `file=` read or
+  transformer failed. A failed block keeps the code it had before the failing step.
+- **Throws** - `MetadataError` when the document's metadata is invalid
+
+#### `list(options: ListOptions): ListResult`
+
+List code blocks with their metadata, code, and location.
+
+- **options.source** - The markdown source string
+- **options.filter** - Optional filter criteria
+- **Returns** - `{ blocks }`, one `ListedBlock` (`name`, `line`, `endLine`, `lang`, `meta`, `code`) per
+  selected block. This is the `result` that `mdcode list --json` prints.
+- **Throws** - `MetadataError` when the document's metadata is invalid
+
+#### `extract(options: ExtractOptions): Promise<ExtractResult>`
+
+Write code blocks to files based on their `file` metadata.
+
+- **options.source** - The markdown source string
+- **options.filter** - Optional filter criteria
+- **options.outputDir** - Directory that relative `file=` paths resolve against (default: '.')
+- **options.updateSource** - Add `file=` to anonymous blocks
+- **options.ignoreAnonymous** - Skip blocks without `file=`
+- **options.force** - Overwrite existing files whose blocks have no `region=`
+- **Returns** - Promise of `{ targets, updatedSource?, errors }`: one `ExtractTarget` per target file,
+  the markdown with `file=` added when `updateSource` added any, and one `extract_skipped` error per
+  skipped target. `extract` writes the target files but not the markdown.
+
+#### `run(options: RunOptions): Promise<RunResult>`
+
+Run a shell command on each code block.
+
+- **options.source** - The markdown source string
+- **options.command** - Command to run, with `{file}` as the placeholder for the block's file
+- **options.filter** - Optional filter criteria
+- **options.keep** - Keep the working directory afterwards
+- **options.dir** - Working directory (default: `.mdcode-tmp` in the current directory)
+- **options.onBlock** - Optional `(block, index, total) => void`, called as each block finishes
+- **Returns** - Promise of `{ workingDir, blocks, errors }`: one `RunBlockResult` per selected block,
+  and one `command_failed` error per block whose command failed. Nothing is printed.
+
+#### `dump(options: DumpOptions): Promise<DumpResult>`
+
+Create a tar archive of code blocks.
+
+- **options.source** - The markdown source string
+- **options.filter** - Optional filter criteria
+- **Returns** - Promise of `{ files, archive }`: one `DumpedFile` (`name`, `line`, `path`, `size`) per
+  selected block, and the tar archive as a `Uint8Array` (zero bytes when no block was selected)
 
 #### `transformWithFunction(source: string, transformer: TransformerFunction, filter?: FilterOptions): Promise<string>`
 

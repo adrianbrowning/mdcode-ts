@@ -1,13 +1,18 @@
 import { exec } from "node:child_process";
-import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { mkdir, rmdir, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { styleText } from "node:util";
 
 import { parse } from "../parser.ts";
+import type { BlockRef, ResultError } from "../result.ts";
+import { blockError, blockRef } from "../result.ts";
 import type { FilterOptions } from "../types.ts";
 
 const execAsync = promisify(exec);
+
+/** Each block's command is killed after this long. */
+const TIMEOUT_MS = 30_000;
 
 export interface RunOptions {
   source: string;
@@ -15,93 +20,71 @@ export interface RunOptions {
   filter?: FilterOptions;
   keep?: boolean;
   dir?: string;
+  /** Called as each block finishes, before the next one starts. */
+  onBlock?: (block: RunBlockResult, index: number, total: number) => void;
+}
+
+export interface RunBlockResult extends BlockRef {
+  lang: string;
+  /** 0 on success. A command killed by the timeout reports 1. */
+  exitCode: number;
+  stdout: string;
+  stderr: string;
 }
 
 export interface RunResult {
-  blockIndex: number;
-  stdout: string;
-  stderr: string;
-  exitCode: number;
-  error?: Error;
+  /** Where block files were written; removed afterwards unless keep or dir was given. */
+  workingDir: string;
+  /** One entry per selected block, in document order. */
+  blocks: Array<RunBlockResult>;
+  /** One command_failed error per block whose command failed. */
+  errors: Array<ResultError>;
 }
 
 /**
  * Run a shell command on each code block
+ * @throws {MetadataError} when the document's metadata is invalid
  */
-export async function run(options: RunOptions): Promise<Array<RunResult>> {
-  const { source, command, filter, keep = false, dir } = options;
+export async function run(options: RunOptions): Promise<RunResult> {
+  const { source, command, filter, keep = false, dir, onBlock } = options;
   const blocks = parse({ source, filter });
-
-  if (blocks.length === 0) {
-    console.log(styleText("yellow", "No code blocks found to run."));
-    return [];
-  }
-
-  const results: Array<RunResult> = [];
 
   // Use custom directory if provided, otherwise use temp directory
   const workingDir = dir || join(process.cwd(), ".mdcode-tmp");
+  const result: RunResult = { workingDir, blocks: [], errors: [] };
 
-  // Create working directory
-  await mkdir(workingDir, { recursive: true });
-
-  // Print working directory path if keep flag is set
-  if (keep) {
-    console.log(styleText("cyan", `Working directory: ${workingDir}`));
+  if (blocks.length === 0) {
+    return result;
   }
+
+  await mkdir(workingDir, { recursive: true });
 
   try {
     for (const [ index, block ] of blocks.entries()) {
-      console.log(styleText([ "bold", "cyan" ], `\n[${index + 1}/${blocks.length}] Running on block ${index + 1}...`));
+      const tmpFile = join(workingDir, `block-${index}${getExtension(block.lang)}`);
 
-      // Generate temp file
-      const ext = getExtension(block.lang);
-      const tmpFile = join(workingDir, `block-${index}${ext}`);
-
-      // Write block to temp file
       await writeFile(tmpFile, block.code, "utf-8");
 
       // Replace {file} placeholder in command with the temp file path
       const actualCommand = command.replace(/\{file\}/g, tmpFile);
+      const entry: RunBlockResult = { ...blockRef(block), lang: block.lang, exitCode: 0, stdout: "", stderr: "" };
 
       try {
-        const { stdout, stderr } = await execAsync(actualCommand, {
-          cwd: process.cwd(),
-          timeout: 30000, // 30 second timeout
-        });
+        const { stdout, stderr } = await execAsync(actualCommand, { cwd: process.cwd(), timeout: TIMEOUT_MS });
 
-        results.push({
-          blockIndex: index,
-          stdout,
-          stderr,
-          exitCode: 0,
-        });
-
-        console.log(styleText("green", "✓ Success"));
-        if (stdout) {
-          console.log("Output:", stdout.trim());
-        }
-        if (stderr) {
-          console.log(styleText("yellow", "Stderr:"), stderr.trim());
-        }
+        entry.stdout = stdout;
+        entry.stderr = stderr;
       }
-      catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
-        const exitCode = error.code || 1;
-        results.push({
-          blockIndex: index,
-          stdout: error.stdout || "",
-          stderr: error.stderr || "",
-          exitCode,
-          error,
-        });
+      catch (error: unknown) {
+        const failure = error as { code?: unknown; killed?: boolean; stdout?: string; stderr?: string; };
 
-        console.log(styleText("red", `✗ Failed (exit code ${exitCode})`));
-        if (error.stdout) {
-          console.log("Output:", error.stdout.trim());
-        }
-        if (error.stderr) {
-          console.log(styleText("red", "Error:"), error.stderr.trim());
-        }
+        entry.exitCode = typeof failure.code === "number" ? failure.code : 1;
+        entry.stdout = failure.stdout ?? "";
+        entry.stderr = failure.stderr ?? "";
+        result.errors.push(blockError(block, {
+          code: "command_failed",
+          message: failure.killed ? `command timed out after ${TIMEOUT_MS / 1000}s` : `command exited with code ${entry.exitCode}`,
+        }));
       }
       finally {
         // Clean up temp file only if not keeping the directory
@@ -109,16 +92,37 @@ export async function run(options: RunOptions): Promise<Array<RunResult>> {
           await unlink(tmpFile).catch(() => {});
         }
       }
+
+      result.blocks.push(entry);
+      onBlock?.(entry, index, blocks.length);
     }
   }
   finally {
     // Clean up temp directory only if not keeping and it's a temp directory (not custom)
     if (!keep && !dir) {
-      await unlink(workingDir).catch(() => {});
+      // rmdir, not unlink: unlink cannot remove a directory, and rmdir leaves one that holds anything else.
+      await rmdir(workingDir).catch(() => {});
     }
   }
 
-  return results;
+  return result;
+}
+
+/** Human-readable report for one finished block, as the CLI prints it on stdout. */
+export function formatRunBlock(block: RunBlockResult, index: number, total: number): Array<string> {
+  const lines = [ styleText([ "bold", "cyan" ], `\n[${index + 1}/${total}] Running on block ${index + 1}...`) ];
+  const ok = block.exitCode === 0;
+
+  lines.push(ok ? styleText("green", "✓ Success") : styleText("red", `✗ Failed (exit code ${block.exitCode})`));
+
+  if (block.stdout) {
+    lines.push(`Output: ${block.stdout.trim()}`);
+  }
+  if (block.stderr) {
+    lines.push(`${ok ? styleText("yellow", "Stderr:") : styleText("red", "Error:")} ${block.stderr.trim()}`);
+  }
+
+  return lines;
 }
 
 /**
