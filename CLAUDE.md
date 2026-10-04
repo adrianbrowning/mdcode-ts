@@ -74,6 +74,7 @@ Each command is a separate module with typed options:
 - **update** - Bidirectional sync: read from files OR apply transformers
   - File mode: reads from `file` metadata, supports `region` extraction
   - Transform mode: uses `--transform` flag with custom function
+- **validate** - Report every block that update (`--for update`, default) or extract (`--for extract`) would refuse, without writing. The rules live in `commands/validate.ts`: `planExtract()` (target grouping, `ambiguous_target`, existing-target markers) is what `extract()` runs before writing, and `readSource()` (file= read, region exactly once in the block's language) is what `update()` reads through
 - **run** - Execute shell commands on each block (uses temp files)
 - **dump** - Create tar archive using `tar-stream`
 

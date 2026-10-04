@@ -1,13 +1,11 @@
-import { readFile } from "node:fs/promises";
 import { styleText } from "node:util";
 
-import { outline } from "../outline.ts";
 import { walk } from "../parser.ts";
-import { resolveContained, UnsafePathError } from "../paths.ts";
-import { read as readRegion } from "../region.ts";
 import type { BlockRef, ResultError } from "../result.ts";
 import { BlockFailure, blockError, blockRef } from "../result.ts";
 import type { Block, FilterOptions, TransformerFunction } from "../types.ts";
+import type { SourceRead } from "./validate.ts";
+import { readSource, SourceError } from "./validate.ts";
 
 export interface UpdateOptions {
   source: string;
@@ -16,8 +14,8 @@ export interface UpdateOptions {
   /** Directory file= paths resolve against and must stay inside (default: the current directory). */
   basePath?: string;
   /**
-   * Collect read, transform and unsafe-path failures in `errors` and keep going.
-   * Without it, the first failure throws a BlockFailure.
+   * Collect file= read, mapping-rule and transform failures in `errors` and
+   * keep going. Without it, the first failure throws a BlockFailure.
    */
   continueOnError?: boolean;
 }
@@ -29,13 +27,7 @@ export interface UpdatedBlock extends BlockRef {
   /** The block's code in the returned markdown. */
   code: string;
   /** Set when the block's code was read from its file=. */
-  read?: {
-    file: string;
-    /** Set when only this region of the file was read. */
-    region?: string;
-    /** Set when the file was outlined (region bodies removed). */
-    outline?: true;
-  };
+  read?: SourceRead;
   /** Whether the transformer changed the code. */
   transformed: boolean;
 }
@@ -46,18 +38,21 @@ export interface UpdateResult {
   /** One entry per selected block, in document order. */
   blocks: Array<UpdatedBlock>;
   /**
-   * Only filled with continueOnError: read_failed, unsafe_path and
-   * transform_failed errors. A block whose file= cannot be read keeps its
-   * original code, which the transformer still receives; a block whose
-   * transformer throws keeps the code it had before the transform.
+   * Only filled with continueOnError: a transform_failed error per block whose
+   * transformer threw, and for each block whose file= could not be read, the
+   * rule it broke (read_failed, unsafe_path, missing_region, duplicate_region,
+   * malformed_region or region_language_mismatch). A block whose file= cannot
+   * be read keeps its original code, which the transformer still receives; a
+   * block whose transformer throws keeps the code it had before the transform.
    */
   errors: Array<ResultError>;
 }
 
 /**
- * Update markdown code blocks from source files or via transformer
+ * Update markdown code blocks from source files or via transformer. A file=
+ * read follows the same rules validate() checks.
  * @throws {MetadataError} when the document's metadata is invalid
- * @throws {BlockFailure} on the first failed read, unsafe file= or failed transform, unless continueOnError
+ * @throws {BlockFailure} on the first failed read, broken rule or failed transform, unless continueOnError
  */
 export async function update(options: UpdateOptions): Promise<UpdateResult> {
   const { source, filter, transformer, basePath = ".", continueOnError = false } = options;
@@ -80,44 +75,16 @@ export async function update(options: UpdateOptions): Promise<UpdateResult> {
       blocks.push(entry);
 
       // Step 1: Read from file if file metadata exists
-      if (block.meta.file) {
-        const filePath = block.meta.file;
-
+      if (block.meta.file !== undefined) {
         try {
-          // Checked before anything is read: untrusted markdown must not pull in arbitrary files.
-          let fileContent = await readFile(await resolveContained(filePath, basePath), "utf-8");
+          const { content, read } = await readSource(block, basePath);
 
-          if (block.meta.outline === "true") {
-            // Use outline to remove content between region markers
-            const outlined = outline(fileContent);
-
-            if (!outlined.found) {
-              throw new Error(`outline=true specified but no region markers found in ${filePath}`);
-            }
-
-            fileContent = outlined.content;
-            entry.read = { file: filePath, outline: true };
-          }
-          // If a region is specified (and not using outline), extract only that region
-          else if (block.meta.region) {
-            const region = readRegion(fileContent, block.meta.region, block.lang);
-
-            if (!region.found) {
-              throw new Error(`region ${block.meta.region} not found or not closed in ${filePath}`);
-            }
-
-            fileContent = region.content;
-            entry.read = { file: filePath, region: block.meta.region };
-          }
-          else {
-            entry.read = { file: filePath };
-          }
-
-          currentCode = fileContent;
+          currentCode = content;
+          entry.read = read;
         }
         catch (error: unknown) {
-          const code = error instanceof UnsafePathError ? "unsafe_path" : "read_failed";
-          fail(blockError(block, { code, message: error instanceof Error ? error.message : String(error), path: filePath }));
+          const code = error instanceof SourceError ? error.code : "read_failed";
+          fail(blockError(block, { code, message: error instanceof Error ? error.message : String(error), path: block.meta.file }));
         }
       }
 
@@ -173,12 +140,12 @@ export async function update(options: UpdateOptions): Promise<UpdateResult> {
  */
 export function formatUpdate({ blocks, errors }: UpdateResult, options: { quiet?: boolean; }): Array<string> {
   const lines: Array<string> = [];
-  const failure = (block: UpdatedBlock, ...codes: Array<ResultError["code"]>): ResultError | undefined =>
-    errors.find(error => error.line === block.line && codes.includes(error.code));
+  const failure = (block: UpdatedBlock, transform: boolean): ResultError | undefined =>
+    errors.find(error => error.line === block.line && (error.code === "transform_failed") === transform);
 
   for (const block of blocks) {
-    const readFailure = failure(block, "read_failed", "unsafe_path");
-    const transformFailure = failure(block, "transform_failed");
+    const readFailure = failure(block, false);
+    const transformFailure = failure(block, true);
 
     if (readFailure) {
       lines.push(styleText("red", `✗ ${readFailure.code === "unsafe_path" ? "Refused" : "Failed"} to read ${readFailure.path}: ${readFailure.message}`));

@@ -249,11 +249,12 @@ Extract code blocks to files based on their `file` metadata.
 - Blocks with `region=` are **spliced in place** — surrounding code and untouched regions survive.
 - Blocks without `region=` describe a whole file. If that file already exists it is **skipped with a
   warning**; pass `--force` to overwrite it.
-- A target is also skipped, and left byte-identical, when it is a symlink, is not valid UTF-8, has a
-  region the file never closes, or when the blocks for one file mix `region=` with whole-file blocks.
-- A target that is absolute or leads outside `--dir`, through `..` or a symlink, is not skipped but
-  refused as `unsafe_path`. Every target is checked first, so then nothing at all is written and
-  `extract` exits 1.
+- A target is also skipped, and left byte-identical, when it is a symlink or is not valid UTF-8.
+- A target that is absolute or leads outside `--dir`, through `..` or a symlink, is refused as
+  `unsafe_path`. So are blocks that share a file without each declaring its own `region=` in one
+  language (`ambiguous_target`), and region blocks whose existing file has an unclosed, repeated or
+  wrongly marked region. Every target is checked first, so then nothing at all is written and
+  `extract` exits 1. `mdcode validate --for extract` lists these problems without writing anything.
 
 When anything is skipped, `extract` reports the count even under `--quiet` and exits with a non-zero
 status, so a pipeline cannot mistake "wrote nothing" for success.

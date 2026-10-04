@@ -102,6 +102,6 @@ describe("examples/ci/check-docs-sync.mjs", () => {
 
     assert.equal(run.code, 2, run.stderr);
     assert.match(run.stdout, /^::error file=guide\.md,line=3,title=Out of sync::out of sync with greet\.js$/m);
-    assert.match(run.stdout, /^::error file=broken\.md,line=1,title=Could not check::ENOENT/m);
+    assert.match(run.stdout, /^::error file=broken\.md,line=1,title=Could not check::missing\.js does not exist in /m);
   });
 });
