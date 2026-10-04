@@ -116,12 +116,15 @@ type Outcome = {
 
 /**
  * Execute the CLI with given arguments
+ * @returns the process exit code: 0 on success, 1 on any error, 2 when extract skipped a target
  */
 export async function Execute(
   args: Array<string>,
   stdout: NodeJS.WriteStream,
   stderr: NodeJS.WriteStream
-): Promise<void> {
+): Promise<number> {
+  // Set by the command that runs; parsing errors set it too.
+  let exitCode = 0;
   // Default behavior: if no subcommand is provided, run list on README.md
   const hasCommand = COMMANDS.includes(args[0] as CommandName);
 
@@ -146,8 +149,7 @@ export async function Execute(
 
   /**
    * Run one command and present its outcome. Nothing is printed until the work
-   * is done, so --json output is exactly one envelope. process.exitCode rather
-   * than process.exit(), which could drop output still buffered for a pipe.
+   * is done, so --json output is exactly one envelope.
    */
   const perform = async (command: CommandName, json: boolean | undefined, work: () => Promise<Outcome>): Promise<void> => {
     let outcome: Outcome;
@@ -162,7 +164,7 @@ export async function Execute(
       else {
         stderr.write(`Error: ${error instanceof Error ? error.message : String(error)}\n`);
       }
-      process.exitCode = 1;
+      exitCode = 1;
       return;
     }
 
@@ -174,7 +176,7 @@ export async function Execute(
     }
 
     if (outcome.errors.length > 0) {
-      process.exitCode = outcome.failureExitCode ?? 1;
+      exitCode = outcome.failureExitCode ?? 1;
     }
   };
 
@@ -427,6 +429,8 @@ export async function Execute(
       writeEnvelope(commandName, null, [{ code: "invalid_usage", message: error.message.replace(/^error: /, "") }]);
     }
 
-    process.exitCode = error.exitCode;
+    exitCode = error.exitCode;
   }
+
+  return exitCode;
 }

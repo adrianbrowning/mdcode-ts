@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { after, describe, it } from "node:test";
 
+import { defineTransform } from "../types.ts";
 import { update } from "./update.ts";
 
 const dirs: Array<string> = [];
@@ -91,5 +92,17 @@ describe("update from file regions", () => {
     assert.ok(!result.source.includes("ORIGINAL"));
     assert.deepStrictEqual(result.blocks, [{ name: null, line: 1, lang: "js", changed: true, read: { file: "a.js", region: "alpha" }, transformed: false }]);
     assert.deepStrictEqual(result.errors, []);
+  });
+
+  it("still transforms the original code when file= cannot be read, and reports the read failure", async () => {
+    const dir = await tempDir();
+    const source = "```js file=missing.js\nconst x = 1;\n```\n";
+
+    const transformer = defineTransform(({ code }) => code.toUpperCase());
+    const result = await update({ source, basePath: dir, transformer });
+
+    assert.equal(result.source, "```js file=missing.js\nCONST X = 1;\n```\n");
+    assert.deepStrictEqual(result.blocks, [{ name: null, line: 1, lang: "js", changed: true, transformed: true }]);
+    assert.deepStrictEqual(result.errors.map(({ code, path }) => ({ code, path })), [{ code: "read_failed", path: "missing.js" }]);
   });
 });
