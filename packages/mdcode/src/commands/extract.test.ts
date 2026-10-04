@@ -242,6 +242,25 @@ describe("extract: --force for non-region overwrites", () => {
   });
 });
 
+describe("extract: block names", () => {
+  test("--update-source keeps a quoted name intact when it adds file=", async () => {
+    const dir = await tempDir();
+    const source = "```sh name=\"quick start\"\nls\n```\n";
+
+    const result = await extract({ source, outputDir: dir, quiet: true, updateSource: true });
+
+    assert.equal(result.updatedSource, "```sh name=\"quick start\" file=block-1.sh\nls\n```\n");
+  });
+
+  test("writes nothing when two blocks share a name", async () => {
+    const dir = await tempDir();
+    const source = "```js name=a file=a.js\n1\n```\n\n```js name=a file=b.js\n2\n```\n";
+
+    await assert.rejects(extract({ source, outputDir: dir, quiet: true }), { name: "MetadataError" });
+    assert.deepEqual(await readdir(dir), []);
+  });
+});
+
 describe("extract: file= outside the output directory", () => {
   test("splices a relative file= that leaves the default output directory", async () => {
     const dir = await tempDir();

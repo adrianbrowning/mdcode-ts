@@ -4,7 +4,23 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 
+import { MetadataError } from "./metadata.ts";
 import { parse, updateInfoStrings, walk } from "./parser.ts";
+
+/** Assert that parsing `source` fails, and return the reported problems. */
+function problemsOf(source: string): MetadataError["problems"] {
+  let caught: unknown;
+
+  try {
+    parse({ source });
+  }
+  catch (error) {
+    caught = error;
+  }
+
+  assert.ok(caught instanceof MetadataError, "parse should throw MetadataError");
+  return caught.problems;
+}
 
 // Helper to load test fixtures
 async function loadFixture(filename: string): Promise<string> {
@@ -175,6 +191,97 @@ describe("fenced code blocks", () => {
   });
 });
 
+describe("quoted metadata values", () => {
+  const metaOf = (info: string): Record<string, string> | undefined => parse({ source: `\`\`\`${info}\ncode\n\`\`\`` })[0]?.meta;
+
+  it("reads a double-quoted value with spaces as one value", () => {
+    assert.deepEqual(metaOf("ts file=\"examples/getting started.ts\" name=\"quick start\""), {
+      file: "examples/getting started.ts",
+      name: "quick start",
+    });
+  });
+
+  it("unescapes \\\" and \\\\ inside quotes", () => {
+    assert.deepEqual(metaOf(String.raw`txt label="say \"hi\"" path="C:\\tmp"`), { label: "say \"hi\"", path: "C:\\tmp" });
+  });
+
+  it("keeps unquoted values verbatim, backslashes and inner quotes included", () => {
+    assert.deepEqual(metaOf(String.raw`txt path=C:\tmp label=a"b empty=`), { path: "C:\\tmp", label: "a\"b", empty: "" });
+  });
+
+  it("accepts an empty quoted value", () => {
+    assert.deepEqual(metaOf("txt label=\"\""), { label: "" });
+  });
+
+  it("reports an unterminated quote with its fence line", () => {
+    assert.deepEqual(problemsOf("text\n\n```ts file=\"a b.ts\ncode\n```"), [
+      { line: 3, message: "unterminated quoted value for \"file\"; add the closing \"" },
+    ]);
+  });
+
+  it("reports an escape other than \\\" or \\\\", () => {
+    const [ problem ] = problemsOf(String.raw`~~~ts file="a\nb.ts"` + "\ncode\n~~~");
+
+    assert.match(problem!.message, /invalid escape \\n in the value of "file"/);
+  });
+
+  it("reports text glued to a closing quote", () => {
+    const [ problem ] = problemsOf("```ts file=\"a\"b.ts\ncode\n```");
+
+    assert.match(problem!.message, /text after the closing quote of "file"/);
+  });
+
+  it("reports a key repeated in one fence", () => {
+    const [ problem ] = problemsOf("```ts file=a.ts file=\"b.ts\"\ncode\n```");
+
+    assert.match(problem!.message, /duplicate key "file"/);
+  });
+
+  it("reports every problem in the document, in line order", () => {
+    const source = "```ts a=1 a=2\nx\n```\n\n```ts b=\"open\ny\n```\n";
+
+    assert.deepEqual(problemsOf(source).map(problem => problem.line), [ 1, 5 ]);
+  });
+
+  it("ignores fences that are not complete blocks", () => {
+    assert.deepEqual(parse({ source: "text\n```ts file=\"never closed\n" }), []);
+  });
+});
+
+describe("block names", () => {
+  it("exposes name= as the block's name, and leaves unnamed blocks without one", () => {
+    const [ named, unnamed ] = parse({ source: "```ts name=\"quick start\"\na\n```\n\n```ts\nb\n```\n" });
+
+    assert.equal(named?.name, "quick start");
+    assert.ok(unnamed && !("name" in unnamed));
+  });
+
+  it("selects a block by name", () => {
+    const source = "```ts name=setup\na\n```\n\n```ts name=\"quick start\"\nb\n```\n";
+
+    assert.deepEqual(parse({ source, filter: { name: "quick start" } }).map(block => block.code), [ "b" ]);
+    assert.deepEqual(parse({ source, filter: { name: "missing" } }), []);
+  });
+
+  it("rejects duplicate names, naming every line that uses them", () => {
+    const source = "```ts name=a\n1\n```\n\n```ts name=b\n2\n```\n\n```js name=a\n3\n```\n";
+
+    assert.deepEqual(problemsOf(source), [
+      { line: 1, message: "duplicate name \"a\" on lines 1, 9; names must be unique within a document" },
+    ]);
+  });
+
+  it("rejects duplicate names even when a filter excludes one of them", () => {
+    const source = "```ts name=a\n1\n```\n\n```js name=a\n2\n```\n";
+
+    assert.throws(() => parse({ source, filter: { lang: "ts" } }), { name: "MetadataError" });
+  });
+
+  it("rejects an empty name", () => {
+    assert.match(problemsOf("```ts name=\n1\n```")[0]!.message, /name is empty/);
+  });
+});
+
 describe("updateInfoStrings", () => {
   it("keeps each opener's indentation, character, and length", () => {
     const source = "  ~~~~~sh\nls\n  ~~~~~\n";
@@ -188,6 +295,18 @@ describe("updateInfoStrings", () => {
 
     assert.equal(updated, "````markdown\n```bash\necho hi\n```\n````\n\n```sh file=block-2.sh\nls\n```\n");
     assert.deepEqual(parse({ source: updated }).map(block => block.meta), [{}, { file: "block-2.sh" }]);
+  });
+
+  it("quotes values that need it, so the result parses back to the same metadata", () => {
+    const source = "```ts name=\"quick start\" label=\"say \\\"hi\\\"\"\ncode\n```\n";
+    const updated = updateInfoStrings(source, new Map([[ 0, { file: "my file.ts" }]]));
+
+    assert.equal(updated, "```ts name=\"quick start\" label=\"say \\\"hi\\\"\" file=\"my file.ts\"\ncode\n```\n");
+    assert.deepEqual(parse({ source: updated })[0]?.meta, { name: "quick start", label: "say \"hi\"", file: "my file.ts" });
+  });
+
+  it("rejects invalid metadata even with nothing to update", () => {
+    assert.throws(() => updateInfoStrings("```ts name=a\n1\n```\n\n```ts name=a\n2\n```\n", new Map()), { name: "MetadataError" });
   });
 });
 

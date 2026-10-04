@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it } from "node:test";
@@ -215,6 +215,108 @@ const y = 2;
       assert.strictEqual(result2.exitCode, 0, "Should exit successfully");
       assert.ok(result2.stdout.includes("env=dev") || result2.stdout.includes("const y"), "Should include dev block");
       assert.ok(!result2.stdout.includes("const x"), "Should not include prod block");
+    });
+  });
+
+  describe("block names", () => {
+    const markdown = [
+      "```js name=setup file=setup.js",
+      "console.log('setup');",
+      "```",
+      "",
+      "```js name=\"quick start\" file=\"getting started.js\"",
+      "console.log('quick start');",
+      "```",
+      "",
+    ].join("\n");
+    const duplicated = "```js name=a file=a.js\n1\n```\n\n```py name=a file=b.py\n2\n```\n";
+
+    const withTmpDir = async (body: (dir: string) => Promise<void>): Promise<void> => {
+      const dir = await mkdtemp(join(tmpdir(), "mdcode-cli-names-"));
+      try {
+        await body(dir);
+      }
+      finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    };
+
+    it("list shows the name as the block's identity and in JSON", async () => {
+      const text = await execCli([ "list", "--name", "quick start" ], { stdin: markdown });
+      assert.strictEqual(text.exitCode, 0);
+      assert.match(text.stdout, /\[1\] quick start \(js\)/);
+      assert.match(text.stdout, /file="getting started\.js"/);
+      assert.doesNotMatch(text.stdout, /setup/);
+
+      const json = await execCli([ "list", "--json" ], { stdin: markdown });
+      assert.deepStrictEqual(json.stdout.trim().split("\n").map(line => JSON.parse(line)), [
+        { lang: "js", name: "setup", file: "setup.js" },
+        { lang: "js", name: "quick start", file: "getting started.js" },
+      ]);
+    });
+
+    it("extract -n writes only the named block, to a path with spaces", async () => {
+      await withTmpDir(async dir => {
+        const result = await execCli([ "extract", "-q", "-n", "quick start", "-d", dir ], { stdin: markdown });
+
+        assert.strictEqual(result.exitCode, 0, result.stderr);
+        assert.match(await readFile(join(dir, "getting started.js"), "utf-8"), /quick start/);
+        await assert.rejects(readFile(join(dir, "setup.js"), "utf-8"), { code: "ENOENT" });
+      });
+    });
+
+    it("update --name refreshes only the named block", async () => {
+      await withTmpDir(async dir => {
+        await writeFile(join(dir, "setup.js"), "console.log('setup v2');\n", "utf-8");
+        await writeFile(join(dir, "getting started.js"), "console.log('quick start v2');\n", "utf-8");
+        const doc = join(dir, "doc.md");
+        await writeFile(doc, markdown, "utf-8");
+
+        const result = await execCli([ "update", "-q", "--name", "setup", doc ], { cwd: dir });
+
+        assert.strictEqual(result.exitCode, 0, result.stderr);
+        const updated = await readFile(doc, "utf-8");
+        assert.match(updated, /setup v2/);
+        assert.match(updated, /'quick start'\)/);
+      });
+    });
+
+    it("run -n runs only the named block", async () => {
+      await withTmpDir(async dir => {
+        const result = await execCli([ "run", "-n", "quick start", "cat {file}" ], { stdin: markdown, cwd: dir });
+
+        assert.strictEqual(result.exitCode, 0, result.stderr);
+        assert.match(result.stdout, /Output: console\.log\('quick start'\);/);
+        assert.doesNotMatch(result.stdout, /setup/);
+      });
+    });
+
+    it("dump --name archives only the named block", async () => {
+      const result = await execCli([ "dump", "-q", "--name", "setup" ], { stdin: markdown });
+
+      assert.strictEqual(result.exitCode, 0, result.stderr);
+      assert.ok(result.stdout.includes("setup.js"));
+      assert.ok(!result.stdout.includes("getting started.js"));
+    });
+
+    for (const args of [[ "list" ], [ "extract", "-q" ], [ "update", "--stdout", "-q" ], [ "run", "cat {file}" ], [ "dump", "-q", "-o", "out.tar" ]]) {
+      it(`${args[0]} fails on duplicate names before doing anything`, async () => {
+        await withTmpDir(async dir => {
+          const result = await execCli([ ...args, "-n", "a" ], { stdin: duplicated, cwd: dir });
+
+          assert.strictEqual(result.exitCode, 1);
+          assert.match(result.stderr, /line 1: duplicate name "a" on lines 1, 5/);
+          assert.strictEqual(result.stdout, "", "no block may be processed");
+          assert.deepStrictEqual(await readdir(dir), [], "nothing may be written, not even a temp directory");
+        });
+      });
+    }
+
+    it("rejects malformed quoted metadata with the fence line", async () => {
+      const result = await execCli([ "list" ], { stdin: "intro\n\n```js file=\"open.js\nx\n```\n" });
+
+      assert.strictEqual(result.exitCode, 1);
+      assert.match(result.stderr, /line 3: unterminated quoted value for "file"/);
     });
   });
 

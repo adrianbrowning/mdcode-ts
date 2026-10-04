@@ -6,6 +6,8 @@ import type { FilterOptions, TransformerFunction } from "./types.ts";
 // Public API exports
 export * from "./types.ts";
 export * from "./parser.ts";
+export type { MetadataProblem } from "./metadata.ts";
+export { MetadataError } from "./metadata.ts";
 export * from "./cli.ts";
 
 // Export commands for programmatic use

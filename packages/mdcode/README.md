@@ -231,10 +231,13 @@ mdcode list --json docs/API.md
 
 **JSON Format:**
 ```json file=block-17.json
-{"lang":"js","file":"app.js","region":"main"}
+{"lang":"js","name":"quick start","file":"app.js","region":"main"}
 {"lang":"python","file":"script.py"}
 {"lang":"sql"}
 ```
+
+A block's `name` comes right after `lang` when it has one. In the text output, a named block is listed by
+its name, as in `[1] quick start (js)`.
 
 ### Filter by Language
 
@@ -606,7 +609,8 @@ mdcode run -l js "node {file}" docs/*.md
 
 ### Filter by Name
 
-Filter blocks by their `name` metadata:
+Select blocks by their `name` metadata. Every command accepts `-n, --name`; see
+[Selecting Blocks by Name](#selecting-blocks-by-name).
 
 ```bash file=block-41.sh
 # Long form
@@ -809,6 +813,26 @@ mdcode run -l js -f "auth.test.js" -n "login-test" "node {file}" README.md
 mdcode update -l sql -f queries.sql README.md
 ```
 
+### Selecting Blocks by Name
+
+Give a block a stable name with `name=`, then select it by that name from any command. Names are
+unique within one markdown document, so `--name` picks out exactly one block. Elsewhere, the
+document path plus the name identifies the block.
+
+````markdown file=block-93.md
+```js name="quick start" file="examples/getting started.js"
+console.log('Hello, world!');
+```
+````
+
+```bash file=block-94.sh
+mdcode list --name "quick start" README.md
+mdcode extract -n "quick start" -d ./out README.md
+mdcode update --name "quick start" README.md
+mdcode run -n "quick start" "node {file}" README.md
+mdcode dump --name "quick start" -o quick-start.tar README.md
+```
+
 ---
 
 ## CLI Flags Reference
@@ -818,6 +842,7 @@ All commands support these common filtering flags:
 - `-l, --lang <lang>` - Filter by language
 - `-f, --file <file>` - Filter by file metadata pattern
 - `-m, --meta <key=value>` - Filter by custom metadata (can specify multiple times)
+- `-n, --name <name>` - Select the block with this `name` metadata
 
 Additional flags by command:
 
@@ -838,7 +863,6 @@ Additional flags by command:
 - `--stdout` - Output to stdout instead of updating in-place
 
 **run:**
-- `-n, --name <name>` - Filter by block name
 - `-k, --keep` - Keep temporary directory
 - `-d, --dir <dir>` - Custom working directory
 
@@ -1023,6 +1047,9 @@ parse({ source: markdown, filter: { file: 'app.js' } });
 // Filter by custom metadata
 parse({ source: markdown, filter: { meta: { region: 'main' } } });
 
+// Select a block by name
+parse({ source: markdown, filter: { name: 'quick start' } });
+
 // Combine filters
 update({
   source: markdown,
@@ -1039,7 +1066,9 @@ Extract code blocks from markdown.
 
 - **options.source** - The markdown source string
 - **options.filter** - Optional filter criteria
-- **Returns** - Array of Block objects
+- **Returns** - Array of Block objects. A named block also has `name` set.
+- **Throws** - `MetadataError` when any block's metadata is malformed or two blocks share a name. Its
+  `problems` array lists each problem with the line of the block's opening fence.
 
 #### `walk(options: WalkOptions): Promise<WalkResult>`
 
@@ -1092,8 +1121,31 @@ Supported metadata:
 - `file`: Output filename for extraction
 - `region`: Region name for partial extraction (using `#region`/`#endregion` comments)
 - `outline`: Extract only the structure without implementation details
-- `name`: Custom name for the block (useful with run command)
+- `name`: The block's stable identifier, used with `--name`. Optional, but it must be non-empty and
+  unique within the document.
 - Custom key=value pairs for filtering
+
+### Metadata Syntax
+
+The first word of the info string is the language. Each `key=value` after it is metadata:
+
+- **Unquoted:** `file=app.js`. The value runs to the next space and is taken as written, backslashes
+  included.
+- **Quoted:** `file="examples/getting started.ts"`. Use quotes for values with spaces. Inside quotes,
+  `\"` is a quote and `\\` is a backslash.
+- Words without `=` are ignored.
+
+mdcode refuses to process a document with broken metadata, and it reports every problem with the
+line of the block's opening fence:
+
+```text file=block-95.txt
+Error: Invalid code block metadata:
+  line 12: unterminated quoted value for "file"; add the closing "
+  line 30: duplicate name "quick start" on lines 30, 41; names must be unique within a document
+```
+
+The other errors are an invalid escape (any backslash in quotes other than `\"` or `\\`), text right
+after a closing quote, a key used twice in one block, and an empty `name=`.
 
 ### Code Fences
 
