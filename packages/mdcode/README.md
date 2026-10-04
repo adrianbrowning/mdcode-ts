@@ -806,6 +806,111 @@ mdcode run --allow-shell -l typescript "tsc --noEmit {file}" API.md
 mdcode run --allow-shell -l js -n test "jest --coverage {file}" docs/
 ```
 
+### Validating Runnable Snippets in CI
+
+`run` gives each block its own temporary file, which works for standalone snippets. When snippets
+import each other, or your linter or test runner expects a directory, use
+[`validate-snippets.mjs`](https://github.com/adrianbrowning/mdcode-ts/blob/main/examples/ci/validate-snippets.mjs).
+It is a ready-to-copy script that extracts the snippets into a fresh workspace and runs your command
+there.
+
+Only fences marked `runnable=true` are validated. Every other block, including `runnable=false` and
+blocks with no `runnable=` at all, is left out. Add `file=` when a snippet needs a particular name,
+for example so another snippet can import it. Without it, the file is named `block-N` with an
+extension for its language:
+
+````markdown file=block-snippets-guide.md
+```js runnable=true name=add file=lib/add.js
+export const add = (a, b) => a + b;
+```
+
+```js runnable=true name=use-add
+import { add } from "./lib/add.js";
+console.log(add(1, 2));
+```
+
+```js
+// Illustration only: not extracted, not run
+add(1, 2);
+```
+````
+
+For each Markdown file, the script:
+
+1. creates an empty workspace with `mkdtemp`, one per document so two documents can use the same
+   `file=`
+2. runs `mdcode extract --meta runnable=true --dir <workspace>` into it, so every `file=` must stay
+   inside the workspace
+3. prints which file came from which block, then runs your command with the workspace as its working
+   directory
+4. removes the workspace afterwards, whether the command passed or failed and when the job is
+   cancelled with SIGINT or SIGTERM. It only ever removes the directory it created.
+
+Your command goes after `--` and runs without a shell. If an argument contains `{file}`, the
+command runs once per extracted file, with `{file}` replaced by that file's path in the workspace,
+and a failure names the block. Otherwise it runs once per document against the whole workspace:
+
+```bash file=block-snippets-local.sh
+# Run every snippet as a script; a failure names the block
+node scripts/validate-snippets.mjs README.md docs/guide.md -- node {file}
+
+# Run your test runner once per document
+node scripts/validate-snippets.mjs README.md -- node --test
+
+# Snippets that import your dependencies need a workspace inside the project (gitignore .mdcode-tmp/)
+node scripts/validate-snippets.mjs --tmp-dir .mdcode-tmp README.md -- npx tsc --noEmit --allowJs --checkJs lib/add.js
+
+# Keep the workspace to debug a failure
+node scripts/validate-snippets.mjs --keep README.md -- node {file}
+```
+
+| Exit | Meaning |
+| --- | --- |
+| `0` | Every runnable block passed |
+| `1` | The command failed for at least one block or document |
+| `2` | A document could not be extracted, no document has a `runnable=true` block, the command or `mdcode` was not found, or the arguments are wrong |
+
+It needs Node 22+ and mdcode-ts 0.1.0 or later, with `mdcode` on `PATH`. As with
+[Checking Docs in CI](#checking-docs-in-ci), add mdcode-ts to `devDependencies` and call the script
+from an npm script:
+
+```json file=block-snippets-scripts.json
+{
+  "scripts": {
+    "docs:snippets": "node scripts/validate-snippets.mjs README.md docs/guide.md -- node {file}"
+  },
+  "devDependencies": {
+    "mdcode-ts": "^0.1.0"
+  }
+}
+```
+
+In GitHub Actions, the script also annotates each failing block in the pull request:
+
+```yaml file=block-snippets-workflow.yml
+name: Docs
+
+on: [push, pull_request]
+
+jobs:
+  runnable-snippets:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run docs:snippets
+```
+
+The command is trusted: it comes from your `package.json` or workflow, never from the Markdown. The
+snippets are not. A command that executes them, as `node {file}` does, runs their code with the job's
+permissions. Run it only on Markdown you would run as code, and keep secrets out of jobs that run on
+pull requests from forks. See [Security: Untrusted Markdown](#security-untrusted-markdown).
+
 ---
 
 ## Dump Command
@@ -1056,6 +1161,10 @@ and the command still exits 1.
 untrusted code with your permissions. `--allow-shell` is the acknowledgement: without it, `run` fails
 with `invalid_usage` before reading any input. The library `run()` function needs no such flag,
 because calling it is already explicit.
+
+[`validate-snippets.mjs`](#validating-runnable-snippets-in-ci) follows the same model. Its command
+comes only from its own command line, and a command that executes the extracted snippets runs
+untrusted code.
 
 ### Limits
 

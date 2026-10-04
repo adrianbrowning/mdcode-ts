@@ -1,35 +1,22 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
-import { delimiter, dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
-import { cleanupTempDir, createTempDir } from "./test-utils.ts";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const SCRIPT = join(__dirname, "../../../examples/ci/check-docs-sync.mjs");
-const CLI_PATH = join(__dirname, "../../mdcode/dist/main.js");
+import { type CiRun, cleanupTempDir, createTempDir, installMdcodeShim, runCiExample } from "./test-utils.ts";
 
 const SYNCED = "```js file=greet.js name=greet\nconsole.log('hello');\n```\n";
 const DRIFTED = "# Guide\n\n```js file=greet.js name=greet\nconsole.log('old');\n```\n";
 const BROKEN = "```js file=missing.js\nx\n```\n";
 
-type Run = { code: number | null; stdout: string; stderr: string };
-
 describe("examples/ci/check-docs-sync.mjs", () => {
   let dir: string;
-  let binDir: string;
+  let path: string;
 
   beforeEach(async () => {
     dir = await createTempDir();
-    binDir = join(dir, "bin");
+    path = await installMdcodeShim(dir);
     await writeFile(join(dir, "greet.js"), "console.log('hello');\n", "utf-8");
-    // The script runs whatever `mdcode` is on PATH; point that at the built CLI.
-    await mkdir(binDir);
-    const shim = join(binDir, "mdcode");
-    await writeFile(shim, `#!/bin/sh\nexec "${process.execPath}" "${CLI_PATH}" "$@"\n`, "utf-8");
-    await chmod(shim, 0o755);
   });
 
   afterEach(async () => {
@@ -42,14 +29,8 @@ describe("examples/ci/check-docs-sync.mjs", () => {
     }
   };
 
-  const check = (args: Array<string>, env: Record<string, string> = {}): Run => {
-    const run = spawnSync(process.execPath, [ SCRIPT, ...args ], {
-      cwd: dir,
-      encoding: "utf8",
-      env: { PATH: `${binDir}${delimiter}/usr/bin${delimiter}/bin`, ...env },
-    });
-    return { code: run.status, stdout: run.stdout, stderr: run.stderr };
-  };
+  const check = (args: Array<string>, env: Record<string, string> = {}): CiRun =>
+    runCiExample("check-docs-sync.mjs", args, { cwd: dir, env: { PATH: path, ...env } });
 
   it("exits 0 when every document is in sync", async () => {
     await docs({ "a.md": SYNCED, "b.md": SYNCED });
