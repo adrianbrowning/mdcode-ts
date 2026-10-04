@@ -842,8 +842,8 @@ mdcode update --apply -l sql -f queries.sql README.md
 ### Selecting Blocks by Name
 
 Give a block a stable name with `name=`, then select it by that name from any command. Names are
-unique within one markdown document, so `--name` picks out exactly one block. Repeat `--name` to
-select several. Elsewhere, the document path plus the name identifies the block.
+unique within one markdown document, so each `--name` picks out at most one block; repeat `--name`
+to select several. Elsewhere, the document path plus the name identifies the block.
 
 ````markdown file=block-93.md
 ```js name="quick start" file="examples/getting started.js"
