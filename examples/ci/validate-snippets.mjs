@@ -105,7 +105,7 @@ function extractRunnable(document, workspace) {
     return { problems: problems.length > 0 ? problems : [ `mdcode exited ${run.status} without reporting an error` ] };
   }
 
-  const files = envelope.result.targets.map(target => ({
+  const files = envelope.result.documents.flatMap(({ targets }) => targets).map(target => ({
     path: relative(workspace, target.path),
     blocks: target.blocks,
   }));

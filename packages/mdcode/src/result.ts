@@ -15,6 +15,8 @@ export type ErrorCode =
   | "invalid_metadata"
   /** Bad flags or flag combinations. */
   | "invalid_usage"
+  /** mdcode.config.json is missing, is not valid JSON, or has an unknown or invalid field. */
+  | "invalid_config"
   /** Reading the markdown or writing an output failed. */
   | "io_error"
   /** The `--transform` module could not be loaded or has no default function export. */
@@ -37,6 +39,8 @@ export type ErrorCode =
 export interface ResultError {
   code: ErrorCode;
   message: string;
+  /** The Markdown document concerned, as named on the command line or relative to the current directory; absent for stdin. */
+  document?: string;
   /** 1-based line of the opening fence of the block concerned. */
   line?: number;
   /** Name of the block concerned, when it has one. */

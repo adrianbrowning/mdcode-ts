@@ -49,6 +49,12 @@ async function runJson(
   return { exitCode, envelope };
 }
 
+/** The result for the one document an extract or update read. */
+function onlyDocument(envelope: AnyEnvelope): AnyEnvelope["result"] {
+  assert.equal(envelope.result.documents.length, 1, "exactly one document");
+  return envelope.result.documents[0];
+}
+
 const DOC = [
   "# Doc",
   "",
@@ -114,10 +120,13 @@ describe("--json contract", () => {
       const { envelope } = await runJson("extract", [ "-d", dir ], { stdin: DOC });
 
       assert.deepEqual(envelope.result, {
-        targets: [
-          { path: join(dir, "greet.js"), action: "written", blocks: [{ name: "greet", line: 3 }], regions: [] },
-          { path: join(dir, "block-2.sh"), action: "written", blocks: [{ name: null, line: 7 }], regions: [] },
-        ],
+        documents: [{
+          document: null,
+          targets: [
+            { path: join(dir, "greet.js"), action: "written", blocks: [{ name: "greet", line: 3 }], regions: [] },
+            { path: join(dir, "block-2.sh"), action: "written", blocks: [{ name: null, line: 7 }], regions: [] },
+          ],
+        }],
       });
       assert.equal(await readFile(join(dir, "greet.js"), "utf-8"), "console.log('hi');");
     });
@@ -129,7 +138,7 @@ describe("--json contract", () => {
       const { exitCode, envelope } = await runJson("extract", [ "-d", dir, "-n", "greet" ], { stdin: DOC });
 
       assert.equal(exitCode, 2);
-      assert.equal(envelope.result.targets[0].action, "skipped");
+      assert.equal(onlyDocument(envelope).targets[0].action, "skipped");
       assert.deepEqual(envelope.errors, [{
         code: "extract_skipped",
         message: "exists and has block(s) without region=. Use --force to overwrite.",
@@ -142,14 +151,14 @@ describe("--json contract", () => {
       const dir = await tempDir();
       const fromStdin = await runJson("extract", [ "-d", dir, "--update-source" ], { stdin: DOC });
 
-      assert.match(fromStdin.envelope.result.updatedSource, /```sh file=block-2\.sh/);
+      assert.match(onlyDocument(fromStdin.envelope).updatedSource, /```sh file=block-2\.sh/);
 
       const doc = join(dir, "doc.md");
       await writeFile(doc, DOC, "utf-8");
       const fromFile = await runJson("extract", [ "-d", join(dir, "out"), "--update-source", doc ]);
 
-      assert.equal(fromFile.envelope.result.written, doc);
-      assert.equal(fromFile.envelope.result.updatedSource, undefined, "the markdown went to the file, not the result");
+      assert.equal(onlyDocument(fromFile.envelope).written, doc);
+      assert.equal(onlyDocument(fromFile.envelope).updatedSource, undefined, "the markdown went to the file, not the result");
       assert.match(await readFile(doc, "utf-8"), /```sh file=block-2\.sh/);
     });
 
@@ -178,10 +187,13 @@ describe("--json contract", () => {
         const { envelope } = await runJson("update", args);
 
         assert.deepEqual(envelope.result, {
-          blocks: [
-            { name: "greet", line: 3, lang: "js", changed: true, code: "console.log('fresh');", read: { file: "greet.js" }, transformed: false },
-            { name: null, line: 7, lang: "sh", changed: false, code: "echo plain", transformed: false },
-          ],
+          documents: [{
+            document: doc,
+            blocks: [
+              { name: "greet", line: 3, lang: "js", changed: true, code: "console.log('fresh');", read: { file: "greet.js" }, transformed: false },
+              { name: null, line: 7, lang: "sh", changed: false, code: "echo plain", transformed: false },
+            ],
+          }],
         });
       }
 
@@ -193,15 +205,15 @@ describe("--json contract", () => {
 
       const applied = await runJson("update", [ "--apply", doc ]);
 
-      assert.equal(applied.envelope.result.written, doc);
-      assert.deepEqual(applied.envelope.result.blocks.map(({ changed }: { changed: boolean; }) => changed), [ true, false ]);
+      assert.equal(onlyDocument(applied.envelope).written, doc);
+      assert.deepEqual(onlyDocument(applied.envelope).blocks.map(({ changed }: { changed: boolean; }) => changed), [ true, false ]);
       assert.equal(await readFile(doc, "utf-8"), DOC.replace("console.log('hi');", "console.log('fresh');"));
 
       const before = await stat(doc);
       const again = await runJson("update", [ "--apply", doc ]);
 
-      assert.equal(again.envelope.result.written, null);
-      assert.deepEqual(again.envelope.result.blocks.map(({ changed }: { changed: boolean; }) => changed), [ false, false ]);
+      assert.equal(onlyDocument(again.envelope).written, null);
+      assert.deepEqual(onlyDocument(again.envelope).blocks.map(({ changed }: { changed: boolean; }) => changed), [ false, false ]);
       assert.equal((await stat(doc)).mtimeMs, before.mtimeMs, "a no-op apply must not rewrite the file");
     });
 
@@ -210,7 +222,7 @@ describe("--json contract", () => {
 
       const { envelope } = await runJson("update", [ "--diff", doc ]);
 
-      assert.equal(envelope.result.diff, [
+      assert.equal(onlyDocument(envelope).diff, [
         `--- ${doc}`,
         `+++ ${doc}`,
         "@@ -1,8 +1,8 @@",
@@ -230,7 +242,7 @@ describe("--json contract", () => {
       await runJson("update", [ "--apply", doc ]);
       const none = await runJson("update", [ "--diff", doc ]);
 
-      assert.equal(none.envelope.result.diff, "", "no changes, no diff");
+      assert.equal(onlyDocument(none.envelope).diff, "", "no changes, no diff");
     });
 
     it("--check fails with out_of_sync for each drifted block, writes nothing, and passes once in sync", async () => {
@@ -239,7 +251,7 @@ describe("--json contract", () => {
       const drifted = await runJson("update", [ "--check", doc ]);
 
       assert.equal(drifted.exitCode, 1);
-      assert.deepEqual(drifted.envelope.errors, [{ code: "out_of_sync", message: "out of sync with greet.js", line: 3, name: "greet", path: "greet.js" }]);
+      assert.deepEqual(drifted.envelope.errors, [{ document: doc, code: "out_of_sync", message: "out of sync with greet.js", line: 3, name: "greet", path: "greet.js" }]);
       assert.equal(await readFile(doc, "utf-8"), DOC);
 
       await runJson("update", [ "--apply", doc ]);
@@ -258,7 +270,7 @@ describe("--json contract", () => {
       const { exitCode, envelope } = await runJson("update", [ "--check", "--continue-on-error", "-n", "greet", "-t", "upper.mjs", doc ], { cwd: dir });
 
       assert.equal(exitCode, 1);
-      assert.equal(envelope.result.blocks[0].changed, true);
+      assert.equal(onlyDocument(envelope).blocks[0].changed, true);
       assert.deepEqual(envelope.errors.map(({ code, line, path }) => ({ code, line, path })), [{ code: "read_failed", line: 3, path: "greet.js" }]);
     });
 
@@ -271,11 +283,11 @@ describe("--json contract", () => {
       await writeFile(join(dir, "three.js"), "33\n", "utf-8");
       await writeFile(doc, named, "utf-8");
 
-      const names = (envelope: AnyEnvelope): Array<string> => envelope.result.blocks.map(({ name }: { name: string; }) => name);
+      const names = (envelope: AnyEnvelope): Array<string> => onlyDocument(envelope).blocks.map(({ name }: { name: string; }) => name);
 
       assert.deepEqual(names((await runJson("update", [ "-n", "two", "-n", "one", doc ])).envelope), [ "one", "two" ]);
       assert.equal((await runJson("update", [ "--check", "-n", "one", doc ])).exitCode, 0, "drift outside the selection is ignored");
-      assert.doesNotMatch((await runJson("update", [ "--diff", "-n", "two", doc ])).envelope.result.diff, /33/);
+      assert.doesNotMatch(onlyDocument((await runJson("update", [ "--diff", "-n", "two", doc ])).envelope).diff, /33/);
 
       await runJson("update", [ "--apply", "--name", "two", doc ]);
 
@@ -306,8 +318,8 @@ describe("--json contract", () => {
       for (const [ args, stdin ] of [[[ "--stdout", doc ]], [[ "--stdout" ], DOC]] as const) {
         const { envelope } = await runJson("update", [ ...args ], { stdin, cwd: dir });
 
-        assert.match(envelope.result.source, /console\.log\('fresh'\);/);
-        assert.equal(envelope.result.written, undefined);
+        assert.match(onlyDocument(envelope).source, /console\.log\('fresh'\);/);
+        assert.equal(onlyDocument(envelope).written, undefined);
       }
 
       assert.equal(await readFile(doc, "utf-8"), DOC);
@@ -338,8 +350,8 @@ describe("--json contract", () => {
         { code: "read_failed", line: 1, path: "missing.js" },
         { code: "unsafe_path", line: 9, path: "../escape.js" },
       ]);
-      assert.equal(envelope.result.written, doc);
-      assert.deepEqual(envelope.result.blocks.map(({ line, changed }: { line: number; changed: boolean; }) => ({ line, changed })), [
+      assert.equal(onlyDocument(envelope).written, doc);
+      assert.deepEqual(onlyDocument(envelope).blocks.map(({ line, changed }: { line: number; changed: boolean; }) => ({ line, changed })), [
         { line: 1, changed: false },
         { line: 5, changed: true },
         { line: 9, changed: false },
@@ -362,7 +374,7 @@ describe("--json contract", () => {
 
       const based = await runJson("update", [ "--stdout", "--base", dir, join(docs, "b.md") ]);
 
-      assert.equal(based.envelope.result.source, "```js file=src.js\nfresh\n```\n");
+      assert.equal(onlyDocument(based.envelope).source, "```js file=src.js\nfresh\n```\n");
     });
 
     it("fails with transform_failed when the transformer throws, and invalid_transform when it cannot load", async () => {
