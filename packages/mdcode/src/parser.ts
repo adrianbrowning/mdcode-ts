@@ -1,32 +1,6 @@
+import type { MetadataProblem } from "./metadata.ts";
+import { formatMetaValue, MetadataError, parseInfoString } from "./metadata.ts";
 import type { Block, FilterOptions, ParseOptions, WalkOptions, WalkResult } from "./types.ts";
-
-/**
- * Parse metadata from the info string of a code block
- * Format: language key=value key2=value2
- * Example: "js file=foo.js region=main"
- */
-function parseInfoString(info: string | null | undefined): { lang: string; meta: Record<string, string>; } {
-  if (!info) {
-    return { lang: "", meta: {} };
-  }
-
-  const parts = info.trim().split(/\s+/);
-  const lang = parts[0] || "";
-  const meta: Record<string, string> = {};
-
-  for (let i = 1; i < parts.length; i++) {
-    const part = parts[i];
-    if (!part) continue;
-    const equalIndex = part.indexOf("=");
-    if (equalIndex > 0) {
-      const key = part.substring(0, equalIndex);
-      const value = part.substring(equalIndex + 1);
-      meta[key] = value;
-    }
-  }
-
-  return { lang, meta };
-}
 
 /**
  * Check if a block matches the filter criteria
@@ -51,6 +25,10 @@ function matchesFilter(block: Block, filter?: FilterOptions): boolean {
     return false;
   }
 
+  if (filter.name && block.name !== filter.name) {
+    return false;
+  }
+
   // Filter by custom metadata (nested format for backwards compatibility)
   if (filter.meta) {
     for (const [ key, value ] of Object.entries(filter.meta)) {
@@ -65,6 +43,8 @@ function matchesFilter(block: Block, filter?: FilterOptions): boolean {
 
 /** A complete fenced code block, located by offsets into the markdown source. */
 interface FencedBlock {
+  /** 1-based line number of the opening fence. */
+  line: number;
   /** Start of the opening fence line. */
   openStart: number;
   /** End of the opening fence line, before its line ending. */
@@ -113,6 +93,7 @@ function scanFences(source: string): Array<FencedBlock> {
       }
 
       open = {
+        line: i / 2 + 1,
         openStart: lineStart,
         openEnd: lineStart + text.length,
         opener: indent + fence,
@@ -128,9 +109,9 @@ function scanFences(source: string): Array<FencedBlock> {
     const [ , indent = "", fence = "" ] = CLOSING_FENCE.exec(text) ?? [];
 
     if (fence.startsWith(open.char) && fence.length >= open.length && indent.length <= open.indent + 3) {
-      const { openStart, openEnd, opener, info, codeStart } = open;
+      const { line, openStart, openEnd, opener, info, codeStart } = open;
 
-      blocks.push({ openStart, openEnd, opener, info, codeStart, codeEnd: lineStart });
+      blocks.push({ line, openStart, openEnd, opener, info, codeStart, codeEnd: lineStart });
       open = undefined;
     }
   }
@@ -138,19 +119,71 @@ function scanFences(source: string): Array<FencedBlock> {
   return blocks;
 }
 
+/** A fenced block whose info string has been parsed. */
+interface ParsedFence extends FencedBlock {
+  lang: string;
+  meta: Record<string, string>;
+}
+
+/**
+ * Scan every fence and parse its metadata, enforcing the document-wide rules:
+ * the metadata grammar, and `name` being non-empty and unique in the document.
+ * Every problem in the document is reported at once.
+ * @throws {MetadataError} when any fence breaks a rule
+ */
+function readFences(source: string): Array<ParsedFence> {
+  const problems: Array<MetadataProblem> = [];
+  const linesByName = new Map<string, Array<number>>();
+
+  const fences = scanFences(source).map(fence => {
+    const { lang, meta, problems: found } = parseInfoString(fence.info);
+
+    for (const message of found) {
+      problems.push({ line: fence.line, message });
+    }
+
+    if (meta.name === "") {
+      problems.push({ line: fence.line, message: "name is empty; give the block a name or remove name=" });
+    }
+    else if (meta.name !== undefined) {
+      linesByName.set(meta.name, [ ...linesByName.get(meta.name) ?? [], fence.line ]);
+    }
+
+    return { ...fence, lang, meta };
+  });
+
+  for (const [ name, lines ] of linesByName) {
+    if (lines.length > 1) {
+      problems.push({
+        line: lines[0]!,
+        message: `duplicate name ${JSON.stringify(name)} on lines ${lines.join(", ")}; names must be unique within a document`,
+      });
+    }
+  }
+
+  if (problems.length > 0) {
+    throw new MetadataError(problems.sort((a, b) => a.line - b.line));
+  }
+
+  return fences;
+}
+
 /**
  * Parse markdown and extract all fenced code blocks
+ * @throws {MetadataError} when any block's metadata is malformed, or two blocks share a name
  */
 export function parse(options: ParseOptions): Array<Block> {
   const { source, filter } = options;
   const blocks: Array<Block> = [];
 
-  for (const fenced of scanFences(source)) {
-    const { lang, meta } = parseInfoString(fenced.info);
+  for (const fenced of readFences(source)) {
+    const { lang, meta } = fenced;
     // The newline before the closing fence ends the last line; it is not code.
     const code = source.slice(fenced.codeStart, fenced.codeEnd).replace(/\r?\n$/, "");
     const block: Block = {
       lang,
+      // Only named blocks carry the key, so unnamed blocks look as they always did.
+      ...(meta.name === undefined ? {} : { name: meta.name }),
       meta,
       code,
       position: { start: fenced.codeStart, end: fenced.codeEnd },
@@ -169,16 +202,13 @@ export function parse(options: ParseOptions): Array<Block> {
  * @param source - Original markdown source
  * @param updates - Map of block index to metadata updates
  * @returns Updated markdown source with modified info strings
+ * @throws {MetadataError} when the source's metadata is invalid, as for parse
  */
 export function updateInfoStrings(
   source: string,
   updates: Map<number, Record<string, string>>
 ): string {
-  if (updates.size === 0) {
-    return source;
-  }
-
-  const fences = scanFences(source);
+  const fences = readFences(source);
   let result = source;
 
   // Back to front, so each edit leaves the offsets of earlier fences valid.
@@ -189,9 +219,8 @@ export function updateInfoStrings(
       continue;
     }
 
-    const { openStart, openEnd, opener, info } = fences[index]!;
-    const { lang, meta } = parseInfoString(info);
-    const metaParts = Object.entries({ ...meta, ...update }).map(([ k, v ]) => `${k}=${v}`);
+    const { openStart, openEnd, opener, lang, meta } = fences[index]!;
+    const metaParts = Object.entries({ ...meta, ...update }).map(([ k, v ]) => `${k}=${formatMetaValue(v)}`);
     const newInfo = [ lang, ...metaParts ].filter(Boolean).join(" ");
 
     result = result.slice(0, openStart) + opener + newInfo + result.slice(openEnd);

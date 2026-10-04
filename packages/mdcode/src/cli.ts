@@ -34,6 +34,7 @@ async function readInput(filePath?: string): Promise<string> {
 /** Flags accepted by `mdcode extract`, so a renamed flag is a compile error. */
 type ExtractCliOptions = {
   lang?: string;
+  name?: string;
   file?: string;
   meta?: Record<string, string>;
   dir: string;
@@ -46,11 +47,15 @@ type ExtractCliOptions = {
 /**
  * Parse filter options from command-line flags
  */
-function parseFilterOptions(options: { lang?: string; file?: string; meta?: Record<string, string>; }): FilterOptions | undefined {
+function parseFilterOptions(options: { lang?: string; name?: string; file?: string; meta?: Record<string, string>; }): FilterOptions | undefined {
   const filter: FilterOptions = {};
 
   if (options.lang) {
     filter.lang = options.lang;
+  }
+
+  if (options.name) {
+    filter.name = options.name;
   }
 
   if (options.file) {
@@ -98,6 +103,7 @@ export async function Execute(
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
     .option("-m, --meta <key=value...>", "Filter by custom metadata")
+    .option("-n, --name <name>", "Select the block with this name= metadata")
     .option("--json", "Output as JSON")
     .action(async (file, options) => {
       try {
@@ -121,6 +127,7 @@ export async function Execute(
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
     .option("-m, --meta <key=value...>", "Filter by custom metadata")
+    .option("-n, --name <name>", "Select the block with this name= metadata")
     .option("-d, --dir <dir>", "Directory that relative file= paths resolve against; they may leave it (e.g. file=../x.ts). Absolute file= paths are refused (default: current directory)", ".")
     .option("-q, --quiet", "Suppress status messages")
     .option("--update-source", "Add file metadata to anonymous code blocks")
@@ -188,7 +195,7 @@ export async function Execute(
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
     .option("-m, --meta <key=value...>", "Filter by custom metadata")
-    .option("-n, --name <name>", "Filter by block name")
+    .option("-n, --name <name>", "Select the block with this name= metadata")
     .option("-k, --keep", "Keep temporary directory after execution")
     .option("-d, --dir <dir>", "Working directory for command execution (default: temp directory)")
     .action(async (command, file, options) => {
@@ -196,19 +203,7 @@ export async function Execute(
         const source = await readInput(file);
         const filter = parseFilterOptions(options);
 
-        // Add name to filter if provided
-        if (options.name) {
-          if (!filter) {
-            await run({ source, command, filter: { meta: { name: options.name } }, keep: options.keep, dir: options.dir });
-          }
-          else {
-            filter.meta = { ...filter.meta, name: options.name };
-            await run({ source, command, filter, keep: options.keep, dir: options.dir });
-          }
-        }
-        else {
-          await run({ source, command, filter, keep: options.keep, dir: options.dir });
-        }
+        await run({ source, command, filter, keep: options.keep, dir: options.dir });
       }
       catch (error: unknown) {
         if (error instanceof Error)stderr.write(`Error: ${error.message}\n`);
@@ -225,6 +220,7 @@ export async function Execute(
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
     .option("-m, --meta <key=value...>", "Filter by custom metadata")
+    .option("-n, --name <name>", "Select the block with this name= metadata")
     .option("-t, --transform <path>", "Path to transformer function file (must export default)")
     .option("-q, --quiet", "Suppress status messages")
     .option("--stdout", "Write output to stdout instead of updating file in-place")
@@ -284,6 +280,7 @@ export async function Execute(
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
     .option("-m, --meta <key=value...>", "Filter by custom metadata")
+    .option("-n, --name <name>", "Select the block with this name= metadata")
     .option("-q, --quiet", "Suppress status messages")
     .option("-o, --out <file>", "Output file (default: stdout)")
     .action(async (file, options) => {

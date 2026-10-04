@@ -4,6 +4,8 @@
 export interface Block {
   /** Programming language of the code block */
   lang: string;
+  /** The block's `name=` metadata: its stable identifier, unique within one markdown document */
+  name?: string;
   /** Metadata extracted from the info string (e.g., file=foo.js, region=main) */
   meta: Record<string, string>;
   /** The actual code content */
@@ -37,6 +39,8 @@ export type TransformerMeta = { /** Filter by file metadata (supports glob patte
 export type FilterOptions = TransformerMeta & {
   /** Filter by programming language */
   lang?: string;
+  /** Select the block with this `name=` metadata */
+  name?: string;
   /** Filter by custom metadata key-value pairs (alternative to flat file/region) */
   meta?: Record<string, string>;
 };

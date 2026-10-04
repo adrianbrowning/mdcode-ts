@@ -1,5 +1,6 @@
 import { styleText } from "node:util";
 
+import { formatMetaValue } from "../metadata.ts";
 import { parse } from "../parser.ts";
 import type { Block, FilterOptions } from "../types.ts";
 
@@ -17,16 +18,10 @@ export function list(options: ListOptions): string {
   const blocks = parse({ source, filter });
 
   if (json) {
-    // JSON output: one object per line
+    // JSON output: one object per line, with metadata spread at top level.
+    // `name` comes right after `lang` because it is the block's identity.
     return blocks
-      .map(block => {
-        const obj: Record<string, string> = { lang: block.lang };
-        // Spread metadata at top level
-        for (const [ key, value ] of Object.entries(block.meta)) {
-          obj[key] = value;
-        }
-        return JSON.stringify(obj);
-      })
+      .map(block => JSON.stringify({ lang: block.lang, ...(block.name === undefined ? {} : { name: block.name }), ...block.meta }))
       .join("\n");
   }
 
@@ -40,12 +35,13 @@ export function list(options: ListOptions): string {
   output.push(styleText([ "bold", "cyan" ], `Found ${blocks.length} code block(s):\n`));
 
   blocks.forEach((block, index) => {
-    output.push(styleText("bold", `[${index + 1}] ${block.lang || "(no language)"}`));
+    const lang = block.lang || "(no language)";
+    output.push(styleText("bold", `[${index + 1}] ${block.name === undefined ? lang : `${block.name} (${lang})`}`));
 
     // Display metadata
     if (Object.keys(block.meta).length > 0) {
       const metaStr = Object.entries(block.meta)
-        .map(([ key, value ]) => `${styleText("green", key)}=${value}`)
+        .map(([ key, value ]) => `${styleText("green", key)}=${formatMetaValue(value)}`)
         .join(" ");
       output.push(`  Metadata: ${metaStr}`);
     }
