@@ -1,7 +1,7 @@
 {
   "name": "mdcode",
   "version": "0.0.1",
-  "description": "TypeScript port of mdcode - Markdown code block authoring tool workspace",
+  "description": "Workspace for mdcode-ts: keep Markdown code blocks in sync with source files",
   "private": true,
   "type": "module",
   "scripts": {
@@ -24,10 +24,11 @@
     "markdown",
     "code-blocks",
     "documentation",
+    "docs-as-code",
     "authoring"
   ],
   "author": "Adrian Elton-Browning",
-  "license": "ISC",
+  "license": "MIT",
   "packageManager": "pnpm@10.17.1",
   "engines": {
     "node": ">=22.0.0"

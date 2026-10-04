@@ -1,7 +1,7 @@
 {
   "name": "mdcode-ts",
   "version": "0.0.4",
-  "description": "TypeScript port of mdcode - Drop-in replacement for Markdown code block authoring",
+  "description": "Keep Markdown code blocks in sync with source files: update, extract, list and run README examples. TypeScript port of mdcode.",
   "type": "module",
   "files": [
     "dist",
@@ -23,13 +23,26 @@
   "keywords": [
     "markdown",
     "code-blocks",
+    "fenced-code-blocks",
     "documentation",
+    "docs-as-code",
+    "readme",
+    "embed-code",
+    "code-snippets",
+    "sync",
+    "regions",
+    "literate-programming",
+    "documentation-testing",
+    "cli",
     "mdcode",
     "typescript"
   ],
   "author": "Adrian Elton-Browning",
-  "license": "ISC",
-  "homepage": "https://github.com/adrianbrowning/mdcode-ts",
+  "license": "MIT",
+  "homepage": "https://github.com/adrianbrowning/mdcode-ts#readme",
+  "bugs": {
+    "url": "https://github.com/adrianbrowning/mdcode-ts/issues"
+  },
   "engines": {
     "node": ">=22.0.0"
   },
@@ -55,7 +68,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/adrianbrowning/mdcode-ts"
+    "url": "git+https://github.com/adrianbrowning/mdcode-ts.git",
+    "directory": "packages/mdcode"
   },
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",

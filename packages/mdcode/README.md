@@ -1,8 +1,14 @@
 # mdcode
 
-A TypeScript port of [szkiba/mdcode](https://github.com/szkiba/mdcode) - a Markdown code block authoring tool for extracting, updating, and managing code blocks within markdown documents.
+[![npm version](https://img.shields.io/npm/v/mdcode-ts)](https://www.npmjs.com/package/mdcode-ts)
 
-[![npm version](https://badge.fury.io/js/mdcode-ts.svg)](https://www.npmjs.com/package/mdcode-ts)
+mdcode keeps the code blocks in your Markdown docs in sync with real source files. Point a code block at a file, or a `#region` inside it, and `mdcode update` copies the current code into the document. `extract` writes blocks out to files, `list` shows them with their metadata, `run` runs a command against each block, and `dump` packs them into a tar archive.
+
+```bash
+npm install --save-dev mdcode-ts
+```
+
+The package installs the `mdcode` command and a library API. It is a TypeScript port of [szkiba/mdcode](https://github.com/szkiba/mdcode). New to mdcode? Start with the [quick start](https://github.com/adrianbrowning/mdcode-ts#quick-start).
 
 ## Drop-in Replacement
 
