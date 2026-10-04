@@ -64,6 +64,7 @@
   },
   "dependencies": {
     "commander": "^14.0.1",
+    "diff": "^9.0.0",
     "tar-stream": "^3.1.7"
   },
   "repository": {

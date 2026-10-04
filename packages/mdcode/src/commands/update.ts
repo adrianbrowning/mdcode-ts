@@ -20,6 +20,8 @@ export interface UpdatedBlock extends BlockRef {
   lang: string;
   /** Whether the block's code is different in the returned markdown. */
   changed: boolean;
+  /** The block's code in the returned markdown. */
+  code: string;
   /** Set when the block's code was read from its file=. */
   read?: {
     file: string;
@@ -58,7 +60,7 @@ export async function update(options: UpdateOptions): Promise<UpdateResult> {
     source,
     filter,
     walker: async (block: Block) => {
-      const entry: UpdatedBlock = { ...blockRef(block), lang: block.lang, changed: false, transformed: false };
+      const entry: UpdatedBlock = { ...blockRef(block), lang: block.lang, changed: false, code: block.code, transformed: false };
       let currentCode = block.code;
 
       blocks.push(entry);
@@ -127,16 +129,21 @@ export async function update(options: UpdateOptions): Promise<UpdateResult> {
         }
       }
 
-      // Step 3: Normalize trailing newlines for proper markdown formatting
-      // Ensure code ends with EXACTLY one newline (remove any existing trailing newlines first)
+      // Step 3: Collapse trailing newlines, so a file's last newline is not a blank line in the block
       if (currentCode) {
         currentCode = currentCode.replace(/\n+$/, "\n");
       }
 
-      // Step 4: Update block if changed
-      if (currentCode !== block.code) {
+      // Step 4: Update the block if its code differs. Like parse(), drop the newline that
+      // ends the last line before the closing fence: it is not code, and walk() restores it.
+      // Code the walker left alone is compared as is, so a block ending in a blank line
+      // stays unchanged.
+      const code = currentCode === block.code ? block.code : currentCode.replace(/\r?\n$/, "");
+
+      if (code !== block.code) {
         entry.changed = true;
-        return { ...block, code: currentCode };
+        entry.code = code;
+        return { ...block, code };
       }
 
       return block;
@@ -181,12 +188,22 @@ export function formatUpdate({ blocks, errors }: UpdateResult, options: { quiet?
     }
   }
 
-  if (!options.quiet) {
-    const updated = blocks.filter(block => block.changed).length;
-    lines.push(updated === 0
-      ? styleText("yellow", "No blocks were updated.")
-      : styleText([ "bold", "green" ], `\nUpdated ${updated} block(s).`));
+  return lines;
+}
+
+/** Where a changed block's new code comes from, e.g. `line 3 (greet): js from greet.js region=main`. */
+export function describeChange(block: UpdatedBlock): string {
+  const sources: Array<string> = [];
+
+  if (block.read) {
+    const how = block.read.outline ? " outline" : block.read.region === undefined ? "" : ` region=${block.read.region}`;
+    sources.push(`from ${block.read.file}${how}`);
   }
 
-  return lines;
+  if (block.transformed) {
+    sources.push("transformed");
+  }
+
+  const label = block.name === null ? `line ${block.line}` : `line ${block.line} (${block.name})`;
+  return `${label}: ${[ block.lang || "block", ...sources ].join(" ")}`;
 }

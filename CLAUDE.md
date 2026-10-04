@@ -85,6 +85,8 @@ The `update` command has a two-step process:
    - Calls with `{tag, meta, code}`
    - Can further modify file-loaded content
 
+`update()` never writes. The CLI picks what to do with its result: `--plan` (default) lists changed blocks, `--diff` prints a unified diff (`diff` package), `--check` turns each changed block into an `out_of_sync` error (exit 1), `--stdout` prints the markdown, and `--apply` is the only mode that writes the file.
+
 ### Transformer Functions
 Type signature: `(options: {tag, meta, code}) => string | Promise<string>`
 

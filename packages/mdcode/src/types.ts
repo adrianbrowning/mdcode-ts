@@ -45,8 +45,8 @@ export type TransformerMeta = { /** Filter by file metadata (supports glob patte
 export type FilterOptions = TransformerMeta & {
   /** Filter by programming language */
   lang?: string;
-  /** Select the block with this `name=` metadata */
-  name?: string;
+  /** Select the blocks whose `name=` metadata is this name, or one of these names */
+  name?: string | ReadonlyArray<string>;
   /** Filter by custom metadata key-value pairs (alternative to flat file/region) */
   meta?: Record<string, string>;
 };
