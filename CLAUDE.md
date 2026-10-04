@@ -43,7 +43,7 @@ pnpm -r lint:fix             # Fix style issues
 
 ### Direct Execution (Development)
 ```bash
-# Node 22+ runs TypeScript natively
+# Node 22.17+ runs TypeScript natively
 node --experimental-strip-types packages/mdcode/src/main.ts list README.md
 ```
 
@@ -63,6 +63,9 @@ Supports `#region name` / `#endregion` markers in source files:
 - `outline()` - Show only markers (hide content)
 - `replace()` - Update content within markers
 - Handles both line comments (`//`, `#`) and block comments (`/* */`)
+
+### Project Configuration (packages/mdcode/src/config.ts)
+`loadConfig()` reads and validates `mdcode.config.json` (JSON only, never executed): `documents` globs, `sourceRoot`, `outputRoot` and default `filter`. Paths resolve against the config file's directory and go through `resolveContained()`. Only `update` and `extract` load it, with `--project` or `--config <path>`; without either, stdin stays the default input. Both commands take several documents and report `result.documents` under `--json`.
 
 ### Commands Architecture (packages/mdcode/src/commands/)
 Each command is a separate module with typed options:
@@ -107,7 +110,7 @@ export default defineTransform(({tag, code}) => {
 - Default behavior: if no command, runs `list README.md`
 
 ## Technology Stack
-- **Node 22+** with native TypeScript support (`--experimental-strip-types`)
+- **Node 22.17+** with native TypeScript support (`--experimental-strip-types`); `fs.glob` needs 22.17
 - **pnpm workspaces** for monorepo management
 - **zshy** - TypeScript bundler (not tsc, not rollup)
 - **node:test** - Native test runner (NOT vitest, jest, or mocha)

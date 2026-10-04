@@ -56,6 +56,8 @@ export function greet(name: string): string {
 
 When `src/greet.ts` changes, run `mdcode update --apply README.md` again. In CI, `mdcode update --check README.md` exits 1 when a block has drifted from its source, without writing anything. To check several documents and tell drift apart from a broken `file=`, copy [`examples/ci/check-docs-sync.mjs`](examples/ci/check-docs-sync.mjs); see [Checking Docs in CI](packages/mdcode/README.md#checking-docs-in-ci).
 
+To keep several documents in sync without repeating their paths, list them in `mdcode.config.json` and run `mdcode update --project --check`. See [Project Configuration](packages/mdcode/README.md#project-configuration).
+
 To check that snippets actually run, mark them `runnable=true` and copy [`examples/ci/validate-snippets.mjs`](examples/ci/validate-snippets.mjs). It extracts only those blocks into a temporary workspace, runs your test or lint command there, and fails CI naming the block that broke. See [Validating Runnable Snippets in CI](packages/mdcode/README.md#validating-runnable-snippets-in-ci).
 
 ## Commands
@@ -91,7 +93,7 @@ pnpm test       # unit and E2E tests (E2E runs the built dist/main.js)
 pnpm -r lint:ts # type check
 ```
 
-Run the CLI from source with Node 22+:
+Run the CLI from source with Node 22.17+:
 
 ```bash
 node --experimental-strip-types packages/mdcode/src/main.ts list README.md

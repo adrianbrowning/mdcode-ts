@@ -553,7 +553,9 @@ mdcode update --check --continue-on-error README.md
 `file=` it cannot read or a missing document. [`check-docs-sync.mjs`](https://github.com/adrianbrowning/mdcode-ts/blob/main/examples/ci/check-docs-sync.mjs)
 is a ready-to-copy script that tells the two apart. It runs `mdcode update --check --json
 --continue-on-error` on each Markdown file you pass, never writes, and names every document and
-block that is out of sync.
+block that is out of sync. With a [project configuration](#project-configuration),
+`mdcode update --project --check` also checks every listed document in one run, naming each one; the
+script remains the way to tell drift from a broken check by exit code.
 
 | Exit | Meaning |
 | --- | --- |
@@ -1076,6 +1078,140 @@ cannot make `--check` pass by checking nothing.
 
 ---
 
+## Project Configuration
+
+A repository can list the Markdown documents it keeps in sync, and the defaults for them, in
+`mdcode.config.json`. `update` and `extract` read it when you pass `--project`, which looks in the
+current directory, or `--config <path>`. Without either flag no configuration is read, and stdin stays
+the default input. Configuration needs Node 22.17 or later.
+
+A complete consumer repository:
+
+```text
+my-project/
+├── mdcode.config.json
+├── package.json
+├── README.md        # ```ts file=src/greet.ts
+├── docs/
+│   └── guide.md     # ```ts file=src/add.ts region=main
+└── src/
+    ├── greet.ts
+    └── add.ts
+```
+
+The file is plain JSON and is never executed:
+
+```json file=block-config.json
+{
+  "documents": ["README.md", "docs/**/*.md"],
+  "sourceRoot": ".",
+  "outputRoot": "build/snippets",
+  "filter": { "lang": "ts" }
+}
+```
+
+- `documents` - Markdown paths or globs, in Node's `fs.glob` syntax. Each entry must match at least
+  one file. Documents are read in entry order, each glob's matches sorted, and each document once.
+  `**` also descends into `node_modules`, so prefer `docs/**/*.md` to `**/*.md`.
+- `sourceRoot` - The directory `update` resolves every document's `file=` paths against, in place of
+  each markdown file's own directory. Here `.` lets `docs/guide.md` write `file=src/add.ts`.
+- `outputRoot` - The directory `extract` writes to, as `--dir` does.
+- `filter` - Default `lang`, `file` and `meta` filters, as the flags of the same name take them.
+  `name` is refused, because block names belong to one document; pass `--name` instead.
+
+Every path is relative to the configuration file's directory and must stay inside it. An absolute
+path, a `..`, or a symlink that leads out is refused as `unsafe_path`.
+
+### Command-Line Precedence
+
+What you pass on the command line replaces the configuration's value for that run. Command-line
+paths resolve against the current directory, as without a configuration.
+
+| On the command line | Replaces |
+| --- | --- |
+| Markdown files | `documents` |
+| `--base <dir>` | `sourceRoot` |
+| `-d, --dir <dir>` | `outputRoot` |
+| `--lang`, `--file`, `--meta` | The matching `filter` field. `--meta` replaces all of `filter.meta` |
+
+### Several Documents
+
+`update` and `extract` work through the documents in order, and with more than one, every line of text
+output starts with the document it is about. `--stdout` needs exactly one document.
+
+`update --apply` writes every document or none of them: when one fails, nothing is written. With
+`--continue-on-error`, `update` carries on past a failed document and applies the others. `extract`
+writes as it goes, so it stops at the first document that fails, after extracting the ones before it.
+
+Under `--json`, `result.documents` holds one entry per document, and each error names its `document`;
+see [JSON Contract](#json-contract).
+
+### Invalid Configuration
+
+A missing file, invalid JSON, an unknown field, a value of the wrong type, or a `documents` entry that
+matches nothing fails with `invalid_config` before any document is read. The message names the file
+and the field:
+
+```text
+Error: mdcode.config.json: unknown field "documnets"; expected documents, sourceRoot, outputRoot, filter
+Error: mdcode.config.json: documents[1] "guide/*.md" matched no files in /work/my-project
+```
+
+### Locally and in CI
+
+```bash file=block-config-local.sh
+# Plan, check and apply every configured document
+mdcode update --project
+mdcode update --project --check
+mdcode update --project --apply
+
+# One document, with the configured roots and filters
+mdcode update --project --diff docs/guide.md
+
+# Extract the configured documents' blocks into outputRoot
+mdcode extract --project
+
+# A configuration somewhere else
+mdcode update --config config/mdcode.config.json --check
+```
+
+Add mdcode-ts and the scripts to `package.json`:
+
+```json file=block-config-scripts.json
+{
+  "scripts": {
+    "docs:check": "mdcode update --project --check",
+    "docs:sync": "mdcode update --project --apply"
+  },
+  "devDependencies": {
+    "mdcode-ts": "^0.1.0"
+  }
+}
+```
+
+Then check the documents on every push and pull request:
+
+```yaml file=block-config-workflow.yml
+name: Docs
+
+on: [push, pull_request]
+
+jobs:
+  docs-in-sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run docs:check
+```
+
+---
+
 ## CLI Flags Reference
 
 All commands support these common flags:
@@ -1089,25 +1225,32 @@ All commands support these common flags:
 Additional flags by command:
 
 **extract:**
-- `-d, --dir <dir>` - Directory that `file=` paths resolve against and must stay inside (default:
-  current directory)
+- `-d, --dir <dir>` - Directory that `file=` paths resolve against and must stay inside (default: the
+  configuration's `outputRoot`, else the current directory)
 - `-q, --quiet` - Suppress status messages
 - `--update-source` - Add file metadata to anonymous code blocks and update source
 - `--ignore-anonymous` - Skip blocks without file metadata (mutually exclusive with --update-source)
 - `--force` - Overwrite existing files whose blocks have no `region=` (skipped by default)
+- `--project` - Load `mdcode.config.json` from the current directory; see
+  [Project Configuration](#project-configuration)
+- `--config <path>` - Load this configuration file instead
 
 **update:**
 - `-q, --quiet` - Suppress status messages
 - `-t, --transform <file>` - Path to transformer function
 - `--base <dir>` - Directory that `file=` paths resolve against and must stay inside (default: the
-  markdown file's directory, or the current directory for stdin)
-- `--continue-on-error` - Report every failed read and transform and keep going, instead of stopping
-  at the first
+  configuration's `sourceRoot`, else the markdown file's directory, or the current directory for
+  stdin)
+- `--continue-on-error` - Report every failed document, read and transform and keep going, instead of
+  stopping at the first
 - `--plan` - List the blocks that would change, without writing (default)
-- `--apply` - Write the changes to the markdown file in place
+- `--apply` - Write the changes to the markdown files in place
 - `--diff` - Print a unified diff of the changes, without writing
 - `--check` - Exit 1 when a selected block is out of sync, without writing
-- `--stdout` - Print the updated markdown, without writing
+- `--stdout` - Print the updated markdown of one document, without writing
+- `--project` - Load `mdcode.config.json` from the current directory; see
+  [Project Configuration](#project-configuration)
+- `--config <path>` - Load this configuration file instead
 
 **run:**
 - `--allow-shell` - Confirm that `<command>` may run through the shell once per selected block
@@ -1193,9 +1336,10 @@ stdout and nothing else: no colours and no progress text. Without `--json`, the 
 - `command` - The command that ran: `list`, `extract`, `update`, `run` or `dump`.
 - `ok` - `true` when `errors` is empty.
 - `result` - What the command did, described below. It is `null` when the command failed before doing
-  any work: invalid metadata, bad flags, unreadable input, a transform module that could not be
-  loaded, an `unsafe_path` refusal from `extract` or `dump`, or `update` stopping at its first failed
-  block.
+  any work: invalid metadata, bad flags, an invalid configuration, unreadable input, a transform
+  module that could not be loaded, an `unsafe_path` refusal from `extract` or `dump`, or `update`
+  stopping at its first failed block. For `extract` and `update`, it is `null` when no document got as
+  far as a result.
 - `errors` - Everything that went wrong. A command can fail for some blocks and still report a result
   for all of them.
 
@@ -1203,6 +1347,8 @@ stdout and nothing else: no colours and no progress text. Without `--json`, the 
 
 Each error has a `code` and a `message`. These fields are added when they apply:
 
+- `document` - The Markdown document concerned, as named on the command line or relative to the
+  current directory; left out for stdin
 - `line` - The 1-based line of the opening fence of the block concerned
 - `name` - The name of the block concerned, when it has one
 - `path` - The file concerned: an extract target, a `file=` source, the transform module, or an output
@@ -1212,12 +1358,13 @@ Each error has a `code` and a `message`. These fields are added when they apply:
 |------|---------|
 | `invalid_metadata` | A block's info string breaks the metadata grammar, or two blocks share a name |
 | `invalid_usage` | Bad flags or flag combinations, including unknown options |
+| `invalid_config` | `mdcode.config.json` is missing, is not valid JSON, has an unknown field or a value of the wrong type, or a `documents` entry matched nothing |
 | `io_error` | Reading the markdown or writing an output failed |
 | `invalid_transform` | The `--transform` module could not be loaded or has no default function export |
 | `extract_skipped` | `extract` left a target file untouched |
 | `read_failed` | `update` could not read a block's `file=` or region |
 | `transform_failed` | `update`'s transformer threw for a block |
-| `unsafe_path` | A block's `file=` is absolute or leads outside the allowed base, directly or through a symlink |
+| `unsafe_path` | A block's `file=` is absolute or leads outside the allowed base, directly or through a symlink; or a configuration path leaves the configuration's directory |
 | `out_of_sync` | `update --check` found a selected block that differs from its source |
 | `command_failed` | `run`'s command exited non-zero for a block |
 | `unexpected_error` | Anything else |
@@ -1240,7 +1387,7 @@ mdcode does not generate IDs or derive them from positions. To refer to a block 
 The schema below is written out from the types the library exports (`Envelope`, `ResultError`,
 `ErrorCode`, `BlockRef`, `ListedBlock`, `ExtractTarget`, `UpdatedBlock`, `RunBlockResult` and
 `DumpedFile`). Under `--json`, `errors` moves from a command's result to the envelope, and the CLI adds
-the fields only it knows about, such as `written` and `out`.
+the fields only it knows about, such as `document`, `written` and `out`.
 
 ```typescript file=block-96.ts
 interface Envelope<R> {
@@ -1255,6 +1402,8 @@ interface Envelope<R> {
 interface ResultError {
   code: ErrorCode;
   message: string;
+  /** The Markdown document concerned; left out for stdin */
+  document?: string;
   /** 1-based line of the opening fence of the block concerned */
   line?: number;
   /** Name of the block concerned, when it has one */
@@ -1266,6 +1415,7 @@ interface ResultError {
 type ErrorCode =
   | "invalid_metadata"
   | "invalid_usage"
+  | "invalid_config"
   | "io_error"
   | "invalid_transform"
   | "extract_skipped"
@@ -1296,20 +1446,25 @@ type ListEnvelope = Envelope<{
 
 // mdcode extract --json
 type ExtractEnvelope = Envelope<{
-  targets: Array<{
-    path: string;
-    action: "written" | "spliced" | "skipped";
-    /** The blocks that target this file, in document order */
-    blocks: Array<BlockRef>;
-    /** The region= names written */
-    regions: Array<string>;
-    /** Why the target was skipped */
-    reason?: string;
+  /** One entry per document, in the order they were read */
+  documents: Array<{
+    /** As named on the command line, or relative to the current directory; null for stdin */
+    document: string | null;
+    targets: Array<{
+      path: string;
+      action: "written" | "spliced" | "skipped";
+      /** The blocks that target this file, in document order */
+      blocks: Array<BlockRef>;
+      /** The region= names written */
+      regions: Array<string>;
+      /** Why the target was skipped */
+      reason?: string;
+    }>;
+    /** --update-source on stdin: the updated markdown */
+    updatedSource?: string;
+    /** --update-source on a file: the markdown file that was rewritten */
+    written?: string;
   }>;
-  /** --update-source on stdin: the updated markdown */
-  updatedSource?: string;
-  /** --update-source on a file: the markdown file that was rewritten */
-  written?: string;
 }>;
 
 // mdcode update --json
@@ -1324,16 +1479,24 @@ type UpdatedBlock = BlockRef & {
   /** Whether the transformer changed the code */
   transformed: boolean;
 };
-type UpdateEnvelope = Envelope<
-  /** Default, --plan and --check */
-  | { blocks: Array<UpdatedBlock> }
-  /** --apply: the markdown file written, or null when no block changed */
-  | { blocks: Array<UpdatedBlock>; written: string | null }
-  /** --diff: a unified diff of the markdown, empty when no block changed */
-  | { blocks: Array<UpdatedBlock>; diff: string }
-  /** --stdout: the updated markdown */
-  | { blocks: Array<UpdatedBlock>; source: string }
->;
+type UpdatedDocument = {
+  /** As named on the command line, or relative to the current directory; null for stdin */
+  document: string | null;
+  blocks: Array<UpdatedBlock>;
+};
+type UpdateEnvelope = Envelope<{
+  /** One entry per document, in the order they were read */
+  documents: Array<
+    /** Default, --plan and --check */
+    | UpdatedDocument
+    /** --apply: the markdown file written, or null when no block changed */
+    | UpdatedDocument & { written: string | null }
+    /** --diff: a unified diff of the markdown, empty when no block changed */
+    | UpdatedDocument & { diff: string }
+    /** --stdout, one document only: the updated markdown */
+    | UpdatedDocument & { source: string }
+  >;
+}>;
 
 // mdcode run --allow-shell --json
 type RunEnvelope = Envelope<{
@@ -1365,20 +1528,23 @@ type DumpEnvelope = Envelope<{
 
 - `list` - One entry per selected block. `endLine` is the line of the closing fence, and `meta` holds
   every metadata key, including `name` and `file`.
-- `extract` - One entry per target file, in the order they were processed. `written` means the file
-  was created or overwritten whole, `spliced` means regions were replaced or appended in an existing
-  file, and `skipped` means the file was left untouched; `reason` says why, and each skipped target
-  also adds an `extract_skipped` error. With `--update-source`, when a block gained `file=`: from
-  stdin, `updatedSource` holds the updated markdown; from a file, the file is rewritten and `written`
-  holds its path.
-- `update` - One entry per selected block, in document order. `changed` and `code` are the plan:
-  which blocks would change, and the exact code each would get. Only `--apply` writes the markdown;
-  `written` holds its path, or `null` when nothing changed and the file was left alone. `diff` holds
-  the unified diff under `--diff`, and `source` the updated markdown under `--stdout`. Under
-  `--check`, each changed block adds an `out_of_sync` error, with `path` set to its `file=` when it
-  has one. With `--continue-on-error`, a block whose `file=` cannot be read keeps its original code,
-  which is still passed to the transformer, and a block whose transformer throws keeps the code it had
-  before the transform. Without it, the first such failure stops the command with `result: null`.
+- `extract` - One entry in `documents` per document, each with one entry per target file, in the order
+  they were processed. `written` means the file was created or overwritten whole, `spliced` means
+  regions were replaced or appended in an existing file, and `skipped` means the file was left
+  untouched; `reason` says why, and each skipped target also adds an `extract_skipped` error. With
+  `--update-source`, when a block gained `file=`: from stdin, `updatedSource` holds the updated
+  markdown; from a file, the file is rewritten and `written` holds its path. A document that fails
+  stops the command; the documents before it have their entries.
+- `update` - One entry in `documents` per document, each with one entry per selected block, in
+  document order. `changed` and `code` are the plan: which blocks would change, and the exact code
+  each would get. Only `--apply` writes the markdown; `written` holds its path, or `null` when nothing
+  changed and the file was left alone. `diff` holds the unified diff under `--diff`, and `source` the
+  updated markdown under `--stdout`. Under `--check`, each changed block adds an `out_of_sync` error,
+  with `path` set to its `file=` when it has one. With `--continue-on-error`, a block whose `file=`
+  cannot be read keeps its original code, which is still passed to the transformer, a block whose
+  transformer throws keeps the code it had before the transform, and a document that fails is
+  reported and skipped. Without it, the first such failure stops the command, `--apply` writes
+  nothing, and a document that never got a result has no entry.
 - `run` - One entry per selected block, with the command's exit code and output. Each block whose
   command failed adds a `command_failed` error.
 - `dump` - `dump --json` needs `--out <file>`. The archive is written to that file and never encoded
@@ -1586,6 +1752,14 @@ Exit codes are the same with and without `--json`:
   file's directory instead of the current directory, refuses paths that lead outside it, and rejects
   on the first failed read or transform.
 - The new `unsafe_path` error code reports these refusals.
+- `extract --json` and `update --json` report each document in `result.documents`, so read
+  `result.documents[0].targets` and `result.documents[0].blocks` where you read `result.targets` and
+  `result.blocks` before. Both commands take several Markdown files, and errors carry the `document`
+  they came from.
+- `update` and `extract` read `mdcode.config.json` with `--project` or `--config <path>`; see
+  [Project Configuration](#project-configuration). The new `invalid_config` error code reports a
+  configuration that cannot be used.
+- mdcode-ts needs Node 22.17 or later, for `fs.glob`.
 
 ---
 
