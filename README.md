@@ -1,69 +1,102 @@
 # mdcode
 
-A TypeScript port of [szkiba/mdcode](https://github.com/szkiba/mdcode) - a Markdown code block authoring tool for extracting, updating, and managing code blocks within markdown documents.
+[![npm version](https://img.shields.io/npm/v/mdcode-ts)](https://www.npmjs.com/package/mdcode-ts)
+
+mdcode keeps the code blocks in your Markdown docs in sync with real source files. You write and test examples as ordinary code, point a code block at the file (or a `#region` inside it), and `mdcode update` copies the current code into the document. Your README can't drift from code that compiles and passes its tests.
+
+It also works the other way: `mdcode extract` writes code blocks out to files, and `mdcode run` runs a command against each block. It is a TypeScript port of [szkiba/mdcode](https://github.com/szkiba/mdcode), compatible with its CLI, and adds transform functions, a library API and a versioned `--json` output.
+
+## Install
+
+```bash
+npm install --save-dev mdcode-ts
+```
+
+This installs the `mdcode` command. Node.js 22 or later is required. To try it without installing, run `npx mdcode-ts --help`.
+
+## Quick start
+
+Put the example in a source file and mark the part you want to show with a region:
+
+```ts
+// src/greet.ts
+// #region greet
+export function greet(name: string): string {
+  return `Hello, ${name}!`;
+}
+// #endregion
+
+console.log(greet("docs"));
+```
+
+In your README, add an empty code block that names the file and region:
+
+````markdown
+```ts file=src/greet.ts region=greet
+```
+````
+
+Run `update`:
+
+```bash
+npx mdcode update README.md
+```
+
+mdcode fills the block with the region's code, leaving out the markers and the rest of the file:
+
+````markdown
+```ts file=src/greet.ts region=greet
+export function greet(name: string): string {
+  return `Hello, ${name}!`;
+}
+```
+````
+
+When `src/greet.ts` changes, run `mdcode update README.md` again. Adding it to a `package.json` script or CI job keeps the README current.
+
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `list` | List code blocks with their language, metadata and a preview |
+| `update` | Refresh blocks from the files they reference, or rewrite them with a transform function |
+| `extract` | Write blocks to files named by their `file=` metadata |
+| `run` | Run a shell command on each block, such as a compiler or test runner |
+| `dump` | Pack blocks into a tar archive |
+
+Every command reads a Markdown file or stdin, filters blocks by language, file, name or other metadata, and supports `--json`. Running `mdcode` with no command lists the blocks in `README.md`.
+
+## Documentation
+
+- [Package README](packages/mdcode/README.md): the full reference, also published on [npm](https://www.npmjs.com/package/mdcode-ts)
+  - [CLI usage](packages/mdcode/README.md#cli-usage) and [flags reference](packages/mdcode/README.md#cli-flags-reference)
+  - [JSON contract](packages/mdcode/README.md#json-contract) for scripts and CI
+  - [Library usage](packages/mdcode/README.md#library-usage) and [API reference](packages/mdcode/README.md#api-reference)
+  - [Code block metadata](packages/mdcode/README.md#metadata-in-code-blocks), [regions](packages/mdcode/README.md#region-extraction) and [outlines](packages/mdcode/README.md#outline-extraction)
+- [CLI examples](examples/CLI_EXAMPLES.md): worked examples for each command
+- [Comparison with the Go mdcode](packages/mdcode/README.md#comparison-with-original-mdcode)
 
 ## Development
 
-### Run tests
+This is a pnpm workspace. `packages/mdcode` is the published package and `packages/usage` holds end-to-end tests against the built CLI. See [TESTING.md](TESTING.md) for the test layout.
 
 ```bash
-# All tests (unit + E2E)
-pnpm test:all
-
-# Unit tests only
-pnpm test
-
-# Watch mode
-pnpm --filter mdcode-ts test:watch
+pnpm install
+pnpm build      # build packages/mdcode with zshy
+pnpm test       # unit and E2E tests (E2E runs the built dist/main.js)
+pnpm -r lint:ts # type check
 ```
 
-### Build
-
-```bash
-pnpm build
-```
-
-### Run directly (Node 22+)
+Run the CLI from source with Node 22+:
 
 ```bash
 node --experimental-strip-types packages/mdcode/src/main.ts list README.md
 ```
 
-## Project Structure
-
-```
-packages/mdcode/src/
-  types.ts           - Core type definitions (TransformerFunction, Block, etc.)
-  parser.ts          - Custom line-by-line state machine markdown parser
-  region.ts          - #region/#endregion extraction, replacement, outline
-  outline.ts         - Region outline (markers-only) support
-  commands/          - Command implementations
-    list.ts          - List code blocks
-    extract.ts       - Extract to files
-    update.ts        - Update from files or transform with custom functions
-    run.ts           - Run shell commands
-    dump.ts          - Create tar archives
-    transform.ts     - Transformer helpers
-  cli.ts             - CLI setup with commander
-  main.ts            - Entry point
-  *.test.ts          - Co-located unit tests
-packages/usage/
-  tests/             - E2E integration tests
-```
-
-## Technology Stack
-
-- **TypeScript** with strict mode and verbatimModuleSyntax
-- **Node 22** built-in APIs (util.styleText, fs/promises, readline)
-- **commander** for CLI argument parsing
-- **node:test** native test runner
-- **tar-stream** for tar archives
-- **zshy** for TypeScript compilation and bundling
-
 ## License
 
-ISC
+[MIT](LICENSE)
 
 ## Credits
 
-Original Go implementation by [szkiba](https://github.com/szkiba/mdcode)
+Original Go implementation by [szkiba](https://github.com/szkiba/mdcode).
