@@ -1,7 +1,7 @@
-import { exec, spawn } from "node:child_process";
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { exec, spawn, spawnSync } from "node:child_process";
+import { chmod, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
@@ -26,6 +26,39 @@ export async function createTempDir(): Promise<string> {
  */
 export async function cleanupTempDir(dir: string): Promise<void> {
   await rm(dir, { recursive: true, force: true });
+}
+
+/** Where the examples/ci scripts live. */
+export const CI_EXAMPLES = join(__dirname, "../../../examples/ci");
+
+/**
+ * Put an `mdcode` that runs the built CLI in `<dir>/bin`, and return a PATH holding it and the
+ * system directories. The examples/ci scripts run whatever `mdcode` is on PATH.
+ */
+export async function installMdcodeShim(dir: string): Promise<string> {
+  const binDir = join(dir, "bin");
+  const shim = join(binDir, "mdcode");
+  await mkdir(binDir);
+  await writeFile(shim, `#!/bin/sh\nexec "${process.execPath}" "${CLI_PATH}" "$@"\n`, "utf-8");
+  await chmod(shim, 0o755);
+  return [ binDir, dirname(process.execPath), "/usr/bin", "/bin" ].join(delimiter);
+}
+
+/** How an examples/ci script run ended. */
+export type CiRun = { code: number | null; stdout: string; stderr: string; };
+
+/** Run an examples/ci script with node, in cwd, with exactly the given environment. */
+export function runCiExample(
+  script: string,
+  args: Array<string>,
+  options: { cwd: string; env: Record<string, string>; },
+): CiRun {
+  const run = spawnSync(process.execPath, [ join(CI_EXAMPLES, script), ...args ], {
+    cwd: options.cwd,
+    encoding: "utf8",
+    env: options.env,
+  });
+  return { code: run.status, stdout: run.stdout, stderr: run.stderr };
 }
 
 /**
