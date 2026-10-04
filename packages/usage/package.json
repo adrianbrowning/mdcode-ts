@@ -11,11 +11,7 @@
     "lint": "tsc --noEmit ; eslint \"{tests,fixtures,examples}/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
     "lint:esl": "eslint \"{tests,fixtures,examples}/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
     "lint:s": "eslint --config .eslintrc.style.json \"{tests,fixtures,examples}/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
-    "lint:fix": "eslint --config .eslintrc.style.json \"{tests,fixtures,examples}/**/*.{j,t}s{,x}\" --cache --max-warnings=0 --fix",
-    "example:extract": "mdcode extract examples/sample.md",
-    "example:list": "mdcode list examples/sample.md",
-    "example:update": "mdcode update --apply examples/sample.md",
-    "example:transform": "mdcode update --apply --transform examples/transforms/uppercase-sql.ts examples/test-transform.md"
+    "lint:fix": "eslint --config .eslintrc.style.json \"{tests,fixtures,examples}/**/*.{j,t}s{,x}\" --cache --max-warnings=0 --fix"
   },
   "keywords": [
     "mdcode",
