@@ -40,12 +40,14 @@ Two packages, `packages/mdcode` (published as `mdcode-ts`) and `packages/usage`.
   worked examples under `packages/mdcode/tests/examples/`
 - **Integration tests** — `packages/usage/tests/`
   - `cli-integration.test.ts` spawns the **built** CLI at `packages/mdcode/dist/main.js`
+  - `check-docs-sync.test.ts` runs `examples/ci/check-docs-sync.mjs` against the built CLI, through
+    an `mdcode` shim on `PATH`
   - the rest exercise the public library API as an external consumer would
 
 ### Important Notes
 
-- `packages/usage/tests/cli-integration.test.ts` runs `dist/`, not `src/`. **Run `pnpm build` before
-  it** or you will be testing the previous build.
+- `cli-integration.test.ts` and `check-docs-sync.test.ts` run `dist/`, not `src/`. **Run `pnpm build`
+  before them** or you will be testing the previous build.
 - Region fixtures live in `packages/mdcode/tests/testdata/region/` and are compared byte-for-byte, so
   trailing newlines matter.
 - Tests that assert on warnings use `mock.method(console, "error", …)` with `mock.restoreAll()` in a

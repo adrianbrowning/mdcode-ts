@@ -54,7 +54,7 @@ export function greet(name: string): string {
 ```
 ````
 
-When `src/greet.ts` changes, run `mdcode update --apply README.md` again. In CI, `mdcode update --check README.md` exits 1 when a block has drifted from its source, without writing anything.
+When `src/greet.ts` changes, run `mdcode update --apply README.md` again. In CI, `mdcode update --check README.md` exits 1 when a block has drifted from its source, without writing anything. To check several documents and tell drift apart from a broken `file=`, copy [`examples/ci/check-docs-sync.mjs`](examples/ci/check-docs-sync.mjs); see [Checking Docs in CI](packages/mdcode/README.md#checking-docs-in-ci).
 
 ## Commands
 
