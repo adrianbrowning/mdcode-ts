@@ -283,7 +283,7 @@ const y = 2;
 
     it("run -n runs only the named block", async () => {
       await withTmpDir(async dir => {
-        const result = await execCli([ "run", "-n", "quick start", "cat {file}" ], { stdin: markdown, cwd: dir });
+        const result = await execCli([ "run", "--allow-shell", "-n", "quick start", "cat {file}" ], { stdin: markdown, cwd: dir });
 
         assert.strictEqual(result.exitCode, 0, result.stderr);
         assert.match(result.stdout, /Output: console\.log\('quick start'\);/);
@@ -299,7 +299,7 @@ const y = 2;
       assert.ok(!result.stdout.includes("getting started.js"));
     });
 
-    for (const args of [[ "list" ], [ "extract", "-q" ], [ "update", "--stdout", "-q" ], [ "run", "cat {file}" ], [ "dump", "-q", "-o", "out.tar" ]]) {
+    for (const args of [[ "list" ], [ "extract", "-q" ], [ "update", "--stdout", "-q" ], [ "run", "--allow-shell", "cat {file}" ], [ "dump", "-q", "-o", "out.tar" ]]) {
       it(`${args[0]} fails on duplicate names before doing anything`, async () => {
         await withTmpDir(async dir => {
           const result = await execCli([ ...args, "-n", "a" ], { stdin: duplicated, cwd: dir });
@@ -393,7 +393,7 @@ const y = 2;
       }
     });
 
-    it("splices a relative file= outside the default output directory and exits 0", async () => {
+    it("refuses a relative file= outside the default output directory, exits 1, and writes nothing", async () => {
       const tmpDir = await mkdtemp(join(tmpdir(), "mdcode-cli-outside-"));
 
       try {
@@ -403,14 +403,19 @@ const y = 2;
         await mkdir(join(tmpDir, "outside"), { recursive: true });
         await writeFile(target, "keep();\n// #region x\nold();\n// #endregion x\nkeep();\n", "utf-8");
 
-        const markdown = "```ts file=../outside/target.ts region=x\nfresh();\n```\n";
+        const markdown = "```ts file=inside.ts\nsafe();\n```\n\n```ts file=../outside/target.ts region=x\nfresh();\n```\n";
         const result = await execCli([ "extract", "-q" ], { stdin: markdown, cwd: docs });
 
-        assert.strictEqual(result.exitCode, 0);
-        assert.strictEqual(
-          await readFile(target, "utf-8"),
-          "keep();\n// #region x\nfresh();\n// #endregion x\nkeep();\n"
-        );
+        assert.strictEqual(result.exitCode, 1);
+        assert.match(result.stderr, /line 5: .*\.\.\/outside\/target\.ts/, "the error names the block and the rejected path");
+        assert.strictEqual(await readFile(target, "utf-8"), "keep();\n// #region x\nold();\n// #endregion x\nkeep();\n");
+        assert.deepStrictEqual(await readdir(docs), []);
+
+        // Pointing --dir higher is the explicit way to reach it.
+        const widened = await execCli([ "extract", "-q", "-d", ".." ], { stdin: markdown.replace("../outside", "outside"), cwd: docs });
+
+        assert.strictEqual(widened.exitCode, 0, widened.stderr);
+        assert.match(await readFile(target, "utf-8"), /fresh\(\);/);
       }
       finally {
         await rm(tmpDir, { recursive: true, force: true });

@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 
 import { update } from "./commands/update.ts";
 import type { FilterOptions, TransformerFunction } from "./types.ts";
@@ -30,6 +31,10 @@ export { transform, transformWithFunction } from "./commands/transform.ts";
 /**
  * Default export - Simple API for transforming markdown files
  *
+ * file= paths resolve against, and must stay inside, the markdown file's
+ * directory. The first failed read or transform rejects; use update() with
+ * continueOnError to collect failures instead.
+ *
  * @param filePath - Path to the markdown file
  * @param transformer - Function to transform code blocks
  * @param filter - Optional filter to apply to blocks
@@ -39,7 +44,7 @@ export { transform, transformWithFunction } from "./commands/transform.ts";
  * ```typescript
  * import mdcode from 'mdcode-ts';
  *
- * const result = await mdcode('/path/to/file.md', (tag, meta, code) => {
+ * const result = await mdcode('/path/to/file.md', ({ tag, code }) => {
  *   if (tag === 'sql') return code.toUpperCase();
  *   return code;
  * });
@@ -51,7 +56,7 @@ async function mdcode(
   filter?: FilterOptions
 ): Promise<string> {
   const source = await readFile(filePath, "utf-8");
-  return (await update({ source, transformer, filter })).source;
+  return (await update({ source, transformer, filter, basePath: dirname(resolve(filePath)) })).source;
 }
 
 export default mdcode;

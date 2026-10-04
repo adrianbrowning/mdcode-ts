@@ -1,19 +1,25 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { styleText } from "node:util";
 
 import { outline } from "../outline.ts";
 import { walk } from "../parser.ts";
+import { resolveContained, UnsafePathError } from "../paths.ts";
 import { read as readRegion } from "../region.ts";
 import type { BlockRef, ResultError } from "../result.ts";
-import { blockError, blockRef } from "../result.ts";
+import { BlockFailure, blockError, blockRef } from "../result.ts";
 import type { Block, FilterOptions, TransformerFunction } from "../types.ts";
 
 export interface UpdateOptions {
   source: string;
   filter?: FilterOptions;
   transformer?: TransformerFunction;
-  basePath?: string; // Base path for resolving file paths
+  /** Directory file= paths resolve against and must stay inside (default: the current directory). */
+  basePath?: string;
+  /**
+   * Collect read, transform and unsafe-path failures in `errors` and keep going.
+   * Without it, the first failure throws a BlockFailure.
+   */
+  continueOnError?: boolean;
 }
 
 export interface UpdatedBlock extends BlockRef {
@@ -40,8 +46,9 @@ export interface UpdateResult {
   /** One entry per selected block, in document order. */
   blocks: Array<UpdatedBlock>;
   /**
-   * read_failed and transform_failed errors. A block whose file= cannot be read
-   * keeps its original code, which the transformer still receives; a block whose
+   * Only filled with continueOnError: read_failed, unsafe_path and
+   * transform_failed errors. A block whose file= cannot be read keeps its
+   * original code, which the transformer still receives; a block whose
    * transformer throws keeps the code it had before the transform.
    */
   errors: Array<ResultError>;
@@ -50,11 +57,18 @@ export interface UpdateResult {
 /**
  * Update markdown code blocks from source files or via transformer
  * @throws {MetadataError} when the document's metadata is invalid
+ * @throws {BlockFailure} on the first failed read, unsafe file= or failed transform, unless continueOnError
  */
 export async function update(options: UpdateOptions): Promise<UpdateResult> {
-  const { source, filter, transformer, basePath = "." } = options;
+  const { source, filter, transformer, basePath = ".", continueOnError = false } = options;
   const blocks: Array<UpdatedBlock> = [];
   const errors: Array<ResultError> = [];
+  const fail = (error: ResultError): void => {
+    if (!continueOnError) {
+      throw new BlockFailure([ error ]);
+    }
+    errors.push(error);
+  };
 
   const result = await walk({
     source,
@@ -70,7 +84,8 @@ export async function update(options: UpdateOptions): Promise<UpdateResult> {
         const filePath = block.meta.file;
 
         try {
-          let fileContent = await readFile(join(basePath, filePath), "utf-8");
+          // Checked before anything is read: untrusted markdown must not pull in arbitrary files.
+          let fileContent = await readFile(await resolveContained(filePath, basePath), "utf-8");
 
           if (block.meta.outline === "true") {
             // Use outline to remove content between region markers
@@ -101,8 +116,8 @@ export async function update(options: UpdateOptions): Promise<UpdateResult> {
           currentCode = fileContent;
         }
         catch (error: unknown) {
-          // Continue with the original code if the file cannot be read
-          errors.push(blockError(block, { code: "read_failed", message: error instanceof Error ? error.message : String(error), path: filePath }));
+          const code = error instanceof UnsafePathError ? "unsafe_path" : "read_failed";
+          fail(blockError(block, { code, message: error instanceof Error ? error.message : String(error), path: filePath }));
         }
       }
 
@@ -124,8 +139,7 @@ export async function update(options: UpdateOptions): Promise<UpdateResult> {
           }
         }
         catch (error: unknown) {
-          // Continue with the current code if the transform fails
-          errors.push(blockError(block, { code: "transform_failed", message: error instanceof Error ? error.message : String(error) }));
+          fail(blockError(block, { code: "transform_failed", message: error instanceof Error ? error.message : String(error) }));
         }
       }
 
@@ -159,15 +173,15 @@ export async function update(options: UpdateOptions): Promise<UpdateResult> {
  */
 export function formatUpdate({ blocks, errors }: UpdateResult, options: { quiet?: boolean; }): Array<string> {
   const lines: Array<string> = [];
-  const failure = (block: UpdatedBlock, code: ResultError["code"]): ResultError | undefined =>
-    errors.find(error => error.line === block.line && error.code === code);
+  const failure = (block: UpdatedBlock, ...codes: Array<ResultError["code"]>): ResultError | undefined =>
+    errors.find(error => error.line === block.line && codes.includes(error.code));
 
   for (const block of blocks) {
-    const readFailure = failure(block, "read_failed");
+    const readFailure = failure(block, "read_failed", "unsafe_path");
     const transformFailure = failure(block, "transform_failed");
 
     if (readFailure) {
-      lines.push(styleText("red", `✗ Failed to read ${readFailure.path}: ${readFailure.message}`));
+      lines.push(styleText("red", `✗ ${readFailure.code === "unsafe_path" ? "Refused" : "Failed"} to read ${readFailure.path}: ${readFailure.message}`));
     }
     else if (block.read && !options.quiet) {
       lines.push(styleText("green", `✓ Read from ${block.read.file}`));

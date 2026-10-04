@@ -27,6 +27,8 @@ This TypeScript implementation is designed as a **drop-in replacement** for the 
 - Outline extraction for code structure
 - Quiet mode for cleaner output
 - Short and long flag forms for all options
+- Containment for untrusted markdown: `file=` paths stay inside their base, and `run` needs
+  `--allow-shell` (see [Security: Untrusted Markdown](#security-untrusted-markdown))
 
 ## Why Use mdcode?
 
@@ -51,7 +53,7 @@ Documentation examples often become outdated. You write great examples in your R
 mdcode extract README.md -d ./examples
 
 # Run them as tests
-mdcode run -l js "node {file}" README.md
+mdcode run --allow-shell -l js "node {file}" README.md
 
 # They work? Great! They fail? Fix them before users see broken examples.
 ```
@@ -144,7 +146,7 @@ Or add scripts to your `package.json`:
     "readme:check": "mdcode update --check README.md",
     "readme:extract": "mdcode extract -d src README.md",
     "readme:list": "mdcode list --json README.md",
-    "docs:validate": "mdcode run -l js \"node {file}\" README.md"
+    "docs:validate": "mdcode run --allow-shell -l js \"node {file}\" README.md"
   }
 }
 ```
@@ -313,15 +315,19 @@ Extract is non-destructive. When the target file already exists:
 
 Otherwise, files that don't exist yet are created.
 
-`file=` paths resolve against `--dir` (default: the current directory):
+`file=` paths resolve against `--dir` (default: the current directory) and must stay inside it:
 
-- **Relative `file=`** → honoured as written, even when it leaves `--dir`, so
-  `file=../../shared-tests/where.ts` splices into that file. Two spellings of one file (a symlinked
-  directory, `./a.ts` vs `a.ts`, `..` traversal) are treated as one target.
-- **Absolute `file=`** → skipped with a warning.
-- **No `file=`** → written as `block-N.<ext>` directly inside `--dir`.
+- **Relative `file=`** → written inside `--dir`. Two spellings of one file (a symlinked directory
+  inside `--dir`, `./a.ts` vs `a.ts`) are treated as one target.
+- **Absolute `file=`, or one that leads outside `--dir`** through `..` or through a symlink → refused
+  as an `unsafe_path` error. Every target is checked before anything is written, so when any is
+  refused, nothing is written and `extract` exits 1. To write into `../../shared-tests`, point
+  `--dir` higher and write `file=` relative to it.
+- **No `file=`** → written as `block-N.<ext>` directly inside `--dir`. An existing symlink of that
+  name that leads out of `--dir` is refused too.
 
-Whenever a file is skipped, `extract` prints a summary (even under `--quiet`) and exits with status 2.
+Whenever a file is skipped (an existing file without `--force`, or a region problem described
+above), `extract` prints a summary (even under `--quiet`) and exits with status 2.
 With `--update-source` on stdin, the updated markdown is still written to stdout in full first.
 
 ### Basic Usage
@@ -506,8 +512,40 @@ block changes, `--apply` leaves the file untouched. The diff labels both sides w
 so `patch -p0 < changes.diff` applies it.
 
 `--check` reports each drifted block as an `out_of_sync` error. A `file=` that cannot be read is a
-`read_failed` error instead, and a broken `--transform` module is `invalid_transform`. All of them
-exit 1; with `--json` the error codes tell them apart (see [JSON Contract](#json-contract)).
+`read_failed` error instead, a `file=` outside the base is `unsafe_path`, a transformer that throws is
+`transform_failed`, and a broken `--transform` module is `invalid_transform`. All of them exit 1; with
+`--json` the error codes tell them apart (see [JSON Contract](#json-contract)).
+
+### Where `file=` Is Read From
+
+`file=` paths resolve against the base directory, which defaults to the markdown file's directory
+(the current directory when the markdown comes from stdin). The path must stay inside the base: an
+absolute path, a `..` that climbs out of it, or a symlink that leads out of it is refused as an
+`unsafe_path` error before anything is read. `--base <dir>` picks another base, and `file=` paths
+then resolve against that directory instead of the markdown's.
+
+A `docs/README.md` with `file=../src/app.js` therefore fails by default. Run from the repository
+root with `--base .` and write the path as `file=src/app.js`:
+
+```bash file=block-base.sh
+mdcode update --check --base . docs/README.md
+```
+
+### When a Read or Transform Fails
+
+By default `update` stops at the first block whose `file=` cannot be read (`read_failed`), is refused
+(`unsafe_path`), or whose transformer throws (`transform_failed`). Nothing is written and nothing is
+printed except that error. The command exits 1, and under `--json` the envelope has `result: null`
+and that one error.
+
+`--continue-on-error` collects every failure and keeps going. A failed block keeps its previous code,
+and a block whose read failed is still transformed from its original code. `--apply` still writes
+the blocks that succeeded, every failed block is reported, and the command still exits 1.
+
+```bash file=block-continue.sh
+# Report every broken file= at once instead of stopping at the first
+mdcode update --check --continue-on-error README.md
+```
 
 ### Quiet Mode
 
@@ -604,33 +642,39 @@ mdcode update --check -m region=setup README.md
 
 Execute shell commands on each code block.
 
+`run` needs `--allow-shell`. It passes `<command>` to the shell once per selected block, and a
+command such as `node {file}` executes the block's code, so running it over markdown you did not
+write runs code you did not write. Without the flag, `run` fails with `invalid_usage` before reading
+any input. The command always comes from your command line; metadata in the markdown never supplies
+one. See [Security: Untrusted Markdown](#security-untrusted-markdown).
+
 ### Basic Usage
 
 Use `{file}` as a placeholder for the temporary file path:
 
 ```bash file=block-39.sh
 # Run node on JavaScript blocks
-mdcode run "node {file}" --lang javascript README.md
+mdcode run --allow-shell "node {file}" --lang javascript README.md
 
 # Run Python scripts
-mdcode run "python {file}" --lang python README.md
+mdcode run --allow-shell "python {file}" --lang python README.md
 
 # Compile and run C code
-mdcode run "gcc {file} -o out && ./out" --lang c docs/
+mdcode run --allow-shell "gcc {file} -o out && ./out" --lang c docs/
 ```
 
 ### Filter by Language
 
 ```bash file=block-40.sh
 # Long form
-mdcode run --lang js "node {file}" README.md
+mdcode run --allow-shell --lang js "node {file}" README.md
 
 # Short form
-mdcode run -l js "node {file}" README.md
+mdcode run --allow-shell -l js "node {file}" README.md
 
 # Multiple languages (run separately)
-mdcode run -l python "python {file}" docs/*.md
-mdcode run -l js "node {file}" docs/*.md
+mdcode run --allow-shell -l python "python {file}" docs/*.md
+mdcode run --allow-shell -l js "node {file}" docs/*.md
 ```
 
 ### Filter by Name
@@ -640,13 +684,13 @@ Select blocks by their `name` metadata. Every command accepts `-n, --name`; see
 
 ```bash file=block-41.sh
 # Long form
-mdcode run --name test-example "node {file}" README.md
+mdcode run --allow-shell --name test-example "node {file}" README.md
 
 # Short form
-mdcode run -n calculate "python {file}" docs/API.md
+mdcode run --allow-shell -n calculate "python {file}" docs/API.md
 
 # With language filter
-mdcode run -l js -n integration-test "node {file}" tests/
+mdcode run --allow-shell -l js -n integration-test "node {file}" tests/
 ```
 
 ### Custom Working Directory
@@ -655,13 +699,13 @@ Specify where to save temporary files and run commands:
 
 ```bash file=block-42.sh
 # Long form
-mdcode run --dir /tmp/mdcode "node {file}" README.md
+mdcode run --allow-shell --dir /tmp/mdcode "node {file}" README.md
 
 # Short form
-mdcode run -d ./temp "python {file}" docs/
+mdcode run --allow-shell -d ./temp "python {file}" docs/
 
 # With filters
-mdcode run -l js -d ./build "node {file}" README.md
+mdcode run --allow-shell -l js -d ./build "node {file}" README.md
 ```
 
 ### Keep Temporary Files
@@ -670,10 +714,10 @@ Preserve temporary directory after execution (useful for debugging):
 
 ```bash file=block-43.sh
 # Long form
-mdcode run --keep "node {file}" README.md
+mdcode run --allow-shell --keep "node {file}" README.md
 
 # Short form
-mdcode run -k "python {file}" docs/
+mdcode run --allow-shell -k "python {file}" docs/
 
 # After the blocks, the command prints "Working directory: <path>"
 ```
@@ -682,29 +726,29 @@ mdcode run -k "python {file}" docs/
 
 ```bash file=block-44.sh
 # Run JavaScript tests with all flags
-mdcode run -l js -n test -k -d ./temp "node {file}" README.md
+mdcode run --allow-shell -l js -n test -k -d ./temp "node {file}" README.md
 
 # Run Python examples in custom directory
-mdcode run -l python -m type=example -d ./examples "python {file}" docs/
+mdcode run --allow-shell -l python -m type=example -d ./examples "python {file}" docs/
 
 # Run and keep files, filter by file metadata
-mdcode run -k -f "calculator.py" "python {file}" README.md
+mdcode run --allow-shell -k -f "calculator.py" "python {file}" README.md
 ```
 
 ### Advanced Usage
 
 ```bash file=block-45.sh
 # Lint all JavaScript blocks
-mdcode run -l js "eslint {file}" README.md
+mdcode run --allow-shell -l js "eslint {file}" README.md
 
 # Format code blocks
-mdcode run -l python "black {file}" docs/*.md
+mdcode run --allow-shell -l python "black {file}" docs/*.md
 
 # Type check TypeScript blocks
-mdcode run -l typescript "tsc --noEmit {file}" API.md
+mdcode run --allow-shell -l typescript "tsc --noEmit {file}" API.md
 
 # Run tests with coverage
-mdcode run -l js -n test "jest --coverage {file}" docs/
+mdcode run --allow-shell -l js -n test "jest --coverage {file}" docs/
 ```
 
 ---
@@ -712,6 +756,10 @@ mdcode run -l js -n test "jest --coverage {file}" docs/
 ## Dump Command
 
 Create a tar archive of all code blocks.
+
+A `file=` that would unpack outside the archive's directory (an absolute path, or one that climbs
+out with `..`, written with `/` or `\`) is refused as an `unsafe_path` error, and no archive is
+produced.
 
 ### Basic Usage (Output to stdout)
 
@@ -797,7 +845,7 @@ mdcode dump -l sql -o queries.tar API.md
 # By file metadata
 mdcode list -f app.js README.md
 mdcode extract -f "*.test.js" docs/
-mdcode run -f server.py "python {file}" README.md
+mdcode run --allow-shell -f server.py "python {file}" README.md
 
 # By custom metadata
 mdcode list -m region=main README.md
@@ -833,7 +881,7 @@ mdcode extract -l js -f "*.test.js" -d ./tests docs/
 mdcode list -l python -m type=example -m region=main docs/
 
 # Run tests only for specific component
-mdcode run -l js -f "auth.test.js" -n "login-test" "node {file}" README.md
+mdcode run --allow-shell -l js -f "auth.test.js" -n "login-test" "node {file}" README.md
 
 # Update only SQL queries in specific file
 mdcode update --apply -l sql -f queries.sql README.md
@@ -856,7 +904,7 @@ mdcode list --name "quick start" README.md
 mdcode extract -n "quick start" -d ./out README.md
 mdcode update --apply --name "quick start" README.md
 mdcode update --check -n "quick start" -n setup README.md
-mdcode run -n "quick start" "node {file}" README.md
+mdcode run --allow-shell -n "quick start" "node {file}" README.md
 mdcode dump --name "quick start" -o quick-start.tar README.md
 ```
 
@@ -878,7 +926,8 @@ All commands support these common flags:
 Additional flags by command:
 
 **extract:**
-- `-d, --dir <dir>` - Output directory (default: current directory)
+- `-d, --dir <dir>` - Directory that `file=` paths resolve against and must stay inside (default:
+  current directory)
 - `-q, --quiet` - Suppress status messages
 - `--update-source` - Add file metadata to anonymous code blocks and update source
 - `--ignore-anonymous` - Skip blocks without file metadata (mutually exclusive with --update-source)
@@ -887,6 +936,10 @@ Additional flags by command:
 **update:**
 - `-q, --quiet` - Suppress status messages
 - `-t, --transform <file>` - Path to transformer function
+- `--base <dir>` - Directory that `file=` paths resolve against and must stay inside (default: the
+  markdown file's directory, or the current directory for stdin)
+- `--continue-on-error` - Report every failed read and transform and keep going, instead of stopping
+  at the first
 - `--plan` - List the blocks that would change, without writing (default)
 - `--apply` - Write the changes to the markdown file in place
 - `--diff` - Print a unified diff of the changes, without writing
@@ -894,12 +947,70 @@ Additional flags by command:
 - `--stdout` - Print the updated markdown, without writing
 
 **run:**
+- `--allow-shell` - Confirm that `<command>` may run through the shell once per selected block
+  (required)
 - `-k, --keep` - Keep temporary directory
 - `-d, --dir <dir>` - Custom working directory
 
 **dump:**
 - `-o, --out <file>` - Output file (default: stdout; required with `--json`)
 - `-q, --quiet` - Suppress status messages
+
+---
+
+## Security: Untrusted Markdown
+
+mdcode is often pointed at markdown it did not write: a pull request, a downloaded README, or a
+document an agent produced. It treats the markdown as untrusted and whoever runs it as trusted.
+
+- Untrusted: everything in the markdown, meaning the block code and the info strings with their
+  metadata (`file=`, `region=`, `name=` and the rest).
+- Trusted: what the caller supplies. That is the command-line flags, the `--base` and `--dir`
+  directories, the `--transform` module, and the `<command>` given to `run`.
+
+### Containment
+
+- `update` reads a `file=` only when it resolves inside the base: the markdown file's directory by
+  default, the current directory for stdin, or the directory given with `--base`.
+- `extract` writes a target only when it resolves inside `--dir`, and that includes the generated
+  `block-N.<ext>` names.
+- For `update` and `extract`, an absolute `file=`, one that climbs out with `..`, and one that leads
+  out through an existing symlink anywhere along the path, the file itself included, are refused as
+  `unsafe_path`. The check runs before anything is read or written.
+- `dump` adds an entry only when its name stays inside the archive's directory. An absolute name, or
+  one that climbs out with `..` using `/` or `\`, is refused as `unsafe_path`.
+- `run` takes its command from its argument only. Each block's code is written to a temporary file
+  named `block-<index><ext>`, with the extension taken from a fixed table by language, and that path
+  is substituted for `{file}`. Metadata never supplies a command or a file name.
+
+The library functions apply the same checks: `update()` against `basePath`, `extract()` against
+`outputDir`, and `dump()` against the archive root.
+
+### Failure Policy
+
+A refusal leaves no partial work behind. `extract` checks every target before writing any, and `dump`
+checks every entry before building the archive, so one unsafe path fails the whole command with exit
+1. `update` stops at its first failed read, unsafe path or transform and writes nothing. With
+`--continue-on-error` it reports every failure instead, `--apply` writes the blocks that succeeded,
+and the command still exits 1.
+
+### Running Code
+
+`run` passes `<command>` to the shell once per selected block. When the command executes its file, as
+`node {file}` does, `run` executes the block's code, so running it over untrusted markdown runs
+untrusted code with your permissions. `--allow-shell` is the acknowledgement: without it, `run` fails
+with `invalid_usage` before reading any input. The library `run()` function needs no such flag,
+because calling it is already explicit.
+
+### Limits
+
+mdcode is not a sandbox.
+
+- The path checks are check-then-use. A symlink swapped in between the check and the read or write
+  is not detected, so containment holds only while nothing else is changing the directory tree.
+- A `--transform` module is arbitrary code and runs inside the mdcode process.
+- The `run` command is arbitrary shell and is not sandboxed. mdcode does not inspect or validate block
+  code.
 
 ---
 
@@ -915,8 +1026,9 @@ stdout and nothing else: no colours and no progress text. Without `--json`, the 
 - `command` - The command that ran: `list`, `extract`, `update`, `run` or `dump`.
 - `ok` - `true` when `errors` is empty.
 - `result` - What the command did, described below. It is `null` when the command failed before doing
-  any work: invalid metadata, bad flags, unreadable input, or a transform module that could not be
-  loaded.
+  any work: invalid metadata, bad flags, unreadable input, a transform module that could not be
+  loaded, an `unsafe_path` refusal from `extract` or `dump`, or `update` stopping at its first failed
+  block.
 - `errors` - Everything that went wrong. A command can fail for some blocks and still report a result
   for all of them.
 
@@ -938,6 +1050,7 @@ Each error has a `code` and a `message`. These fields are added when they apply:
 | `extract_skipped` | `extract` left a target file untouched |
 | `read_failed` | `update` could not read a block's `file=` or region |
 | `transform_failed` | `update`'s transformer threw for a block |
+| `unsafe_path` | A block's `file=` is absolute or leads outside the allowed base, directly or through a symlink |
 | `out_of_sync` | `update --check` found a selected block that differs from its source |
 | `command_failed` | `run`'s command exited non-zero for a block |
 | `unexpected_error` | Anything else |
@@ -991,6 +1104,7 @@ type ErrorCode =
   | "extract_skipped"
   | "read_failed"
   | "transform_failed"
+  | "unsafe_path"
   | "out_of_sync"
   | "command_failed"
   | "unexpected_error";
@@ -1054,7 +1168,7 @@ type UpdateEnvelope = Envelope<
   | { blocks: Array<UpdatedBlock>; source: string }
 >;
 
-// mdcode run --json
+// mdcode run --allow-shell --json
 type RunEnvelope = Envelope<{
   /** Where block files were written; removed afterwards unless --keep or --dir was given */
   workingDir: string;
@@ -1095,8 +1209,9 @@ type DumpEnvelope = Envelope<{
   `written` holds its path, or `null` when nothing changed and the file was left alone. `diff` holds
   the unified diff under `--diff`, and `source` the updated markdown under `--stdout`. Under
   `--check`, each changed block adds an `out_of_sync` error, with `path` set to its `file=` when it
-  has one. When a block's `file=` cannot be read, its original code is kept and still passed to the
-  transformer. When the transformer throws, the block keeps the code it had before the transform.
+  has one. With `--continue-on-error`, a block whose `file=` cannot be read keeps its original code,
+  which is still passed to the transformer, and a block whose transformer throws keeps the code it had
+  before the transform. Without it, the first such failure stops the command with `result: null`.
 - `run` - One entry per selected block, with the command's exit code and output. Each block whose
   command failed adds a `command_failed` error.
 - `dump` - `dump --json` needs `--out <file>`. The archive is written to that file and never encoded
@@ -1150,7 +1265,7 @@ echo hi
 }
 ```
 
-`mdcode run --json "sh {file}" checks.md`, where the second block fails, exits 1:
+`mdcode run --allow-shell --json "sh {file}" checks.md`, where the second block fails, exits 1:
 
 ````markdown file=block-99.md
 # Checks
@@ -1271,7 +1386,7 @@ Exit codes are the same with and without `--json`:
 | Code | Meaning |
 |------|---------|
 | `0` | Success; for `update --check`, every selected block is in sync |
-| `1` | Any error, including `update --check` finding a block out of sync |
+| `1` | Any error, including `update --check` finding a block out of sync and `extract` refusing an unsafe target |
 | `2` | `extract` skipped one or more targets |
 
 ### Changes from Earlier Versions
@@ -1286,6 +1401,24 @@ Exit codes are the same with and without `--json`:
 - A transform module that cannot be loaded is reported as `could not load transform file: ...`.
 - The library functions return structured results and print nothing; see
   [API Reference](#api-reference).
+- `run` needs `--allow-shell`. Without it, `run` fails with `invalid_usage` before reading any input.
+- `update` stops at the first `file=` read, unsafe path or transformer failure, writes nothing and
+  reports only that error. It used to report every failure and carry on; pass `--continue-on-error`
+  for that.
+- `update` resolves `file=` against the markdown file's directory (or `--base <dir>`) and refuses
+  paths that lead outside it, including absolute paths and symlinks. `file=../src/app.js` from a
+  `docs/` folder used to work; run with `--base .` from the repository root and write
+  `file=src/app.js` instead.
+- `extract` refuses a `file=` that is absolute or leads outside `--dir`, including through a symlink,
+  as `unsafe_path`. A relative `file=` used to be honoured even when it left `--dir`, and an absolute
+  one was skipped with exit 2. Now every target is checked first, and when any is refused nothing is
+  written and `extract` exits 1.
+- `dump` refuses a `file=` that would unpack outside the archive (absolute, or climbing out with
+  `..`) as `unsafe_path`, and produces no archive.
+- The default export `mdcode(filePath, transformer, filter?)` resolves `file=` against the markdown
+  file's directory instead of the current directory, refuses paths that lead outside it, and rejects
+  on the first failed read or transform.
+- The new `unsafe_path` error code reports these refusals.
 
 ---
 
@@ -1321,6 +1454,12 @@ const result = await mdcode('/path/to/file.md', ({tag, meta, code}) => {
 
 console.log(result); // Transformed markdown
 ```
+
+Blocks with `file=` are read first, resolved against the markdown file's directory and confined to
+it, as `mdcode update` does by default. A `file=` that is absolute or leads outside that directory,
+directly or through a symlink, is refused. The promise rejects on the first failed read, unsafe path
+or failed transform, with an `Error` whose `errors` array holds that `ResultError`. There is no
+opt-out here; to collect every failure, call `update()` with `continueOnError: true`.
 
 With filters:
 
@@ -1510,12 +1649,18 @@ what to do with the result.
 - **options.source** - The markdown source string
 - **options.transformer** - Optional transformer function
 - **options.filter** - Optional filter criteria
-- **options.basePath** - Base path for file resolution (default: '.')
-- **Returns** - Promise of `{ source, blocks, errors }`: the updated markdown, one `UpdatedBlock` per
-  selected block with its resulting `code` and whether it `changed`, and a `read_failed` or
-  `transform_failed` error for each block whose `file=` read or transformer failed. A failed block
-  keeps the code it had before the failing step.
-- **Throws** - `MetadataError` when the document's metadata is invalid
+- **options.basePath** - Directory that `file=` paths resolve against and must stay inside (default:
+  '.'). An absolute `file=`, or one that leads outside through `..` or a symlink, is an `unsafe_path`
+  error.
+- **options.continueOnError** - Collect every failure in `errors` and keep going, instead of throwing
+  at the first
+- **Returns** - Promise of `{ source, blocks, errors }`: the updated markdown and one `UpdatedBlock`
+  per selected block with its resulting `code` and whether it `changed`. `errors` is only filled with
+  `continueOnError`: a `read_failed`, `unsafe_path` or `transform_failed` error for each failed block,
+  which keeps the code it had before the failing step.
+- **Throws** - `MetadataError` when the document's metadata is invalid. Without `continueOnError`,
+  the first failed read, unsafe path or failed transform throws an `Error` whose `errors` array holds
+  that one `ResultError`.
 
 #### `list(options: ListOptions): ListResult`
 
@@ -1533,13 +1678,17 @@ Write code blocks to files based on their `file` metadata.
 
 - **options.source** - The markdown source string
 - **options.filter** - Optional filter criteria
-- **options.outputDir** - Directory that relative `file=` paths resolve against (default: '.')
+- **options.outputDir** - Directory that `file=` paths resolve against and must stay inside (default:
+  '.')
 - **options.updateSource** - Add `file=` to anonymous blocks
 - **options.ignoreAnonymous** - Skip blocks without `file=`
 - **options.force** - Overwrite existing files whose blocks have no `region=`
 - **Returns** - Promise of `{ targets, updatedSource?, errors }`: one `ExtractTarget` per target file,
   the markdown with `file=` added when `updateSource` added any, and one `extract_skipped` error per
   skipped target. `extract` writes the target files but not the markdown.
+- **Throws** - `MetadataError` when the document's metadata is invalid. When any target is absolute
+  or leads outside `outputDir`, directly or through a symlink, it throws an `Error` whose `errors`
+  array holds one `unsafe_path` `ResultError` per refused target, and nothing is written.
 
 #### `run(options: RunOptions): Promise<RunResult>`
 
@@ -1562,6 +1711,9 @@ Create a tar archive of code blocks.
 - **options.filter** - Optional filter criteria
 - **Returns** - Promise of `{ files, archive }`: one `DumpedFile` (`name`, `line`, `path`, `size`) per
   selected block, and the tar archive as a `Uint8Array` (zero bytes when no block was selected)
+- **Throws** - `MetadataError` when the document's metadata is invalid. When any `file=` would
+  unpack outside the archive's directory, it throws an `Error` whose `errors` array holds one
+  `unsafe_path` `ResultError` per refused entry, and no archive is built.
 
 #### `transformWithFunction(source: string, transformer: TransformerFunction, filter?: FilterOptions): Promise<string>`
 
@@ -1692,7 +1844,7 @@ This is useful for documentation that shows structure without implementation det
 
 ## Comparison with Original mdcode
 
-This TypeScript implementation is a **drop-in replacement** for the original Go-based [szkiba/mdcode](https://github.com/szkiba/mdcode). It maintains 100% CLI compatibility.
+This TypeScript implementation is a **drop-in replacement** for the original Go-based [szkiba/mdcode](https://github.com/szkiba/mdcode). It keeps the original's commands and flags, with the differences listed under [Command Compatibility](#command-compatibility).
 
 ### Feature Parity
 
@@ -1716,21 +1868,22 @@ This TypeScript implementation is a **drop-in replacement** for the original Go-
 
 ### Command Compatibility
 
-All commands take the same flags as the original. `update` differs in one way: it writes the
-markdown only with `--apply`, where the original writes it by default.
+All commands take the original's flags, with these differences:
+
+- `update` writes the markdown only with `--apply`, where the original writes it by default.
+- `run` needs `--allow-shell`.
+- `update` and `extract` refuse a `file=` that leads outside its base, and `dump` refuses an entry
+  name that would unpack outside the archive; see
+  [Security: Untrusted Markdown](#security-untrusted-markdown).
 
 ```bash file=block-70.js
-# Original (Go)
+# The same in both
 mdcode list -l js README.md
 mdcode extract -d output -q docs/*.md
-mdcode run -l python "python {file}" README.md
 mdcode dump -o archive.tar README.md
 
-# This implementation (TypeScript) - SAME COMMANDS
-mdcode list -l js README.md
-mdcode extract -d output -q docs/*.md
-mdcode run -l python "python {file}" README.md
-mdcode dump -o archive.tar README.md
+# This implementation also needs --allow-shell, which the original does not have
+mdcode run --allow-shell -l python "python {file}" README.md
 ```
 
 ### Bonus Features
@@ -1775,7 +1928,7 @@ mdcode update --apply README.md
 mdcode extract -l js -f "*.test.js" -d ./tests docs/
 
 # Run all tests
-mdcode run -l js -f "*.test.js" "npm test {file}" docs/
+mdcode run --allow-shell -l js -f "*.test.js" "npm test {file}" docs/
 
 # If tests pass, create archive
 mdcode dump -l js -f "*.test.js" -o tests.tar docs/

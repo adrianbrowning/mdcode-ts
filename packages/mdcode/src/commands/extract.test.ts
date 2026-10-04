@@ -1,12 +1,11 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import { chmod, lstat, mkdir, mkdtemp, readdir, readFile, readlink, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, describe, test } from "node:test";
-import { promisify } from "node:util";
 
+import { BlockFailure } from "../result.ts";
 import type { ExtractResult } from "./extract.ts";
 import { extract } from "./extract.ts";
 
@@ -271,55 +270,48 @@ describe("extract: block names", () => {
   });
 });
 
+/** The contract errors a rejected extract() call threw. */
+async function refusal(promise: Promise<unknown>): Promise<Array<{ code: string; line?: number; path?: string; }>> {
+  try {
+    await promise;
+  }
+  catch (error: unknown) {
+    assert.ok(error instanceof BlockFailure, `expected a BlockFailure, got ${String(error)}`);
+    return error.errors.map(({ code, line, path }) => ({ code, line, path }));
+  }
+  assert.fail("extract() should have failed");
+}
+
 describe("extract: file= outside the output directory", () => {
-  test("splices a relative file= that leaves the default output directory", async () => {
+  test("refuses a relative file= that leaves the output directory, and writes nothing at all", async () => {
     const dir = await tempDir();
-    const target = await writeSource(dir, "outside/target.ts", [
-      `import { x } from "./x.ts";`,
-      "",
-      "// #region x",
-      "const old = 1;",
-      "// #endregion x",
-      "",
-      "export { x };",
-      "",
-    ].join("\n"));
+    const target = await writeSource(dir, "outside/target.ts", "// #region x\nconst old = 1;\n// #endregion x\n");
     const docs = join(dir, "docs");
     await mkdir(docs, { recursive: true });
 
     const source = [
+      "```typescript file=safe.ts",
+      "const safe = 1;",
+      "```",
+      "",
       "```typescript file=../outside/target.ts region=x",
       "const fresh = 2;",
       "```",
       "",
     ].join("\n");
 
-    // outputDir is left at its default ("."), which is relative to the process
-    // cwd; a child process gets its own cwd without disturbing this runner's.
-    // The child is a string --eval script, so it can only reach extract.ts
-    // through import() of the resolved URL.
-    const { stdout } = await promisify(execFile)(process.execPath, [
-      // Node 22 before 22.18 only strips types from extract.ts with this flag.
-      "--experimental-strip-types",
-      "--input-type=module",
-      "--eval",
-      `const { extract } = await import(${JSON.stringify(import.meta.resolve("./extract.ts"))});
-       console.log(JSON.stringify(await extract({ source: process.env.MD_SOURCE, quiet: true })));`,
-    ], { cwd: docs, env: { ...process.env, MD_SOURCE: source } });
-    const result = JSON.parse(stdout) as ExtractResult;
+    const errors = await refusal(extract({ source, outputDir: docs }));
 
-    assert.deepEqual(skipped(result), []);
-    assert.deepEqual(written(result), [ "../outside/target.ts" ]);
-    assert.equal(await readFile(target, "utf-8"), [
-      `import { x } from "./x.ts";`,
-      "",
-      "// #region x",
-      "const fresh = 2;",
-      "// #endregion x",
-      "",
-      "export { x };",
-      "",
-    ].join("\n"));
+    assert.deepEqual(errors, [{ code: "unsafe_path", line: 5, path: "../outside/target.ts" }]);
+    assert.equal(await readFile(target, "utf-8"), "// #region x\nconst old = 1;\n// #endregion x\n");
+    assert.deepEqual(await readdir(docs), [], "a safe block must not be written alongside a refused one");
+  });
+
+  test("writes a file= that wanders but stays inside the output directory", async () => {
+    const dir = await tempDir();
+    const result = await extract({ source: "```ts file=a/../b/c.ts\nconst c = 1;\n```\n", outputDir: dir });
+
+    assert.deepEqual(written(result), [ join(dir, "b/c.ts") ]);
   });
 
   test("writes anonymous blocks inside the output directory, whatever their language tag", async () => {
@@ -348,11 +340,23 @@ describe("extract: refuses unsafe targets", () => {
       "",
     ].join("\n");
 
-    const result = await extract({ source, outputDir: join(dir, "out"), force: true });
+    const errors = await refusal(extract({ source, outputDir: join(dir, "out"), force: true }));
 
     assert.equal(await readFile(outside, "utf-8"), "PRECIOUS\n");
-    assert.deepEqual(written(result), []);
-    assert.deepEqual(skipped(result), [ outside ]);
+    assert.deepEqual(errors, [{ code: "unsafe_path", line: 1, path: outside }]);
+  });
+
+  test("refuses a file= that leads out through a symlinked directory", async () => {
+    const dir = await tempDir();
+    const out = join(dir, "out");
+    await mkdir(join(dir, "elsewhere"));
+    await mkdir(out);
+    await symlink(join(dir, "elsewhere"), join(out, "link"));
+
+    const errors = await refusal(extract({ source: "```text file=link/new.txt\npwned\n```\n", outputDir: out }));
+
+    assert.deepEqual(errors, [{ code: "unsafe_path", line: 1, path: "link/new.txt" }]);
+    assert.deepEqual(await readdir(join(dir, "elsewhere")), []);
   });
 
   test("refuses to splice through a symlinked target, leaving the link and its target intact", async () => {

@@ -56,6 +56,8 @@ const UPDATE_MODES = [ "plan", "apply", "diff", "check", "stdout" ] as const;
 type UpdateCliOptions = FilterCliOptions & Partial<Record<typeof UPDATE_MODES[number], boolean>> & {
   transform?: string;
   quiet?: boolean;
+  base?: string;
+  continueOnError?: boolean;
 };
 
 /** Flags accepted by `mdcode extract`, so a renamed flag is a compile error. */
@@ -250,7 +252,7 @@ export async function Execute(
     .option("-f, --file <file>", "Filter by file metadata")
     .option("-m, --meta <key=value...>", "Filter by custom metadata")
     .option("-n, --name <name>", NAME_FLAG_HELP, collect)
-    .option("-d, --dir <dir>", "Directory that relative file= paths resolve against; they may leave it (e.g. file=../x.ts). Absolute file= paths are refused (default: current directory)", ".")
+    .option("-d, --dir <dir>", "Directory file= paths resolve against and must stay inside; absolute paths and paths leading out, including through symlinks, are refused (default: current directory)", ".")
     .option("-q, --quiet", "Suppress status messages")
     .option("--update-source", "Add file metadata to anonymous code blocks")
     .option("--ignore-anonymous", "Skip blocks without file metadata")
@@ -310,8 +312,8 @@ export async function Execute(
   // Run command
   program
     .command("run")
-    .description("Run a shell command on each code block")
-    .argument("<command>", "Command to run (use {file} as placeholder)")
+    .description("Run a shell command on each code block. Needs --allow-shell")
+    .argument("<command>", "Command to run through the shell (use {file} as placeholder)")
     .argument("[file]", "Markdown file to read (default: stdin)")
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
@@ -319,9 +321,14 @@ export async function Execute(
     .option("-n, --name <name>", NAME_FLAG_HELP, collect)
     .option("-k, --keep", "Keep temporary directory after execution")
     .option("-d, --dir <dir>", "Working directory for command execution (default: temp directory)")
+    .option("--allow-shell", "Confirm that <command> may run through the shell once per selected block")
     .option("--json", "Print one versioned JSON result instead of text")
-    .action(async (command: string, file: string | undefined, options: FilterCliOptions & { keep?: boolean; dir?: string; }) => {
+    .action(async (command: string, file: string | undefined, options: FilterCliOptions & { keep?: boolean; dir?: string; allowShell?: boolean; }) => {
       await perform("run", options.json, async () => {
+        if (!options.allowShell) {
+          throw new CommandError("invalid_usage", "run executes <command> through the shell for every selected block; pass --allow-shell to confirm");
+        }
+
         const { errors, ...result } = await run({
           source: await readInput(file),
           command,
@@ -358,6 +365,8 @@ export async function Execute(
     .option("-n, --name <name>", NAME_FLAG_HELP, collect)
     .option("-t, --transform <path>", "Path to transformer function file (must export default)")
     .option("-q, --quiet", "Suppress status messages")
+    .option("--base <dir>", "Directory file= paths resolve against and must stay inside (default: the markdown file's directory, or the current directory for stdin)")
+    .option("--continue-on-error", "Report failed reads and transforms and keep going, instead of stopping at the first")
     .option("--plan", "List the blocks that would change, without writing (default)")
     .option("--apply", "Write the changes to the markdown file in place")
     .option("--diff", "Print a unified diff of the changes, without writing")
@@ -381,9 +390,9 @@ export async function Execute(
         const source = await readInput(file);
         const transformer = options.transform ? await loadTransformer(options.transform) : undefined;
 
-        // file= paths resolve against the markdown file's directory, or the current directory for stdin
-        const basePath = file ? dirname(resolve(file)) : process.cwd();
-        const outcome = await update({ source, filter: parseFilterOptions(options), transformer, basePath });
+        // file= paths resolve against, and must stay inside, the base
+        const basePath = options.base ? resolve(options.base) : file ? dirname(resolve(file)) : process.cwd();
+        const outcome = await update({ source, filter: parseFilterOptions(options), transformer, basePath, continueOnError: options.continueOnError });
         const { blocks } = outcome;
 
         // A misspelt name would otherwise select nothing, so every mode would be a

@@ -3,8 +3,9 @@ import { styleText } from "node:util";
 import { pack } from "tar-stream";
 
 import { parse } from "../parser.ts";
-import type { BlockRef } from "../result.ts";
-import { blockRef } from "../result.ts";
+import { escapesArchiveRoot } from "../paths.ts";
+import type { BlockRef, ResultError } from "../result.ts";
+import { BlockFailure, blockError, blockRef } from "../result.ts";
 import type { FilterOptions } from "../types.ts";
 
 export interface DumpOptions {
@@ -29,12 +30,23 @@ export interface DumpResult {
 /**
  * Create a tar archive of code blocks
  * @throws {MetadataError} when the document's metadata is invalid
+ * @throws {BlockFailure} with an unsafe_path error per file= that would unpack outside the archive's directory
  */
 export async function dump(options: DumpOptions): Promise<DumpResult> {
   const blocks = parse(options);
 
   if (blocks.length === 0) {
     return { files: [], archive: new Uint8Array(0) };
+  }
+
+  // An entry such as ../../.bashrc would be written wherever the archive is
+  // unpacked, by whoever unpacks it.
+  const unsafe: Array<ResultError> = blocks.flatMap(block => block.meta.file !== undefined && escapesArchiveRoot(block.meta.file)
+    ? [ blockError(block, { code: "unsafe_path", message: `${block.meta.file} is absolute or leads outside the archive`, path: block.meta.file }) ]
+    : []);
+
+  if (unsafe.length > 0) {
+    throw new BlockFailure(unsafe);
   }
 
   const packStream = pack();
