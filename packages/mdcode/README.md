@@ -562,13 +562,16 @@ block that is out of sync.
 | `2` | At least one document could not be checked, `mdcode` is not on `PATH`, or no documents were given |
 
 It needs Node 22+ and mdcode-ts 0.1.0 or later, and runs the `mdcode` on `PATH`. Copy it into your
-repository, for example as `scripts/check-docs-sync.mjs`, and add a script so `npm run` puts the
-installed `mdcode` on `PATH`:
+repository, for example as `scripts/check-docs-sync.mjs`, then add mdcode-ts as a dev dependency and
+a script, so `npm ci` installs `mdcode` and `npm run` puts it on `PATH`:
 
 ```json file=block-ci-scripts.json
 {
   "scripts": {
     "docs:check": "node scripts/check-docs-sync.mjs README.md docs/guide.md"
+  },
+  "devDependencies": {
+    "mdcode-ts": "^0.1.0"
   }
 }
 ```
