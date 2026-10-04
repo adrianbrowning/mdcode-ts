@@ -6,12 +6,13 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { styleText } from "node:util";
 
 import { Command, CommanderError } from "commander";
+import { createTwoFilesPatch, FILE_HEADERS_ONLY } from "diff";
 
 import { dump, formatDump } from "./commands/dump.ts";
 import { extract, formatExtract } from "./commands/extract.ts";
 import { formatList, list } from "./commands/list.ts";
 import { formatRunBlock, run } from "./commands/run.ts";
-import { formatUpdate, update } from "./commands/update.ts";
+import { describeChange, formatUpdate, update } from "./commands/update.ts";
 import type { CommandName, Envelope, ResultError } from "./result.ts";
 import { CommandError, CONTRACT_VERSION, errorsFrom } from "./result.ts";
 import type { FilterOptions, TransformerFunction } from "./types.ts";
@@ -36,10 +37,25 @@ async function readInput(filePath?: string): Promise<string> {
 
 type FilterCliOptions = {
   lang?: string;
-  name?: string;
+  name?: Array<string>;
   file?: string;
   meta?: Record<string, string>;
   json?: boolean;
+};
+
+/** Collect a repeatable option, such as --name, into an array. */
+function collect(value: string, previous: Array<string> | undefined): Array<string> {
+  return [ ...previous ?? [], value ];
+}
+
+const NAME_FLAG_HELP = "Select the block with this name= metadata; repeat to select several";
+
+/** What `mdcode update` does with the updated markdown; only apply writes it. */
+const UPDATE_MODES = [ "plan", "apply", "diff", "check", "stdout" ] as const;
+
+type UpdateCliOptions = FilterCliOptions & Partial<Record<typeof UPDATE_MODES[number], boolean>> & {
+  transform?: string;
+  quiet?: boolean;
 };
 
 /** Flags accepted by `mdcode extract`, so a renamed flag is a compile error. */
@@ -61,7 +77,7 @@ function parseFilterOptions(options: FilterCliOptions): FilterOptions | undefine
     filter.lang = options.lang;
   }
 
-  if (options.name) {
+  if (options.name && options.name.length > 0) {
     filter.name = options.name;
   }
 
@@ -215,7 +231,7 @@ export async function Execute(
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
     .option("-m, --meta <key=value...>", "Filter by custom metadata")
-    .option("-n, --name <name>", "Select the block with this name= metadata")
+    .option("-n, --name <name>", NAME_FLAG_HELP, collect)
     .option("--json", "Print one versioned JSON result instead of text")
     .action(async (file: string | undefined, options: FilterCliOptions) => {
       await perform("list", options.json, async () => {
@@ -233,7 +249,7 @@ export async function Execute(
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
     .option("-m, --meta <key=value...>", "Filter by custom metadata")
-    .option("-n, --name <name>", "Select the block with this name= metadata")
+    .option("-n, --name <name>", NAME_FLAG_HELP, collect)
     .option("-d, --dir <dir>", "Directory that relative file= paths resolve against; they may leave it (e.g. file=../x.ts). Absolute file= paths are refused (default: current directory)", ".")
     .option("-q, --quiet", "Suppress status messages")
     .option("--update-source", "Add file metadata to anonymous code blocks")
@@ -300,7 +316,7 @@ export async function Execute(
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
     .option("-m, --meta <key=value...>", "Filter by custom metadata")
-    .option("-n, --name <name>", "Select the block with this name= metadata")
+    .option("-n, --name <name>", NAME_FLAG_HELP, collect)
     .option("-k, --keep", "Keep temporary directory after execution")
     .option("-d, --dir <dir>", "Working directory for command execution (default: temp directory)")
     .option("--json", "Print one versioned JSON result instead of text")
@@ -334,39 +350,159 @@ export async function Execute(
   // Update command
   program
     .command("update")
-    .description("Update markdown code blocks from source files or via transformer")
+    .description("Update markdown code blocks from source files or via transformer. Prints a plan; only --apply writes the markdown")
     .argument("[file]", "Markdown file to read (default: stdin)")
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
     .option("-m, --meta <key=value...>", "Filter by custom metadata")
-    .option("-n, --name <name>", "Select the block with this name= metadata")
+    .option("-n, --name <name>", NAME_FLAG_HELP, collect)
     .option("-t, --transform <path>", "Path to transformer function file (must export default)")
     .option("-q, --quiet", "Suppress status messages")
-    .option("--stdout", "Write output to stdout instead of updating file in-place")
+    .option("--plan", "List the blocks that would change, without writing (default)")
+    .option("--apply", "Write the changes to the markdown file in place")
+    .option("--diff", "Print a unified diff of the changes, without writing")
+    .option("--check", "Exit 1 when a selected block is out of sync, without writing")
+    .option("--stdout", "Print the updated markdown, without writing")
     .option("--json", "Print one versioned JSON result instead of text")
-    .action(async (file: string | undefined, options: FilterCliOptions & { transform?: string; quiet?: boolean; stdout?: boolean; }) => {
+    .action(async (file: string | undefined, options: UpdateCliOptions) => {
       await perform("update", options.json, async () => {
+        const modes = UPDATE_MODES.filter(mode => options[mode]);
+
+        if (modes.length > 1) {
+          throw new CommandError("invalid_usage", `Use only one of ${modes.map(mode => `--${mode}`).join(", ")}`);
+        }
+
+        const mode = modes[0] ?? "plan";
+
+        if (mode === "apply" && file === undefined) {
+          throw new CommandError("invalid_usage", "--apply needs a markdown file to write; use --stdout to print the updated markdown");
+        }
+
         const source = await readInput(file);
         const transformer = options.transform ? await loadTransformer(options.transform) : undefined;
 
         // file= paths resolve against the markdown file's directory, or the current directory for stdin
         const basePath = file ? dirname(resolve(file)) : process.cwd();
         const outcome = await update({ source, filter: parseFilterOptions(options), transformer, basePath });
-        const inPlace = file !== undefined && !options.stdout;
+        const { blocks } = outcome;
 
-        if (inPlace) {
-          await writeFile(file, outcome.source, "utf-8");
+        // A misspelt name would otherwise select nothing, so every mode would be a
+        // silent no-op and --check would pass.
+        const missing = (options.name ?? []).filter(name => !blocks.some(block => block.name === name));
+
+        if (missing.length > 0) {
+          throw new CommandError("invalid_usage", `No selected block is named ${missing.map(name => JSON.stringify(name)).join(", ")}`);
+        }
+
+        const changed = blocks.filter(block => block.changed);
+        const progress = (): void => writeLines(stderr, formatUpdate(outcome, options));
+        const status = (line: string): void => {
+          if (!options.quiet) stderr.write(line + "\n");
+        };
+
+        if (mode === "apply" && file !== undefined) {
+          // An unchanged file is left untouched, so its modification time says nothing changed.
+          const written = changed.length > 0 ? file : null;
+
+          if (written !== null) {
+            await writeFile(written, outcome.source, "utf-8");
+          }
+
+          return {
+            result: { blocks, written },
+            errors: outcome.errors,
+            human: () => {
+              progress();
+              status(written === null
+                ? styleText("yellow", "No blocks were updated.")
+                : styleText([ "bold", "green" ], `\nUpdated ${changed.length} block(s) in ${written}.`));
+            },
+          };
+        }
+
+        if (mode === "diff") {
+          const label = file ?? "stdin";
+          const diff = changed.length === 0
+            ? ""
+            : createTwoFilesPatch(label, label, source, outcome.source, undefined, undefined, { headerOptions: FILE_HEADERS_ONLY });
+
+          return {
+            result: { blocks, diff },
+            errors: outcome.errors,
+            human: () => {
+              progress();
+              stdout.write(diff);
+
+              if (changed.length === 0) {
+                status(styleText("yellow", "No blocks would change."));
+              }
+            },
+          };
+        }
+
+        if (mode === "check") {
+          // A block whose read or transform failed has an unknown state, reported by
+          // that failure; only blocks that were fully worked out can be out of sync.
+          const drifted = changed.filter(block => !outcome.errors.some(error => error.line === block.line));
+          const drift: Array<ResultError> = drifted.map(block => ({
+            code: "out_of_sync",
+            message: block.read ? `out of sync with ${block.read.file}` : "out of sync with the transform",
+            line: block.line,
+            ...(block.name === null ? {} : { name: block.name }),
+            ...(block.read ? { path: block.read.file } : {}),
+          }));
+
+          return {
+            result: { blocks },
+            errors: [ ...outcome.errors, ...drift ],
+            human: () => {
+              progress();
+
+              // Reported even under --quiet, so a failing check always says why.
+              writeLines(stderr, drifted.map(block => styleText("red", `✗ Out of sync: ${describeChange(block)}`)));
+
+              if (drifted.length > 0) {
+                stderr.write(styleText("yellow", `${drifted.length} of ${blocks.length} block(s) out of sync. Run with --diff to review the changes, or --apply to write them.`) + "\n");
+              }
+              else if (outcome.errors.length === 0) {
+                status(styleText("green", `✓ ${blocks.length} block(s) in sync.`));
+              }
+            },
+          };
+        }
+
+        if (mode === "stdout") {
+          return {
+            result: { blocks, source: outcome.source },
+            errors: outcome.errors,
+            human: () => {
+              progress();
+              status(changed.length === 0
+                ? styleText("yellow", "No blocks were updated.")
+                : styleText([ "bold", "green" ], `\nUpdated ${changed.length} block(s).`));
+              stdout.write(outcome.source);
+            },
+          };
         }
 
         return {
-          result: inPlace ? { blocks: outcome.blocks, written: file } : { blocks: outcome.blocks, source: outcome.source },
+          result: { blocks },
           errors: outcome.errors,
           human: () => {
-            writeLines(stderr, formatUpdate(outcome, options));
+            progress();
 
-            if (!inPlace) {
-              stdout.write(outcome.source);
+            if (changed.length === 0) {
+              stdout.write("No blocks would change.\n");
+              return;
             }
+
+            writeLines(stdout, [
+              `Would update ${changed.length} block(s)${file === undefined ? "" : ` in ${file}`}:`,
+              ...changed.map(block => `  ${describeChange(block)}`),
+              file === undefined
+                ? "Run with --stdout to print the updated markdown, or --diff to review the changes."
+                : "Run with --apply to write the changes, or --diff to review them.",
+            ]);
           },
         };
       });
@@ -380,7 +516,7 @@ export async function Execute(
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
     .option("-m, --meta <key=value...>", "Filter by custom metadata")
-    .option("-n, --name <name>", "Select the block with this name= metadata")
+    .option("-n, --name <name>", NAME_FLAG_HELP, collect)
     .option("-q, --quiet", "Suppress status messages")
     .option("-o, --out <file>", "Output file (default: stdout; required with --json)")
     .option("--json", "Print one versioned JSON result instead of text; the archive goes to --out")

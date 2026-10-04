@@ -25,8 +25,12 @@ function matchesFilter(block: Block, filter?: FilterOptions): boolean {
     return false;
   }
 
-  if (filter.name && block.name !== filter.name) {
-    return false;
+  if (filter.name !== undefined && filter.name.length > 0) {
+    const names: ReadonlyArray<string> = typeof filter.name === "string" ? [ filter.name ] : filter.name;
+
+    if (block.name === undefined || !names.includes(block.name)) {
+      return false;
+    }
   }
 
   // Filter by custom metadata (nested format for backwards compatibility)

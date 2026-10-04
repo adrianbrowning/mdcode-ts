@@ -25,6 +25,8 @@ export type ErrorCode =
   | "read_failed"
   /** update's transformer threw for a block. */
   | "transform_failed"
+  /** update --check: a selected block differs from what update would write. */
+  | "out_of_sync"
   /** run's command exited non-zero for a block. */
   | "command_failed"
   /** Anything else. */

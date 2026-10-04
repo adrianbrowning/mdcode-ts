@@ -62,7 +62,7 @@ mdcode run -l js "node {file}" README.md
 nano src/calculator.js
 
 # Sync changes back to README
-mdcode update README.md
+mdcode update --apply README.md
 ```
 
 **Single Source of Truth**
@@ -140,7 +140,8 @@ Or add scripts to your `package.json`:
 ```json file=block-8.json
 {
   "scripts": {
-    "readme:update": "mdcode update README.md",
+    "readme:update": "mdcode update --apply README.md",
+    "readme:check": "mdcode update --check README.md",
     "readme:extract": "mdcode extract -d src README.md",
     "readme:list": "mdcode list --json README.md",
     "docs:validate": "mdcode run -l js \"node {file}\" README.md"
@@ -418,7 +419,7 @@ echo "hello"
 This enables bidirectional sync workflow:
 1. Extract blocks: `mdcode extract --update-source README.md`
 2. Modify extracted files: `nano block-1.sh`
-3. Update markdown: `mdcode update README.md`
+3. Update markdown: `mdcode update --apply README.md`
 
 ### Skip Anonymous Blocks
 
@@ -467,36 +468,61 @@ cat README.md | mdcode extract -d ./examples
 
 Update markdown code blocks from source files or transform them with custom functions.
 
-### Update from Source Files (Default Mode)
+`update` never writes the markdown unless you pass `--apply`. Without it, `update` works out what
+would change and reports it, so you (or an agent) can review the change before anything is written.
 
-Updates code blocks by reading from files specified in the `file` metadata attribute:
+### Plan, Diff, Apply and Check
+
+Each block with `file=` metadata is read from that file. Pick one mode:
+
+| Mode | What it does | Writes the markdown |
+|------|--------------|---------------------|
+| `--plan` (default) | Lists the blocks that would change, and where their new code comes from | No |
+| `--diff` | Prints a unified diff of the markdown changes | No |
+| `--check` | Exits 1 when a selected block is out of sync with its source | No |
+| `--stdout` | Prints the updated markdown | No |
+| `--apply` | Writes the changes to the markdown file in place | Yes |
 
 ```bash file=block-32.sh
-# Update README.md in-place (default)
+# What would change?
 mdcode update README.md
 
-# Output to stdout instead
-mdcode update --stdout README.md
+# Review the changes as a patch
+mdcode update --diff README.md
 
-# Output to a new file
+# Write them
+mdcode update --apply README.md
+
+# Fail CI when README.md has drifted from its sources
+mdcode update --check README.md
+
+# Print the updated markdown, or pipe it through
 mdcode update --stdout README.md > UPDATED.md
-
-# Read from stdin, write to stdout
 cat README.md | mdcode update --stdout > UPDATED.md
 ```
+
+The modes cannot be combined. `--apply` needs a markdown file: with stdin, use `--stdout`. When no
+block changes, `--apply` leaves the file untouched. The diff labels both sides with the markdown path,
+so `patch -p0 < changes.diff` applies it.
+
+`--check` reports each drifted block as an `out_of_sync` error. A `file=` that cannot be read is a
+`read_failed` error instead, and a broken `--transform` module is `invalid_transform`. All of them
+exit 1; with `--json` the error codes tell them apart (see [JSON Contract](#json-contract)).
 
 ### Quiet Mode
 
 ```bash file=block-33.sh
 # Long form
-mdcode update --quiet README.md
+mdcode update --apply --quiet README.md
 
 # Short form
-mdcode update -q README.md
+mdcode update --apply -q README.md
 
 # Quiet with output redirection
 mdcode update -q --stdout README.md > UPDATED.md
 ```
+
+`--check` still reports the blocks that are out of sync under `--quiet`.
 
 ### Transform Mode (with Custom Function)
 
@@ -504,10 +530,10 @@ Transform code blocks using a custom JavaScript/TypeScript function:
 
 ```bash file=block-34.sh
 # Transform with a custom function
-mdcode update --transform ./transformers/uppercase-sql.js README.md
+mdcode update --apply --transform ./transformers/uppercase-sql.js README.md
 
-# Short form
-mdcode update -t ./transformers/add-headers.js README.md
+# Short form, previewing the result as a diff
+mdcode update --diff -t ./transformers/add-headers.js README.md
 
 # Transform and output to file
 mdcode update -t ./transformers/format-code.js --stdout README.md > output.md
@@ -551,13 +577,13 @@ Combine transformers with filters to target specific blocks:
 
 ```bash file=block-37.sh
 # Transform only SQL blocks
-mdcode update --transform ./uppercase.js --lang sql README.md
+mdcode update --apply --transform ./uppercase.js --lang sql README.md
 
 # Transform only test files
-mdcode update -t ./add-headers.js -f "*.test.js" docs/API.md
+mdcode update --apply -t ./add-headers.js -f "*.test.js" docs/API.md
 
 # Transform JavaScript blocks in examples
-mdcode update -t ./format.js -l js -m type=example docs/
+mdcode update --apply -t ./format.js -l js -m type=example docs/API.md
 ```
 
 ### Region Support
@@ -566,11 +592,10 @@ Update specific regions of code:
 
 ```bash file=block-38.sh
 # Update only 'main' region
-mdcode update --meta region=main README.md
+mdcode update --apply --meta region=main README.md
 
-# Update multiple regions
-mdcode update -m region=setup README.md
-mdcode update -m region=teardown README.md
+# Check only the setup region
+mdcode update --check -m region=setup README.md
 ```
 
 ---
@@ -777,7 +802,7 @@ mdcode run -f server.py "python {file}" README.md
 # By custom metadata
 mdcode list -m region=main README.md
 mdcode extract -m type=example docs/
-mdcode update -m author=admin API.md
+mdcode update --apply -m author=admin API.md
 ```
 
 ### Multiple Filters (AND Logic)
@@ -811,14 +836,14 @@ mdcode list -l python -m type=example -m region=main docs/
 mdcode run -l js -f "auth.test.js" -n "login-test" "node {file}" README.md
 
 # Update only SQL queries in specific file
-mdcode update -l sql -f queries.sql README.md
+mdcode update --apply -l sql -f queries.sql README.md
 ```
 
 ### Selecting Blocks by Name
 
 Give a block a stable name with `name=`, then select it by that name from any command. Names are
-unique within one markdown document, so `--name` picks out exactly one block. Elsewhere, the
-document path plus the name identifies the block.
+unique within one markdown document, so `--name` picks out exactly one block. Repeat `--name` to
+select several. Elsewhere, the document path plus the name identifies the block.
 
 ````markdown file=block-93.md
 ```js name="quick start" file="examples/getting started.js"
@@ -829,10 +854,14 @@ console.log('Hello, world!');
 ```bash file=block-94.sh
 mdcode list --name "quick start" README.md
 mdcode extract -n "quick start" -d ./out README.md
-mdcode update --name "quick start" README.md
+mdcode update --apply --name "quick start" README.md
+mdcode update --check -n "quick start" -n setup README.md
 mdcode run -n "quick start" "node {file}" README.md
 mdcode dump --name "quick start" -o quick-start.tar README.md
 ```
+
+`update` fails with `invalid_usage` when no selected block has a given name, so a misspelt name
+cannot make `--check` pass by checking nothing.
 
 ---
 
@@ -843,7 +872,7 @@ All commands support these common flags:
 - `-l, --lang <lang>` - Filter by language
 - `-f, --file <file>` - Filter by file metadata pattern
 - `-m, --meta <key=value>` - Filter by custom metadata (can specify multiple times)
-- `-n, --name <name>` - Select the block with this `name` metadata
+- `-n, --name <name>` - Select the block with this `name` metadata; repeat to select several
 - `--json` - Print one versioned JSON envelope instead of text; see [JSON Contract](#json-contract)
 
 Additional flags by command:
@@ -856,10 +885,13 @@ Additional flags by command:
 - `--force` - Overwrite existing files whose blocks have no `region=` (skipped by default)
 
 **update:**
-- `-d, --dir <dir>` - Working directory for file resolution
 - `-q, --quiet` - Suppress status messages
-- `--transform <file>` - Path to transformer function
-- `--stdout` - Output to stdout instead of updating in-place
+- `-t, --transform <file>` - Path to transformer function
+- `--plan` - List the blocks that would change, without writing (default)
+- `--apply` - Write the changes to the markdown file in place
+- `--diff` - Print a unified diff of the changes, without writing
+- `--check` - Exit 1 when a selected block is out of sync, without writing
+- `--stdout` - Print the updated markdown, without writing
 
 **run:**
 - `-k, --keep` - Keep temporary directory
@@ -906,6 +938,7 @@ Each error has a `code` and a `message`. These fields are added when they apply:
 | `extract_skipped` | `extract` left a target file untouched |
 | `read_failed` | `update` could not read a block's `file=` or region |
 | `transform_failed` | `update`'s transformer threw for a block |
+| `out_of_sync` | `update --check` found a selected block that differs from its source |
 | `command_failed` | `run`'s command exited non-zero for a block |
 | `unexpected_error` | Anything else |
 
@@ -958,6 +991,7 @@ type ErrorCode =
   | "extract_skipped"
   | "read_failed"
   | "transform_failed"
+  | "out_of_sync"
   | "command_failed"
   | "unexpected_error";
 
@@ -1002,15 +1036,21 @@ type UpdatedBlock = BlockRef & {
   lang: string;
   /** Whether the block's code is different in the resulting markdown */
   changed: boolean;
+  /** The block's code in the resulting markdown */
+  code: string;
   /** Set when the block's code was read from its file= */
   read?: { file: string; region?: string; outline?: true };
   /** Whether the transformer changed the code */
   transformed: boolean;
 };
 type UpdateEnvelope = Envelope<
-  /** Updated in place */
-  | { blocks: Array<UpdatedBlock>; written: string }
-  /** Input from stdin, or --stdout */
+  /** Default, --plan and --check */
+  | { blocks: Array<UpdatedBlock> }
+  /** --apply: the markdown file written, or null when no block changed */
+  | { blocks: Array<UpdatedBlock>; written: string | null }
+  /** --diff: a unified diff of the markdown, empty when no block changed */
+  | { blocks: Array<UpdatedBlock>; diff: string }
+  /** --stdout: the updated markdown */
   | { blocks: Array<UpdatedBlock>; source: string }
 >;
 
@@ -1050,11 +1090,13 @@ type DumpEnvelope = Envelope<{
   also adds an `extract_skipped` error. With `--update-source`, when a block gained `file=`: from
   stdin, `updatedSource` holds the updated markdown; from a file, the file is rewritten and `written`
   holds its path.
-- `update` - One entry per selected block, in document order. `written` holds the markdown path when
-  the file was updated in place. `source` holds the updated markdown when it would otherwise go to
-  stdout: input from stdin, or `--stdout`. When a block's `file=` cannot be read, its original code is
-  kept and still passed to the transformer. When the transformer throws, the block keeps the code it
-  had before the transform.
+- `update` - One entry per selected block, in document order. `changed` and `code` are the plan:
+  which blocks would change, and the exact code each would get. Only `--apply` writes the markdown;
+  `written` holds its path, or `null` when nothing changed and the file was left alone. `diff` holds
+  the unified diff under `--diff`, and `source` the updated markdown under `--stdout`. Under
+  `--check`, each changed block adds an `out_of_sync` error, with `path` set to its `file=` when it
+  has one. When a block's `file=` cannot be read, its original code is kept and still passed to the
+  transformer. When the transformer throws, the block keeps the code it had before the transform.
 - `run` - One entry per selected block, with the command's exit code and output. Each block whose
   command failed adds a `command_failed` error.
 - `dump` - `dump --json` needs `--out <file>`. The archive is written to that file and never encoded
@@ -1228,8 +1270,8 @@ Exit codes are the same with and without `--json`:
 
 | Code | Meaning |
 |------|---------|
-| `0` | Success |
-| `1` | Any error |
+| `0` | Success; for `update --check`, every selected block is in sync |
+| `1` | Any error, including `update --check` finding a block out of sync |
 | `2` | `extract` skipped one or more targets |
 
 ### Changes from Earlier Versions
@@ -1238,6 +1280,8 @@ Exit codes are the same with and without `--json`:
   blocks from `result.blocks`.
 - `run` exits 1 when any block's command fails. It used to exit 0.
 - `update` exits 1 when a `file=` read or the transformer fails. It used to exit 0.
+- `update` no longer writes the markdown file by default. It prints a plan; pass `--apply` to write.
+  Under `--json`, the default result no longer has `written`, and every block carries its `code`.
 - `run --keep` prints `Working directory: <path>` after the blocks instead of before them.
 - A transform module that cannot be loaded is reported as `could not load transform file: ...`.
 - The library functions return structured results and print nothing; see
@@ -1460,15 +1504,17 @@ Walk through and optionally transform code blocks.
 
 #### `update(options: UpdateOptions): Promise<UpdateResult>`
 
-Update code blocks from files or via transformer.
+Work out the updated markdown from files or via transformer. It never writes; the caller decides
+what to do with the result.
 
 - **options.source** - The markdown source string
 - **options.transformer** - Optional transformer function
 - **options.filter** - Optional filter criteria
 - **options.basePath** - Base path for file resolution (default: '.')
 - **Returns** - Promise of `{ source, blocks, errors }`: the updated markdown, one `UpdatedBlock` per
-  selected block, and a `read_failed` or `transform_failed` error for each block whose `file=` read or
-  transformer failed. A failed block keeps the code it had before the failing step.
+  selected block with its resulting `code` and whether it `changed`, and a `read_failed` or
+  `transform_failed` error for each block whose `file=` read or transformer failed. A failed block
+  keeps the code it had before the failing step.
 - **Throws** - `MetadataError` when the document's metadata is invalid
 
 #### `list(options: ListOptions): ListResult`
@@ -1670,7 +1716,8 @@ This TypeScript implementation is a **drop-in replacement** for the original Go-
 
 ### Command Compatibility
 
-All commands work identically:
+All commands take the same flags as the original. `update` differs in one way: it writes the
+markdown only with `--apply`, where the original writes it by default.
 
 ```bash file=block-70.js
 # Original (Go)
@@ -1692,7 +1739,7 @@ These features are **not** in the original but are available in this implementat
 
 1. **Transform Functions** - Apply custom transformations to code blocks
    ```bash file=block-71.md
-   mdcode update --transform ./uppercase.js -l sql README.md
+   mdcode update --apply --transform ./uppercase.js -l sql README.md
    ```
 
 2. **Library API** - Use mdcode programmatically in Node.js/TypeScript projects
@@ -1716,8 +1763,9 @@ mdcode extract -d ./readme README.md
 # 2. Edit the extracted files
 nano ./readme/app.js
 
-# 3. Update README with changes
-mdcode update README.md
+# 3. Review, then update README with changes
+mdcode update --diff README.md
+mdcode update --apply README.md
 ```
 
 ### Workflow: Test All Code Blocks
@@ -1737,7 +1785,7 @@ mdcode dump -l js -f "*.test.js" -o tests.tar docs/
 
 ```bash file=block-92.sh
 # Transform SQL to uppercase
-mdcode update -t ./uppercase.js -l sql README.md
+mdcode update --apply -t ./uppercase.js -l sql README.md
 
 # Verify changes
 mdcode list --json -l sql README.md

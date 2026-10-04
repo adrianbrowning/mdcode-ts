@@ -3,7 +3,7 @@
  * stdout, nothing on stderr, and exits 0, 1, or (extract skips) 2.
  */
 import assert from "node:assert/strict";
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, describe, it } from "node:test";
@@ -162,37 +162,160 @@ describe("--json contract", () => {
   });
 
   describe("update", () => {
-    it("reports what each block read and writes the file in place", async () => {
+    /** A markdown file whose greet block is behind greet.js. */
+    async function staleDoc(): Promise<{ dir: string; doc: string; }> {
       const dir = await tempDir();
       const doc = join(dir, "doc.md");
       await writeFile(join(dir, "greet.js"), "console.log('fresh');\n", "utf-8");
       await writeFile(doc, DOC, "utf-8");
+      return { dir, doc };
+    }
 
-      const { envelope } = await runJson("update", [ doc ]);
+    it("plans by default: reports each block's resulting code and writes nothing", async () => {
+      const { doc } = await staleDoc();
 
-      assert.deepEqual(envelope.result, {
-        blocks: [
-          { name: "greet", line: 3, lang: "js", changed: true, read: { file: "greet.js" }, transformed: false },
-          { name: null, line: 7, lang: "sh", changed: false, transformed: false },
-        ],
-        written: doc,
-      });
-      assert.match(await readFile(doc, "utf-8"), /console\.log\('fresh'\);/);
+      for (const args of [[ doc ], [ "--plan", doc ]]) {
+        const { envelope } = await runJson("update", args);
+
+        assert.deepEqual(envelope.result, {
+          blocks: [
+            { name: "greet", line: 3, lang: "js", changed: true, code: "console.log('fresh');", read: { file: "greet.js" }, transformed: false },
+            { name: null, line: 7, lang: "sh", changed: false, code: "echo plain", transformed: false },
+          ],
+        });
+      }
+
+      assert.equal(await readFile(doc, "utf-8"), DOC);
     });
 
-    it("returns the markdown in the result when it would otherwise go to stdout", async () => {
+    it("--apply writes the file in place, and leaves an in-sync file untouched", async () => {
+      const { doc } = await staleDoc();
+
+      const applied = await runJson("update", [ "--apply", doc ]);
+
+      assert.equal(applied.envelope.result.written, doc);
+      assert.deepEqual(applied.envelope.result.blocks.map(({ changed }: { changed: boolean; }) => changed), [ true, false ]);
+      assert.equal(await readFile(doc, "utf-8"), DOC.replace("console.log('hi');", "console.log('fresh');"));
+
+      const before = await stat(doc);
+      const again = await runJson("update", [ "--apply", doc ]);
+
+      assert.equal(again.envelope.result.written, null);
+      assert.deepEqual(again.envelope.result.blocks.map(({ changed }: { changed: boolean; }) => changed), [ false, false ]);
+      assert.equal((await stat(doc)).mtimeMs, before.mtimeMs, "a no-op apply must not rewrite the file");
+    });
+
+    it("--diff returns a unified diff of the markdown and writes nothing", async () => {
+      const { doc } = await staleDoc();
+
+      const { envelope } = await runJson("update", [ "--diff", doc ]);
+
+      assert.equal(envelope.result.diff, [
+        `--- ${doc}`,
+        `+++ ${doc}`,
+        "@@ -1,8 +1,8 @@",
+        " # Doc",
+        " ",
+        " ```js name=greet file=greet.js",
+        "-console.log('hi');",
+        "+console.log('fresh');",
+        " ```",
+        " ",
+        " ```sh",
+        " echo plain",
+        "",
+      ].join("\n"));
+      assert.equal(await readFile(doc, "utf-8"), DOC);
+
+      await runJson("update", [ "--apply", doc ]);
+      const none = await runJson("update", [ "--diff", doc ]);
+
+      assert.equal(none.envelope.result.diff, "", "no changes, no diff");
+    });
+
+    it("--check fails with out_of_sync for each drifted block, writes nothing, and passes once in sync", async () => {
+      const { doc } = await staleDoc();
+
+      const drifted = await runJson("update", [ "--check", doc ]);
+
+      assert.equal(drifted.exitCode, 1);
+      assert.deepEqual(drifted.envelope.errors, [{ code: "out_of_sync", message: "out of sync with greet.js", line: 3, name: "greet", path: "greet.js" }]);
+      assert.equal(await readFile(doc, "utf-8"), DOC);
+
+      await runJson("update", [ "--apply", doc ]);
+      const synced = await runJson("update", [ "--check", doc ]);
+
+      assert.equal(synced.exitCode, 0);
+      assert.deepEqual(synced.envelope.errors, []);
+    });
+
+    it("--check reports an unreadable file= as read_failed, not as drift, even when the transform changes the block", async () => {
       const dir = await tempDir();
-      await writeFile(join(dir, "greet.js"), "console.log('fresh');\n", "utf-8");
+      const doc = join(dir, "doc.md");
+      await writeFile(doc, DOC, "utf-8");
+      await writeFile(join(dir, "upper.mjs"), "export default ({ code }) => code.toUpperCase();\n", "utf-8");
 
-      const { envelope } = await runJson("update", [], { stdin: DOC, cwd: dir });
+      const { exitCode, envelope } = await runJson("update", [ "--check", "-n", "greet", "-t", "upper.mjs", doc ], { cwd: dir });
 
-      assert.match(envelope.result.source, /console\.log\('fresh'\);/);
-      assert.equal(envelope.result.written, undefined);
+      assert.equal(exitCode, 1);
+      assert.equal(envelope.result.blocks[0].changed, true);
+      assert.deepEqual(envelope.errors.map(({ code, line, path }) => ({ code, line, path })), [{ code: "read_failed", line: 3, path: "greet.js" }]);
+    });
+
+    it("--name limits every mode to the named blocks", async () => {
+      const dir = await tempDir();
+      const doc = join(dir, "doc.md");
+      const named = "```js name=one file=one.js\n1\n```\n\n```js name=two file=two.js\n2\n```\n\n```js name=three file=three.js\n3\n```\n";
+      await writeFile(join(dir, "one.js"), "1\n", "utf-8");
+      await writeFile(join(dir, "two.js"), "22\n", "utf-8");
+      await writeFile(join(dir, "three.js"), "33\n", "utf-8");
+      await writeFile(doc, named, "utf-8");
+
+      const names = (envelope: AnyEnvelope): Array<string> => envelope.result.blocks.map(({ name }: { name: string; }) => name);
+
+      assert.deepEqual(names((await runJson("update", [ "-n", "two", "-n", "one", doc ])).envelope), [ "one", "two" ]);
+      assert.equal((await runJson("update", [ "--check", "-n", "one", doc ])).exitCode, 0, "drift outside the selection is ignored");
+      assert.doesNotMatch((await runJson("update", [ "--diff", "-n", "two", doc ])).envelope.result.diff, /33/);
+
+      await runJson("update", [ "--apply", "--name", "two", doc ]);
+
+      assert.equal(await readFile(doc, "utf-8"), named.replace("\n2\n", "\n22\n"));
+    });
+
+    it("rejects an unknown --name, conflicting modes and --apply on stdin as invalid_usage, writing nothing", async () => {
+      const { doc } = await staleDoc();
+
+      for (const [ args, stdin ] of [
+        [[ "--check", "-n", "greet", "-n", "gret", doc ]],
+        [[ "--apply", "--diff", doc ]],
+        [[ "--apply" ], DOC],
+      ] as const) {
+        const { exitCode, envelope } = await runJson("update", [ ...args ], { stdin });
+
+        assert.equal(exitCode, 1);
+        assert.equal(envelope.result, null);
+        assert.deepEqual(envelope.errors.map(error => error.code), [ "invalid_usage" ], envelope.errors[0]?.message);
+      }
+
+      assert.equal(await readFile(doc, "utf-8"), DOC);
+    });
+
+    it("--stdout returns the markdown in the result and writes nothing", async () => {
+      const { dir, doc } = await staleDoc();
+
+      for (const [ args, stdin ] of [[[ "--stdout", doc ]], [[ "--stdout" ], DOC]] as const) {
+        const { envelope } = await runJson("update", [ ...args ], { stdin, cwd: dir });
+
+        assert.match(envelope.result.source, /console\.log\('fresh'\);/);
+        assert.equal(envelope.result.written, undefined);
+      }
+
+      assert.equal(await readFile(doc, "utf-8"), DOC);
     });
 
     it("fails with read_failed for a missing file= and keeps the block", async () => {
       const dir = await tempDir();
-      const { exitCode, envelope } = await runJson("update", [], { stdin: DOC, cwd: dir });
+      const { exitCode, envelope } = await runJson("update", [ "--stdout" ], { stdin: DOC, cwd: dir });
 
       assert.equal(exitCode, 1);
       assert.deepEqual(envelope.errors.map(({ code, line, name, path }) => ({ code, line, name, path })), [
@@ -298,10 +421,33 @@ describe("exit codes without --json", () => {
 
   it("update exits 1 when a file= cannot be read, and still prints the markdown", async () => {
     const dir = await tempDir();
-    const { exitCode, stdout, stderr } = await execCli([ "update" ], { stdin: DOC, cwd: dir });
+    const { exitCode, stdout, stderr } = await execCli([ "update", "--stdout" ], { stdin: DOC, cwd: dir });
 
     assert.equal(exitCode, 1);
     assert.match(stderr, /Failed to read greet\.js/);
     assert.equal(stdout, DOC);
+  });
+
+  it("update prints a plan by default, --diff a patch, and --check exits 1 on drift, all without writing", async () => {
+    const dir = await tempDir();
+    const doc = join(dir, "doc.md");
+    await writeFile(join(dir, "greet.js"), "console.log('fresh');\n", "utf-8");
+    await writeFile(doc, DOC, "utf-8");
+
+    const plan = await execCli([ "update", "-q", doc ]);
+
+    assert.equal(plan.exitCode, 0);
+    assert.equal(plan.stdout, `Would update 1 block(s) in ${doc}:\n  line 3 (greet): js from greet.js\nRun with --apply to write the changes, or --diff to review them.\n`);
+
+    const diff = await execCli([ "update", "-q", "--diff", doc ]);
+
+    assert.equal(diff.exitCode, 0);
+    assert.match(diff.stdout, /^-console\.log\('hi'\);\n\+console\.log\('fresh'\);$/m);
+
+    const check = await execCli([ "update", "-q", "--check", doc ]);
+
+    assert.equal(check.exitCode, 1);
+    assert.match(check.stderr, /Out of sync: line 3 \(greet\): js from greet\.js/, "a failing check says why even under --quiet");
+    assert.equal(await readFile(doc, "utf-8"), DOC);
   });
 });

@@ -272,7 +272,7 @@ const y = 2;
         const doc = join(dir, "doc.md");
         await writeFile(doc, markdown, "utf-8");
 
-        const result = await execCli([ "update", "-q", "--name", "setup", doc ], { cwd: dir });
+        const result = await execCli([ "update", "-q", "--apply", "--name", "setup", doc ], { cwd: dir });
 
         assert.strictEqual(result.exitCode, 0, result.stderr);
         const updated = await readFile(doc, "utf-8");

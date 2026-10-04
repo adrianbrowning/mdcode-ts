@@ -90,7 +90,7 @@ describe("update from file regions", () => {
 
     assert.match(result.source, /const inside = 2;/);
     assert.ok(!result.source.includes("ORIGINAL"));
-    assert.deepStrictEqual(result.blocks, [{ name: null, line: 1, lang: "js", changed: true, read: { file: "a.js", region: "alpha" }, transformed: false }]);
+    assert.deepStrictEqual(result.blocks, [{ name: null, line: 1, lang: "js", changed: true, code: "const inside = 2;", read: { file: "a.js", region: "alpha" }, transformed: false }]);
     assert.deepStrictEqual(result.errors, []);
   });
 
@@ -102,7 +102,19 @@ describe("update from file regions", () => {
     const result = await update({ source, basePath: dir, transformer });
 
     assert.equal(result.source, "```js file=missing.js\nCONST X = 1;\n```\n");
-    assert.deepStrictEqual(result.blocks, [{ name: null, line: 1, lang: "js", changed: true, transformed: true }]);
+    assert.deepStrictEqual(result.blocks, [{ name: null, line: 1, lang: "js", changed: true, code: "CONST X = 1;", transformed: true }]);
     assert.deepStrictEqual(result.errors.map(({ code, path }) => ({ code, path })), [{ code: "read_failed", path: "missing.js" }]);
+  });
+
+  it("reports a block whose file matches it as unchanged, despite the file's final newline", async () => {
+    const dir = await tempDir();
+    await writeSource(dir, "a.js", "const a = 1;\r\nconst b = 2;\r\n");
+    await writeSource(dir, "b.js", "const c = 3;\n");
+    const source = "```js file=a.js\r\nconst a = 1;\r\nconst b = 2;\r\n```\r\n\n```js file=b.js\nconst c = 3;\n```\n";
+
+    const result = await update({ source, basePath: dir });
+
+    assert.equal(result.source, source);
+    assert.deepStrictEqual(result.blocks.map(block => block.changed), [ false, false ]);
   });
 });

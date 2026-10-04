@@ -358,15 +358,25 @@ on contributor-supplied markdown in an environment holding secrets.
 and honoured even when it leaves it, so `extract` writes wherever the markdown points. Only absolute
 `file=` paths are refused. Review untrusted markdown before running `extract` over it, too.
 
-### Update from Source Files (Default Mode)
+### Update from Source Files
 
-Updates code blocks by reading from files specified in the `file` metadata attribute:
+Updates code blocks by reading from files specified in the `file` metadata attribute. `update` writes
+the markdown only with `--apply`; every other mode leaves it alone:
 
 ```bash
-# Update README.md in-place
+# List the blocks that would change (the default; same as --plan)
 mdcode update README.md
 
-# Output to stdout instead of updating in-place
+# Review the changes as a unified diff
+mdcode update --diff README.md
+
+# Write the changes to README.md in place
+mdcode update --apply README.md
+
+# Exit 1 when README.md is out of sync with its sources (for CI)
+mdcode update --check README.md
+
+# Output the updated markdown to stdout
 mdcode update --stdout README.md
 
 # Update and save to a new file
@@ -380,10 +390,10 @@ cat README.md | mdcode update --stdout > UPDATED.md
 
 ```bash
 # Long form
-mdcode update --quiet README.md
+mdcode update --apply --quiet README.md
 
 # Short form
-mdcode update -q README.md
+mdcode update --apply -q README.md
 
 # Quiet with stdout
 mdcode update -q --stdout README.md > UPDATED.md
@@ -395,10 +405,10 @@ Transform code blocks using a custom JavaScript/TypeScript function:
 
 ```bash
 # Transform with a custom function
-mdcode update --transform ./transformers/uppercase-sql.js README.md
+mdcode update --apply --transform ./transformers/uppercase-sql.js README.md
 
 # Short form
-mdcode update -t ./transformers/add-headers.js README.md
+mdcode update --apply -t ./transformers/add-headers.js README.md
 
 # Transform and output to stdout
 mdcode update -t ./transformers/format-code.js --stdout README.md
@@ -420,23 +430,23 @@ Combine transformers with filters to target specific blocks:
 
 ```bash
 # Transform only SQL blocks
-mdcode update --transform ./uppercase.js --lang sql README.md
+mdcode update --apply --transform ./uppercase.js --lang sql README.md
 
 # Transform only test files
-mdcode update -t ./add-headers.js -f "*.test.js" docs/API.md
+mdcode update --apply -t ./add-headers.js -f "*.test.js" docs/API.md
 
 # Transform JavaScript blocks in examples
-mdcode update -t ./format.js -l js -m type=example docs/
+mdcode update --apply -t ./format.js -l js -m type=example docs/API.md
 ```
 
 ### Advanced Transform Examples
 
 ```bash
 # Transform Python blocks, output quietly
-mdcode update -q -t ./format-python.js -l python README.md
+mdcode update --apply -q -t ./format-python.js -l python README.md
 
 # Transform all blocks in specific region
-mdcode update -t ./transform.js -m region=main docs/GUIDE.md
+mdcode update --apply -t ./transform.js -m region=main docs/GUIDE.md
 
 # Chain: extract, transform, and save
 mdcode extract -q -d temp README.md
@@ -449,11 +459,11 @@ Update specific regions of code:
 
 ```bash
 # Update only 'main' region
-mdcode update --meta region=main README.md
+mdcode update --apply --meta region=main README.md
 
 # Update multiple regions
-mdcode update -m region=setup README.md
-mdcode update -m region=teardown README.md
+mdcode update --apply -m region=setup README.md
+mdcode update --apply -m region=teardown README.md
 ```
 
 ### Outline Support
@@ -462,7 +472,7 @@ Extract code structure without implementation details:
 
 ```bash
 # Update blocks marked with outline=true
-mdcode update README.md
+mdcode update --apply README.md
 
 # This will extract structure like:
 # function foo() { /* ... */ }
@@ -709,7 +719,7 @@ mdcode run -f server.py "python {file}" README.md
 # By custom metadata
 mdcode list -m region=main README.md
 mdcode extract -m type=example docs/
-mdcode update -m author=admin API.md
+mdcode update --apply -m author=admin API.md
 ```
 
 ### Multiple Filters (AND Logic)
@@ -790,7 +800,8 @@ This TypeScript implementation is a near **drop-in replacement** for the origina
 
 ### Command Compatibility
 
-All commands work identically:
+All commands take the same flags as the original. `update` differs in one way: it writes the markdown
+only with `--apply`, where the original writes it by default.
 
 ```bash
 # Original (Go)
@@ -812,7 +823,7 @@ These features are **not** in the original but are available in this implementat
 
 1. **Transform Functions** - Apply custom transformations to code blocks
    ```bash
-   mdcode update --transform ./uppercase.js -l sql README.md
+   mdcode update --apply --transform ./uppercase.js -l sql README.md
    ```
 
 2. **Library API** - Use mdcode programmatically in Node.js/TypeScript projects
@@ -872,7 +883,7 @@ mdcode list -l js README.md
 
 ### Migration Checklist
 
-- ✅ All CLI commands work identically
+- ✅ All CLI commands take the same flags; `update` needs `--apply` to write the markdown
 - ✅ All flags (short and long forms) are supported
 - ✅ JSON output format is identical
 - ✅ Tar archive format is compatible
@@ -906,7 +917,7 @@ Once migrated, you can optionally explore the bonus features:
 
 ```bash
 # Try transform functionality
-mdcode update --transform ./my-transformer.js README.md
+mdcode update --diff --transform ./my-transformer.js README.md
 
 # Use as a library in your Node.js projects
 npm install mdcode-ts
@@ -937,7 +948,7 @@ mdcode extract --force -d ./src README.md
 vim ./src/app.js
 
 # 3. Update README with changes
-mdcode update README.md
+mdcode update --apply README.md
 ```
 
 ### Workflow: Test All Code Blocks
@@ -957,7 +968,7 @@ mdcode dump -l js -f "*.test.js" -o tests.tar docs/
 
 ```bash
 # Transform SQL to uppercase
-mdcode update -t ./uppercase.js -l sql README.md
+mdcode update --apply -t ./uppercase.js -l sql README.md
 
 # Verify changes
 mdcode list --json -l sql README.md
@@ -1023,7 +1034,7 @@ mdcode run -k -l js "node {file}" README.md
 # Format code blocks with prettier (--force so re-runs refresh temp/)
 mdcode extract -l js --force -d temp README.md && \
   prettier --write temp/**/*.js && \
-  mdcode update README.md
+  mdcode update --apply README.md
 
 # Check for syntax errors
 mdcode run -l python "python -m py_compile {file}" docs/*.md
@@ -1064,7 +1075,7 @@ for file in docs/*.md; do
 done
 
 # Transform all markdown files
-find . -name "*.md" -exec mdcode update -t ./transform.js {} \;
+find . -name "*.md" -exec mdcode update --apply -t ./transform.js {} \;
 ```
 
 ---

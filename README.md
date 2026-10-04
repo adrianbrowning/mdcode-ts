@@ -36,10 +36,12 @@ In your README, add an empty code block that names the file and region:
 ```
 ````
 
-Run `update`:
+Preview the change, then apply it:
 
 ```bash
-npx mdcode update README.md
+npx mdcode update README.md          # list the blocks that would change
+npx mdcode update --diff README.md   # review them as a unified diff
+npx mdcode update --apply README.md  # write them
 ```
 
 mdcode fills the block with the region's code, leaving out the markers and the rest of the file:
@@ -52,14 +54,14 @@ export function greet(name: string): string {
 ```
 ````
 
-When `src/greet.ts` changes, run `mdcode update README.md` again. Adding it to a `package.json` script or CI job keeps the README current.
+When `src/greet.ts` changes, run `mdcode update --apply README.md` again. In CI, `mdcode update --check README.md` exits 1 when a block has drifted from its source, without writing anything.
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
 | `list` | List code blocks with their language, metadata and a preview |
-| `update` | Refresh blocks from the files they reference, or rewrite them with a transform function |
+| `update` | Refresh blocks from the files they reference, or rewrite them with a transform function. Plans by default; `--apply` writes, `--diff` and `--check` review |
 | `extract` | Write blocks to files named by their `file=` metadata |
 | `run` | Run a shell command on each block, such as a compiler or test runner |
 | `dump` | Pack blocks into a tar archive |
