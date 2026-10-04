@@ -547,6 +547,61 @@ the blocks that succeeded, every failed block is reported, and the command still
 mdcode update --check --continue-on-error README.md
 ```
 
+### Checking Docs in CI
+
+`--check` exits 1 both when a block has drifted and when mdcode could not check it, for example a
+`file=` it cannot read or a missing document. [`check-docs-sync.mjs`](https://github.com/adrianbrowning/mdcode-ts/blob/main/examples/ci/check-docs-sync.mjs)
+is a ready-to-copy script that tells the two apart. It runs `mdcode update --check --json
+--continue-on-error` on each Markdown file you pass, never writes, and names every document and
+block that is out of sync.
+
+| Exit | Meaning |
+| --- | --- |
+| `0` | Every document is in sync |
+| `1` | At least one document is out of sync |
+| `2` | At least one document could not be checked, `mdcode` is not on `PATH`, or no documents were given |
+
+It needs Node 22+ and mdcode-ts 0.1.0 or later, and runs the `mdcode` on `PATH`. Copy it into your
+repository, for example as `scripts/check-docs-sync.mjs`, and add a script so `npm run` puts the
+installed `mdcode` on `PATH`:
+
+```json file=block-ci-scripts.json
+{
+  "scripts": {
+    "docs:check": "node scripts/check-docs-sync.mjs README.md docs/guide.md"
+  }
+}
+```
+
+From a local shell:
+
+```bash file=block-ci-local.sh
+# With mdcode-ts in devDependencies
+npm run docs:check
+
+# Without installing it
+npx --yes -p mdcode-ts@^0.1.0 node scripts/check-docs-sync.mjs README.md docs/guide.md
+```
+
+From GitHub Actions, the same script also annotates each out-of-sync line in the pull request:
+
+```yaml file=block-ci-workflow.yml
+name: Docs
+
+on: [push, pull_request]
+
+jobs:
+  docs-in-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run docs:check
+```
+
 ### Quiet Mode
 
 ```bash file=block-33.sh
