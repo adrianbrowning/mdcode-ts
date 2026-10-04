@@ -45,7 +45,8 @@ console.log('hello');
       return code;
     });
 
-    await update({ source: markdown, transformer });
+    // test.js does not exist; only the metadata matters here.
+    await update({ source: markdown, transformer, continueOnError: true });
 
     assert.deepStrictEqual(receivedMeta!, {
       file: "test.js",
@@ -130,7 +131,7 @@ const app = {};
       return code;
     });
 
-    const { source: result } = await update({ source: markdown, transformer });
+    const { source: result } = await update({ source: markdown, transformer, continueOnError: true });
 
     assert.ok(result.includes("// AUTO-GENERATED TEST"));
     assert.ok(result.includes("test('something'"));

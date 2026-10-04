@@ -251,6 +251,9 @@ Extract code blocks to files based on their `file` metadata.
   warning**; pass `--force` to overwrite it.
 - A target is also skipped, and left byte-identical, when it is a symlink, is not valid UTF-8, has a
   region the file never closes, or when the blocks for one file mix `region=` with whole-file blocks.
+- A target that is absolute or leads outside `--dir`, through `..` or a symlink, is not skipped but
+  refused as `unsafe_path`. Every target is checked first, so then nothing at all is written and
+  `extract` exits 1.
 
 When anything is skipped, `extract` reports the count even under `--quiet` and exits with a non-zero
 status, so a pipeline cannot mistake "wrote nothing" for success.
@@ -342,21 +345,32 @@ curl https://example.com/docs.md | mdcode extract -q
 
 Update markdown code blocks from source files or transform them with custom functions.
 
-### `file=` Is Trusted, By Design
+### `file=` Stays Inside Its Base
 
-`update` reads whatever path a block's `file=` names, including paths that leave the markdown's own
-directory — `file=../src/app.js` from a `docs/` folder is normal and supported. The path is an
-explicit instruction from whoever wrote the markdown, so it is honoured as written and is **not**
-confined to `--base-path`.
+The markdown is treated as untrusted, so a block's `file=` cannot point anywhere it likes. `update`
+resolves `file=` against the base, which is the markdown file's directory by default (the current
+directory for stdin), and the path must stay inside it. An absolute path, a `..` that climbs out,
+or a symlink that leads out, anywhere along the path, is refused as an `unsafe_path` error before
+anything is read.
 
-The consequence is that `update` will inline the contents of any file the process can read, and those
-contents land in the markdown. Treat markdown from an untrusted source the way you would treat a
-script from an untrusted source: review it before running `update` over it, and do not run `update`
-on contributor-supplied markdown in an environment holding secrets.
+`--base <dir>` picks another base, and `file=` paths then resolve against that directory instead of
+the markdown's. A `docs/README.md` with `file=../src/app.js` fails by default; run from the
+repository root with `--base .` and write `file=src/app.js`:
 
-`extract` trusts `file=` the same way when it *writes*: a relative path is resolved against `--dir`
-and honoured even when it leaves it, so `extract` writes wherever the markdown points. Only absolute
-`file=` paths are refused. Review untrusted markdown before running `extract` over it, too.
+```bash
+mdcode update --check --base . docs/README.md
+```
+
+By default `update` stops at the first failed read, unsafe path or transform, writes nothing and
+reports only that error. `--continue-on-error` reports every failure and keeps going; `--apply` then
+writes the blocks that succeeded, and the command still exits 1.
+
+`extract` applies the same rule when it writes: `file=` resolves against `--dir` and must stay inside
+it. To write into `../../shared-tests`, point `--dir` higher and write `file=` relative to it.
+
+The check runs before the read or write, so a symlink swapped in between the two is not caught;
+mdcode is not a sandbox. A `--transform` module and a `run` command are your own code and run with
+your permissions.
 
 ### Update from Source Files
 
@@ -485,33 +499,38 @@ mdcode update --apply README.md
 
 Execute shell commands on each code block.
 
+`run` needs `--allow-shell`. The command runs through the shell once per selected block, and a
+command such as `node {file}` executes the block's code, so running it over markdown you did not
+write runs code you did not write. Without the flag, `run` fails with `invalid_usage` before reading
+any input. The command always comes from your command line, never from the markdown.
+
 ### Basic Usage
 
 Use `{file}` as a placeholder for the temporary file path:
 
 ```bash
 # Run node on JavaScript blocks
-mdcode run "node {file}" README.md
+mdcode run --allow-shell "node {file}" README.md
 
 # Run Python scripts
-mdcode run "python {file}" --lang python README.md
+mdcode run --allow-shell "python {file}" --lang python README.md
 
 # Compile and run C code
-mdcode run "gcc {file} -o out && ./out" --lang c docs/
+mdcode run --allow-shell "gcc {file} -o out && ./out" --lang c docs/
 ```
 
 ### Filter by Language
 
 ```bash
 # Long form
-mdcode run --lang js "node {file}" README.md
+mdcode run --allow-shell --lang js "node {file}" README.md
 
 # Short form
-mdcode run -l js "node {file}" README.md
+mdcode run --allow-shell -l js "node {file}" README.md
 
 # Multiple languages (run separately)
-mdcode run -l python "python {file}" docs/*.md
-mdcode run -l js "node {file}" docs/*.md
+mdcode run --allow-shell -l python "python {file}" docs/*.md
+mdcode run --allow-shell -l js "node {file}" docs/*.md
 ```
 
 ### Filter by Name
@@ -520,13 +539,13 @@ Filter blocks by their `name` metadata:
 
 ```bash
 # Long form
-mdcode run --name test-example "node {file}" README.md
+mdcode run --allow-shell --name test-example "node {file}" README.md
 
 # Short form
-mdcode run -n calculate "python {file}" docs/API.md
+mdcode run --allow-shell -n calculate "python {file}" docs/API.md
 
 # With language filter
-mdcode run -l js -n integration-test "node {file}" tests/
+mdcode run --allow-shell -l js -n integration-test "node {file}" tests/
 ```
 
 ### Custom Working Directory
@@ -535,13 +554,13 @@ Specify where to save temporary files and run commands:
 
 ```bash
 # Long form
-mdcode run --dir /tmp/mdcode "node {file}" README.md
+mdcode run --allow-shell --dir /tmp/mdcode "node {file}" README.md
 
 # Short form
-mdcode run -d ./temp "python {file}" docs/
+mdcode run --allow-shell -d ./temp "python {file}" docs/
 
 # With filters
-mdcode run -l js -d ./build "node {file}" README.md
+mdcode run --allow-shell -l js -d ./build "node {file}" README.md
 ```
 
 ### Keep Temporary Files
@@ -550,10 +569,10 @@ Preserve temporary directory after execution (useful for debugging):
 
 ```bash
 # Long form
-mdcode run --keep "node {file}" README.md
+mdcode run --allow-shell --keep "node {file}" README.md
 
 # Short form
-mdcode run -k "python {file}" docs/
+mdcode run --allow-shell -k "python {file}" docs/
 
 # The command will print the temp directory location
 ```
@@ -562,35 +581,35 @@ mdcode run -k "python {file}" docs/
 
 ```bash
 # Run JavaScript tests with all flags
-mdcode run -l js -n test -k -d ./temp "node {file}" README.md
+mdcode run --allow-shell -l js -n test -k -d ./temp "node {file}" README.md
 
 # Run Python examples in custom directory
-mdcode run -l python -m type=example -d ./examples "python {file}" docs/
+mdcode run --allow-shell -l python -m type=example -d ./examples "python {file}" docs/
 
 # Run and keep files, filter by file metadata
-mdcode run -k -f "calculator.py" "python {file}" README.md
+mdcode run --allow-shell -k -f "calculator.py" "python {file}" README.md
 
 # Run with multiple filters
-mdcode run -l js -f "*.test.js" -n unit "npm test {file}" docs/
+mdcode run --allow-shell -l js -f "*.test.js" -n unit "npm test {file}" docs/
 ```
 
 ### Advanced Usage
 
 ```bash
 # Lint all JavaScript blocks
-mdcode run -l js "eslint {file}" README.md
+mdcode run --allow-shell -l js "eslint {file}" README.md
 
 # Format code blocks
-mdcode run -l python "black {file}" docs/*.md
+mdcode run --allow-shell -l python "black {file}" docs/*.md
 
 # Type check TypeScript blocks
-mdcode run -l typescript "tsc --noEmit {file}" API.md
+mdcode run --allow-shell -l typescript "tsc --noEmit {file}" API.md
 
 # Run tests with coverage
-mdcode run -l js -n test "jest --coverage {file}" docs/
+mdcode run --allow-shell -l js -n test "jest --coverage {file}" docs/
 
 # Compile and analyze
-mdcode run -l c "gcc -Wall -Wextra {file} && valgrind ./a.out" examples.md
+mdcode run --allow-shell -l c "gcc -Wall -Wextra {file} && valgrind ./a.out" examples.md
 ```
 
 ### Without File Placeholder
@@ -599,7 +618,7 @@ If you don't use `{file}`, each block is saved but the command runs without a fi
 
 ```bash
 # Run command in directory with code blocks
-mdcode run -d ./temp "ls -la" README.md
+mdcode run --allow-shell -d ./temp "ls -la" README.md
 ```
 
 ---
@@ -714,7 +733,7 @@ mdcode dump -l sql -o queries.tar API.md
 # By file metadata
 mdcode list -f app.js README.md
 mdcode extract -f "*.test.js" docs/
-mdcode run -f server.py "python {file}" README.md
+mdcode run --allow-shell -f server.py "python {file}" README.md
 
 # By custom metadata
 mdcode list -m region=main README.md
@@ -763,7 +782,7 @@ mdcode extract -l js -f "*.test.js" -d ./tests docs/
 mdcode list -l python -m type=example -m region=main docs/
 
 # Run tests only for specific component
-mdcode run -l js -f "auth.test.js" -n "login-test" "node {file}" README.md
+mdcode run --allow-shell -l js -f "auth.test.js" -n "login-test" "node {file}" README.md
 
 # Dump production code (exclude tests)
 mdcode dump -f "src/**/*.js" -o production.tar docs/
@@ -807,13 +826,13 @@ only with `--apply`, where the original writes it by default.
 # Original (Go)
 mdcode list -l js README.md
 mdcode extract -d output -q docs/*.md
-mdcode run -l python "python {file}" README.md
+mdcode run --allow-shell -l python "python {file}" README.md
 mdcode dump -o archive.tar README.md
 
 # This implementation (TypeScript) - SAME COMMANDS
 mdcode list -l js README.md
 mdcode extract -d output -q docs/*.md
-mdcode run -l python "python {file}" README.md
+mdcode run --allow-shell -l python "python {file}" README.md
 mdcode dump -o archive.tar README.md
 ```
 
@@ -883,7 +902,8 @@ mdcode list -l js README.md
 
 ### Migration Checklist
 
-- ✅ All CLI commands take the same flags; `update` needs `--apply` to write the markdown
+- ✅ All CLI commands take the same flags; `update` needs `--apply` to write the markdown and `run`
+  needs `--allow-shell`
 - ✅ All flags (short and long forms) are supported
 - ✅ JSON output format is identical
 - ✅ Tar archive format is compatible
@@ -892,20 +912,23 @@ mdcode list -l js README.md
 - ✅ Stdin/stdout behavior is identical
 - ⚠️ `extract` skips existing whole-file targets instead of overwriting them — add `--force` to keep
   the original behaviour, and expect exit code 2 when files are skipped
+- ⚠️ `update` and `extract` refuse a `file=` that leads outside its base (`update`: the markdown's
+  directory or `--base`; `extract`: `--dir`), and `dump` refuses an entry that would unpack outside
+  the archive
 
 ### Scripts and Automation
 
-If you have scripts using mdcode, they will work without changes:
+If you have scripts using mdcode, add `--allow-shell` to `run` calls; the rest work without changes:
 
 ```bash
 #!/bin/bash
-# This script works with both versions
+# The original has no --allow-shell; everything else is the same in both versions
 
 # Extract code blocks
 mdcode extract -q -d ./src README.md
 
 # Run tests
-mdcode run -l js "npm test {file}" README.md
+mdcode run --allow-shell -l js "npm test {file}" README.md
 
 # Create archive
 mdcode dump -o archive.tar README.md
@@ -958,7 +981,7 @@ mdcode update --apply README.md
 mdcode extract -l js -f "*.test.js" -d ./tests docs/
 
 # Run all tests
-mdcode run -l js -f "*.test.js" "npm test {file}" docs/
+mdcode run --allow-shell -l js -f "*.test.js" "npm test {file}" docs/
 
 # If tests pass, create archive
 mdcode dump -l js -f "*.test.js" -o tests.tar docs/
@@ -1004,10 +1027,10 @@ echo "Extracting code blocks..."
 mdcode extract -q --force -d ./temp README.md
 
 echo "Running linter..."
-mdcode run -l js "eslint {file}" README.md
+mdcode run --allow-shell -l js "eslint {file}" README.md
 
 echo "Running tests..."
-mdcode run -l js -n test "npm test {file}" README.md
+mdcode run --allow-shell -l js -n test "npm test {file}" README.md
 
 echo "Creating archive..."
 mdcode dump -q -o artifacts/code-blocks.tar README.md
@@ -1023,7 +1046,7 @@ echo "All checks passed!"
 
 ```bash
 # Keep temporary files to inspect them
-mdcode run -k -l js "node {file}" README.md
+mdcode run --allow-shell -k -l js "node {file}" README.md
 # Output will show: "Temporary directory: /tmp/mdcode-xxx"
 # You can then inspect the files
 ```
@@ -1037,7 +1060,7 @@ mdcode extract -l js --force -d temp README.md && \
   mdcode update --apply README.md
 
 # Check for syntax errors
-mdcode run -l python "python -m py_compile {file}" docs/*.md
+mdcode run --allow-shell -l python "python -m py_compile {file}" docs/*.md
 ```
 
 ### 3. Using Stdin Effectively

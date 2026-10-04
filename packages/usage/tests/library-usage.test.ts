@@ -109,6 +109,8 @@ const app = {};
 
       await mkdir(testDir, { recursive: true });
       await writeFile(testFile, markdown, "utf-8");
+      // Resolved beside the markdown file, not against the process's cwd.
+      await writeFile(join(testDir, "app.js"), "// #region main\nconst app = {};\n// #endregion main\n", "utf-8");
 
       let receivedMeta: TransformerMeta;
       const result = await mdcode(testFile, ({ meta, code }) => {
@@ -125,6 +127,7 @@ const app = {};
 
       // Cleanup
       await unlink(testFile);
+      await unlink(join(testDir, "app.js"));
     });
   });
 
@@ -289,7 +292,8 @@ test('example');
         return code;
       });
 
-      const { source: result } = await update({ source: markdown, transformer });
+      // test.spec.js does not exist; only its name matters to this transformer.
+      const { source: result } = await update({ source: markdown, transformer, continueOnError: true });
 
       assert.ok(result.includes("// AUTO-GENERATED"));
       assert.ok(result.includes("test('example')"));
@@ -313,7 +317,7 @@ const x = 1;
       assert.ok(result.includes("CONST X = 1;"));
     });
 
-    it("should handle transformation errors gracefully", async () => {
+    it("rejects on a transformer error by default, and keeps the original code with continueOnError", async () => {
       const markdown = `
 \`\`\`js
 const x = 1;
@@ -324,11 +328,12 @@ const x = 1;
         throw new Error("Transformation failed");
       });
 
-      // Should not throw, just log error and return original
-      const { source: result } = await update({ source: markdown, transformer });
+      await assert.rejects(update({ source: markdown, transformer }), /Transformation failed/);
 
-      // Original code should be preserved
+      const { source: result, errors } = await update({ source: markdown, transformer, continueOnError: true });
+
       assert.ok(result.includes("const x = 1;"));
+      assert.deepStrictEqual(errors.map(error => error.code), [ "transform_failed" ]);
     });
   });
 
@@ -437,7 +442,7 @@ select * from users;
         return code;
       });
 
-      const { source: result } = await update({ source: markdown, transformer });
+      const { source: result } = await update({ source: markdown, transformer, continueOnError: true });
 
       assert.ok(result.includes("'use strict';"));
       assert.ok(result.includes("const x = 1;"));
@@ -467,7 +472,7 @@ const demo = {};
         return code;
       });
 
-      const { source: result } = await update({ source: markdown, transformer });
+      const { source: result } = await update({ source: markdown, transformer, continueOnError: true });
 
       assert.ok(result.includes("'use strict'"));
       assert.ok(result.includes("const config = {}"));

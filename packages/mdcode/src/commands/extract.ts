@@ -1,17 +1,19 @@
-import { chmod, lstat, mkdir, readFile, realpath, rename, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, resolve } from "node:path";
+import { chmod, lstat, mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 import { styleText } from "node:util";
 
 import { parse, updateInfoStrings } from "../parser.ts";
+import { canonicalPath, resolveContained, UnsafePathError } from "../paths.ts";
 import type { RegionEdit } from "../region.ts";
 import { isValidRegionName, spliceRegions, wrapRegion } from "../region.ts";
 import type { BlockRef, ResultError } from "../result.ts";
-import { blockRef } from "../result.ts";
+import { BlockFailure, blockError, blockRef } from "../result.ts";
 import type { Block, FilterOptions } from "../types.ts";
 
 export type ExtractOptions = {
   source: string;
   filter?: FilterOptions;
+  /** Directory file= paths resolve against and must stay inside (default: the current directory). */
   outputDir?: string;
   updateSource?: boolean;
   ignoreAnonymous?: boolean;
@@ -20,7 +22,7 @@ export type ExtractOptions = {
 
 /** What extract did with one target file. */
 export type ExtractTarget = {
-  /** The file= path joined onto outputDir, or the file= path itself when it was refused as absolute. */
+  /** The file= path joined onto outputDir. */
   path: string;
   /**
    * `written`: created or overwritten whole. `spliced`: regions replaced or appended
@@ -59,6 +61,7 @@ type TargetGroup = {
 /**
  * Extract code blocks to files based on their metadata
  * @throws {MetadataError} when the document's metadata is invalid
+ * @throws {BlockFailure} with an unsafe_path error per file= that is absolute or leads outside outputDir; nothing is written
  */
 export async function extract(options: ExtractOptions): Promise<ExtractResult> {
   const {
@@ -114,6 +117,9 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
   // two spellings of one file (`./src/a.ts` and a symlinked `./link/a.ts`) form
   // a single group and produce a single write, rather than racing each other.
   const groups = new Map<string, TargetGroup>();
+  // Every target is checked before anything is written, so one hostile file=
+  // cannot ride along with a batch of legitimate ones.
+  const unsafe: Array<ResultError> = [];
 
   for (const block of blocks) {
     const index = allBlocks.findIndex(b => b.position?.start === block.position?.start);
@@ -128,16 +134,19 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     let generated: string | undefined;
 
     if (declared === undefined) {
-      // A generated name has no directory part, so joined onto outputDir it
-      // always lands inside it.
       generated = `block-${index + 1}${getExtensionForLang(block.lang)}`;
       declared = generated;
     }
-    else if (isAbsolute(declared)) {
-      // An explicit relative file= is honoured as written, even when it leaves
-      // outputDir (`../../shared-tests/a.ts`). An absolute path would ignore
-      // outputDir entirely, so it is refused.
-      record(declared, "skipped", [{ block, index }], "file= must be a relative path");
+
+    try {
+      // Even a generated name, which has no directory part, can be an existing symlink that leads out.
+      await resolveContained(declared, outputDir);
+    }
+    catch (error: unknown) {
+      if (!(error instanceof UnsafePathError)) {
+        throw error;
+      }
+      unsafe.push(blockError(block, { code: "unsafe_path", message: error.message, path: declared }));
       continue;
     }
 
@@ -158,6 +167,10 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     else {
       groups.set(key, { display, items: [{ block, index, generated }] });
     }
+  }
+
+  if (unsafe.length > 0) {
+    throw new BlockFailure(unsafe);
   }
 
   for (const [ , { display, items }] of groups) {
@@ -331,28 +344,14 @@ function rethrowUnlessMissing(error: unknown): undefined {
 }
 
 /**
- * Canonical identity for a target: the realpath of its nearest existing
- * ancestor plus the rest of the path, so aliased spellings collapse to one key
- * without the file, or directories still to be created, having to exist.
+ * Canonical identity for a target: the realpath of its directory plus its own
+ * name, so aliased spellings collapse to one key without the file, or
+ * directories still to be created, having to exist. The file itself is not
+ * followed: a symlinked target is its own key.
  */
 async function resolveTarget(path: string): Promise<string> {
   const absolute = resolve(path);
-  let existing = dirname(absolute);
-
-  for (;;) {
-    try {
-      return join(await realpath(existing), absolute.slice(existing.length));
-    }
-    catch (error: unknown) {
-      rethrowUnlessMissing(error);
-
-      const parent = dirname(existing);
-      if (parent === existing) {
-        return absolute;
-      }
-      existing = parent;
-    }
-  }
+  return join(await canonicalPath(dirname(absolute)), basename(absolute));
 }
 
 /**

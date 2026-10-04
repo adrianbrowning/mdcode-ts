@@ -3,7 +3,7 @@
  * stdout, nothing on stderr, and exits 0, 1, or (extract skips) 2.
  */
 import assert from "node:assert/strict";
-import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, describe, it } from "node:test";
@@ -255,7 +255,7 @@ describe("--json contract", () => {
       await writeFile(doc, DOC, "utf-8");
       await writeFile(join(dir, "upper.mjs"), "export default ({ code }) => code.toUpperCase();\n", "utf-8");
 
-      const { exitCode, envelope } = await runJson("update", [ "--check", "-n", "greet", "-t", "upper.mjs", doc ], { cwd: dir });
+      const { exitCode, envelope } = await runJson("update", [ "--check", "--continue-on-error", "-n", "greet", "-t", "upper.mjs", doc ], { cwd: dir });
 
       assert.equal(exitCode, 1);
       assert.equal(envelope.result.blocks[0].changed, true);
@@ -313,15 +313,56 @@ describe("--json contract", () => {
       assert.equal(await readFile(doc, "utf-8"), DOC);
     });
 
-    it("fails with read_failed for a missing file= and keeps the block", async () => {
+    it("stops with read_failed at a missing file=, returning no result", async () => {
       const dir = await tempDir();
       const { exitCode, envelope } = await runJson("update", [ "--stdout" ], { stdin: DOC, cwd: dir });
 
       assert.equal(exitCode, 1);
+      assert.equal(envelope.result, null);
       assert.deepEqual(envelope.errors.map(({ code, line, name, path }) => ({ code, line, name, path })), [
         { code: "read_failed", line: 3, name: "greet", path: "greet.js" },
       ]);
-      assert.equal(envelope.result.source, DOC);
+    });
+
+    it("with --continue-on-error, reports every failed block, still fails, and --apply writes the rest", async () => {
+      const dir = await tempDir();
+      const doc = join(dir, "doc.md");
+      const markdown = "```js file=missing.js\nA\n```\n\n```js file=ok.js\nB\n```\n\n```js file=../escape.js\nC\n```\n";
+      await writeFile(join(dir, "ok.js"), "fresh\n", "utf-8");
+      await writeFile(doc, markdown, "utf-8");
+
+      const { exitCode, envelope } = await runJson("update", [ "--apply", "--continue-on-error", doc ]);
+
+      assert.equal(exitCode, 1);
+      assert.deepEqual(envelope.errors.map(({ code, line, path }) => ({ code, line, path })), [
+        { code: "read_failed", line: 1, path: "missing.js" },
+        { code: "unsafe_path", line: 9, path: "../escape.js" },
+      ]);
+      assert.equal(envelope.result.written, doc);
+      assert.deepEqual(envelope.result.blocks.map(({ line, changed }: { line: number; changed: boolean; }) => ({ line, changed })), [
+        { line: 1, changed: false },
+        { line: 5, changed: true },
+        { line: 9, changed: false },
+      ]);
+      assert.equal(await readFile(doc, "utf-8"), markdown.replace("\nB\n", "\nfresh\n"));
+    });
+
+    it("confines file= to the markdown's directory, and --base selects another", async () => {
+      const dir = await tempDir();
+      const docs = join(dir, "docs");
+      await mkdir(docs);
+      await writeFile(join(dir, "src.js"), "fresh\n", "utf-8");
+      await writeFile(join(docs, "a.md"), "```js file=../src.js\nOLD\n```\n", "utf-8");
+      await writeFile(join(docs, "b.md"), "```js file=src.js\nOLD\n```\n", "utf-8");
+
+      const refused = await runJson("update", [ join(docs, "a.md") ]);
+
+      assert.equal(refused.exitCode, 1);
+      assert.deepEqual(refused.envelope.errors.map(({ code, line, path }) => ({ code, line, path })), [{ code: "unsafe_path", line: 1, path: "../src.js" }]);
+
+      const based = await runJson("update", [ "--stdout", "--base", dir, join(docs, "b.md") ]);
+
+      assert.equal(based.envelope.result.source, "```js file=src.js\nfresh\n```\n");
     });
 
     it("fails with transform_failed when the transformer throws, and invalid_transform when it cannot load", async () => {
@@ -341,9 +382,19 @@ describe("--json contract", () => {
   });
 
   describe("run", () => {
+    it("refuses to run without --allow-shell, before doing anything", async () => {
+      const dir = await tempDir();
+      const { exitCode, envelope } = await runJson("run", [ "touch ran", "-d", dir ], { stdin: DOC, cwd: dir });
+
+      assert.equal(exitCode, 1);
+      assert.equal(envelope.result, null);
+      assert.deepEqual(envelope.errors.map(error => error.code), [ "invalid_usage" ]);
+      assert.deepEqual(await readdir(dir), []);
+    });
+
     it("returns each block's exit code and output", async () => {
       const dir = await tempDir();
-      const { envelope } = await runJson("run", [ "cat {file}", "-d", dir ], { stdin: DOC });
+      const { envelope } = await runJson("run", [ "--allow-shell", "cat {file}", "-d", dir ], { stdin: DOC });
 
       assert.deepEqual(envelope.result, {
         workingDir: dir,
@@ -356,7 +407,7 @@ describe("--json contract", () => {
 
     it("fails with command_failed for each block whose command fails", async () => {
       const dir = await tempDir();
-      const { exitCode, envelope } = await runJson("run", [ "sh {file}", "-d", dir, "-l", "sh" ], { stdin: "```sh\necho out; echo err >&2; exit 3\n```\n" });
+      const { exitCode, envelope } = await runJson("run", [ "--allow-shell", "sh {file}", "-d", dir, "-l", "sh" ], { stdin: "```sh\necho out; echo err >&2; exit 3\n```\n" });
 
       assert.equal(exitCode, 1);
       assert.deepEqual(envelope.result.blocks, [{ name: null, line: 1, lang: "sh", exitCode: 3, stdout: "out\n", stderr: "err\n" }]);
@@ -391,12 +442,21 @@ describe("--json contract", () => {
       assert.deepEqual(envelope.errors.map(error => error.code), [ "invalid_usage" ]);
       assert.deepEqual(await readdir(dir), []);
     });
+
+    it("refuses entries that would unpack outside the archive, writing no archive", async () => {
+      const dir = await tempDir();
+      const { exitCode, envelope } = await runJson("dump", [ "-o", "out.tar" ], { stdin: "```sh file=../../.bashrc\nevil\n```\n", cwd: dir });
+
+      assert.equal(exitCode, 1);
+      assert.deepEqual(envelope.errors.map(({ code, line, path }) => ({ code, line, path })), [{ code: "unsafe_path", line: 1, path: "../../.bashrc" }]);
+      assert.deepEqual(await readdir(dir), []);
+    });
   });
 
   for (const [ command, args ] of [
     [ "extract", []],
     [ "update", []],
-    [ "run", [ "cat {file}" ]],
+    [ "run", [ "--allow-shell", "cat {file}" ]],
     [ "dump", [ "-o", "out.tar" ]],
   ] as const) {
     it(`${command} reports invalid metadata before doing any work`, async () => {
@@ -413,19 +473,25 @@ describe("--json contract", () => {
 describe("exit codes without --json", () => {
   it("run exits 1 when a block's command fails", async () => {
     const dir = await tempDir();
-    const { exitCode, stdout } = await execCli([ "run", "sh {file}", "-d", dir ], { stdin: "```sh\nexit 4\n```\n" });
+    const { exitCode, stdout } = await execCli([ "run", "--allow-shell", "sh {file}", "-d", dir ], { stdin: "```sh\nexit 4\n```\n" });
 
     assert.equal(exitCode, 1);
     assert.match(stdout, /Failed \(exit code 4\)/);
   });
 
-  it("update exits 1 when a file= cannot be read, and still prints the markdown", async () => {
+  it("update stops at a file= that cannot be read, naming the block, and prints no markdown", async () => {
     const dir = await tempDir();
     const { exitCode, stdout, stderr } = await execCli([ "update", "--stdout" ], { stdin: DOC, cwd: dir });
 
     assert.equal(exitCode, 1);
-    assert.match(stderr, /Failed to read greet\.js/);
-    assert.equal(stdout, DOC);
+    assert.match(stderr, /line 3 \(greet\): .*greet\.js/);
+    assert.equal(stdout, "");
+
+    const continued = await execCli([ "update", "--stdout", "--continue-on-error" ], { stdin: DOC, cwd: dir });
+
+    assert.equal(continued.exitCode, 1);
+    assert.match(continued.stderr, /Failed to read greet\.js/);
+    assert.equal(continued.stdout, DOC);
   });
 
   it("update prints a plan by default, --diff a patch, and --check exits 1 on drift, all without writing", async () => {

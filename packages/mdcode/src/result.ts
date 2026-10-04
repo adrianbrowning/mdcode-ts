@@ -25,6 +25,8 @@ export type ErrorCode =
   | "read_failed"
   /** update's transformer threw for a block. */
   | "transform_failed"
+  /** A block's file= is absolute or leads outside the allowed base, directly or through a symlink. */
+  | "unsafe_path"
   /** update --check: a selected block differs from what update would write. */
   | "out_of_sync"
   /** run's command exited non-zero for a block. */
@@ -87,10 +89,34 @@ export class CommandError extends Error {
   }
 }
 
+/**
+ * Block-level failures that stop a command, already in contract form. The
+ * message names each block and path, for the human-readable error line.
+ */
+export class BlockFailure extends Error {
+  readonly errors: Array<ResultError>;
+
+  constructor(errors: Array<ResultError>) {
+    super(errors.map(describeError).join("\n"));
+    this.name = "BlockFailure";
+    this.errors = errors;
+  }
+}
+
+/** One error as a line of text, e.g. `line 3 (greet): greet.js: not found`. */
+function describeError({ line, name, path, message }: ResultError): string {
+  const where = line === undefined ? "" : name === undefined ? `line ${line}: ` : `line ${line} (${name}): `;
+  return `${where}${path === undefined || message.includes(path) ? "" : `${path}: `}${message}`;
+}
+
 /** Translate a thrown value into contract errors. */
 export function errorsFrom(error: unknown): Array<ResultError> {
   if (error instanceof MetadataError) {
     return error.problems.map(({ line, message }) => ({ code: "invalid_metadata", message, line }));
+  }
+
+  if (error instanceof BlockFailure) {
+    return error.errors;
   }
 
   if (error instanceof CommandError) {
