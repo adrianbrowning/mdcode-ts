@@ -346,6 +346,16 @@ describe("extract: refuses unsafe targets", () => {
     assert.deepEqual(errors, [{ code: "unsafe_path", line: 1, path: outside }]);
   });
 
+  test("refuses an empty file= before writing anything, even with force", async () => {
+    const dir = await tempDir();
+    const source = "```ts file=safe.ts\nok\n```\n\n```ts file=\"\"\npwned\n```\n";
+
+    const errors = await refusal(extract({ source, outputDir: dir, force: true }));
+
+    assert.deepEqual(errors, [{ code: "unsafe_path", line: 5, path: "" }]);
+    assert.deepEqual(await readdir(dir), [], "the safe block must not be written either");
+  });
+
   test("refuses a file= that leads out through a symlinked directory", async () => {
     const dir = await tempDir();
     const out = join(dir, "out");
@@ -429,10 +439,13 @@ describe("extract: refuses unsafe targets", () => {
       "",
     ].join("\n");
 
-    const result = await extract({ source, outputDir: dir, force: true });
+    const errors = await refusal(extract({ source, outputDir: dir, force: true }));
 
     assert.equal(await readFile(target, "utf-8"), original, "a mixed group has no coherent result");
-    assert.deepEqual(skipped(result), [ target ]);
+    assert.deepEqual(errors, [
+      { code: "ambiguous_target", line: 1, path: target },
+      { code: "ambiguous_target", line: 5, path: target },
+    ]);
   });
 
   test("refuses to splice a region the target never closes", async () => {
@@ -453,10 +466,10 @@ describe("extract: refuses unsafe targets", () => {
       "",
     ].join("\n");
 
-    const result = await extract({ source, outputDir: dir });
+    const errors = await refusal(extract({ source, outputDir: dir }));
 
     assert.equal(await readFile(target, "utf-8"), original, "an unclosed region must never be written");
-    assert.deepEqual(skipped(result), [ target ]);
+    assert.deepEqual(errors, [{ code: "malformed_region", line: 1, path: target }]);
   });
 
   test("refuses two blocks that declare the same region, for existing and new targets", async () => {
@@ -470,15 +483,14 @@ describe("extract: refuses unsafe targets", () => {
     const existing = await writeSource(dir, "dup.ts", original);
     const block = (file: string, body: string): string => [ `\`\`\`typescript file=${file} region=alpha`, body, "```", "" ].join("\n");
 
-    const spliced = await extract({ source: block("dup.ts", "const first = 1;") + block("dup.ts", "const second = 2;"), outputDir: dir });
+    const splicing = await refusal(extract({ source: block("dup.ts", "const first = 1;") + block("dup.ts", "const second = 2;"), outputDir: dir }));
 
     assert.equal(await readFile(existing, "utf-8"), original, "a splice would silently keep only one body");
-    assert.deepEqual(skipped(spliced), [ existing ]);
+    assert.deepEqual(splicing.map(({ code }) => code), [ "ambiguous_target", "ambiguous_target" ]);
 
-    const created = await extract({ source: block("new.ts", "const first = 1;") + block("new.ts", "const second = 2;"), outputDir: dir });
+    const creating = await refusal(extract({ source: block("new.ts", "const first = 1;") + block("new.ts", "const second = 2;"), outputDir: dir }));
 
-    assert.deepEqual(written(created), []);
-    assert.equal(skipped(created).length, 1);
+    assert.deepEqual(creating.map(({ code }) => code), [ "ambiguous_target", "ambiguous_target" ]);
     await assert.rejects(readFile(join(dir, "new.ts"), "utf-8"), { code: "ENOENT" });
   });
 });
@@ -552,13 +564,11 @@ describe("extract: write fidelity", () => {
 });
 
 describe("extract: reporting", () => {
-  test("aliased non-region blocks resolve to one group, one write, and no false skip", async () => {
+  test("treats two spellings of one file as one target, so their blocks conflict", async () => {
     const dir = await tempDir();
     await mkdir(join(dir, "real"), { recursive: true });
     await symlink(join(dir, "real"), join(dir, "link"), "dir");
 
-    // Same content via two spellings: the point under test is that they resolve
-    // to one target, not what happens when they disagree.
     const source = [
       "```typescript file=./real/demo.ts",
       "const shared = 1;",
@@ -570,37 +580,27 @@ describe("extract: reporting", () => {
       "",
     ].join("\n");
 
-    const result = await extract({ source, outputDir: dir });
+    const errors = await refusal(extract({ source, outputDir: dir }));
 
-    assert.equal(written(result).length, 1, "one physical file must be reported once");
-    assert.deepEqual(skipped(result), [], "a file this run just created must not report as pre-existing");
-    assert.deepEqual(await readdir(join(dir, "real")), [ "demo.ts" ], "no second copy via the link");
+    // Both are reported against the first spelling, which names the one file they share.
+    assert.deepEqual(errors, [
+      { code: "ambiguous_target", line: 1, path: join(dir, "real/demo.ts") },
+      { code: "ambiguous_target", line: 5, path: join(dir, "real/demo.ts") },
+    ]);
+    assert.deepEqual(await readdir(join(dir, "real")), [], "nothing is written for a refused target");
   });
 
-  test("refuses whole-file blocks that disagree, and allows identical ones", async () => {
+  test("refuses several whole-file blocks for one file, even identical ones", async () => {
     const dir = await tempDir();
+    const whole = (code: string): string => [ "```typescript file=d.ts", code, "```", "" ].join("\n");
 
-    const disagreeing = [
-      "```typescript file=d.ts",
-      "const first = 1;",
-      "```",
-      "",
-      "```typescript file=d.ts",
-      "const second = 2;",
-      "```",
-      "",
-    ].join("\n");
+    for (const source of [ whole("const first = 1;") + whole("const second = 2;"), whole("const first = 1;") + whole("const first = 1;") ]) {
+      const errors = await refusal(extract({ source, outputDir: dir }));
 
-    const refused = await extract({ source: disagreeing, outputDir: dir });
+      assert.deepEqual(errors.map(({ code }) => code), [ "ambiguous_target", "ambiguous_target" ]);
+    }
 
-    assert.deepEqual(written(refused), [], "one of the two blocks would have been discarded");
-    assert.equal(skipped(refused).length, 1);
-
-    const agreeing = disagreeing.replace("const second = 2;", "const first = 1;");
-    const accepted = await extract({ source: agreeing, outputDir: dir });
-
-    assert.equal(written(accepted).length, 1, "identical blocks are not ambiguous");
-    assert.equal(await readFile(join(dir, "d.ts"), "utf-8"), "const first = 1;");
+    assert.deepEqual(await readdir(dir), []);
   });
 
   test("names the file and the reason when it refuses to write", async () => {
@@ -618,14 +618,13 @@ describe("extract: reporting", () => {
     assert.equal(result.targets[0]!.reason, result.errors[0]!.message);
   });
 
-  test("creates nothing for a target it refuses", async () => {
+  test("writes no target at all while any target is refused", async () => {
     const dir = await tempDir();
-    const source = "```ts file=new/dir/a.ts region=r\none\n```\n\n```ts file=new/dir/a.ts\ntwo\n```\n";
+    const source = "```ts file=safe.ts\nok\n```\n\n```ts file=new/dir/a.ts region=r\none\n```\n\n```ts file=new/dir/a.ts\ntwo\n```\n";
 
-    const result = await extract({ source, outputDir: dir });
+    await refusal(extract({ source, outputDir: dir }));
 
-    assert.deepEqual(skipped(result), [ join(dir, "new/dir/a.ts") ]);
-    assert.deepEqual(await readdir(dir), [], "no directory may be created for a skipped target");
+    assert.deepEqual(await readdir(dir), [], "neither the safe file nor a directory for the refused one may be created");
   });
 
   test("adds file= only to anonymous blocks whose file was written", async () => {

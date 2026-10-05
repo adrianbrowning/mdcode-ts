@@ -67,6 +67,7 @@ To check that snippets actually run, mark them `runnable=true` and copy [`exampl
 | `list` | List code blocks with their language, metadata and a preview |
 | `update` | Refresh blocks from the files they reference, or rewrite them with a transform function. Plans by default; `--apply` writes, `--diff` and `--check` review |
 | `extract` | Write blocks to files named by their `file=` metadata |
+| `validate` | Report every block that `update` or `extract` would refuse, such as a missing region or two blocks writing one file, without writing anything |
 | `run` | Run a shell command on each block, such as a compiler or test runner |
 | `dump` | Pack blocks into a tar archive |
 

@@ -336,7 +336,7 @@ describe("--json contract", () => {
       ]);
     });
 
-    it("with --continue-on-error, reports every failed block, still fails, and --apply writes the rest", async () => {
+    it("with --continue-on-error, reports every failed block, still fails, and --apply leaves a document with a broken file= unwritten", async () => {
       const dir = await tempDir();
       const doc = join(dir, "doc.md");
       const markdown = "```js file=missing.js\nA\n```\n\n```js file=ok.js\nB\n```\n\n```js file=../escape.js\nC\n```\n";
@@ -350,13 +350,28 @@ describe("--json contract", () => {
         { code: "read_failed", line: 1, path: "missing.js" },
         { code: "unsafe_path", line: 9, path: "../escape.js" },
       ]);
-      assert.equal(onlyDocument(envelope).written, doc);
+      assert.equal(onlyDocument(envelope).written, null);
       assert.deepEqual(onlyDocument(envelope).blocks.map(({ line, changed }: { line: number; changed: boolean; }) => ({ line, changed })), [
         { line: 1, changed: false },
         { line: 5, changed: true },
         { line: 9, changed: false },
-      ]);
-      assert.equal(await readFile(doc, "utf-8"), markdown.replace("\nB\n", "\nfresh\n"));
+      ], "the plan still shows what would change");
+      assert.equal(await readFile(doc, "utf-8"), markdown, "a partial sync would hide the broken blocks");
+    });
+
+    it("--apply --continue-on-error writes the other blocks when only a transform fails", async () => {
+      const dir = await tempDir();
+      const doc = join(dir, "doc.md");
+      const transform = join(dir, "t.mjs");
+      await writeFile(transform, "export default ({ code }) => { if (code === 'boom') throw new Error('no'); return code.toUpperCase(); };\n", "utf-8");
+      await writeFile(doc, "```js\nboom\n```\n\n```js\nok\n```\n", "utf-8");
+
+      const { exitCode, envelope } = await runJson("update", [ "--apply", "--continue-on-error", "--transform", transform, doc ]);
+
+      assert.equal(exitCode, 1);
+      assert.deepEqual(envelope.errors.map(({ code, line }) => ({ code, line })), [{ code: "transform_failed", line: 1 }]);
+      assert.equal(onlyDocument(envelope).written, doc);
+      assert.equal(await readFile(doc, "utf-8"), "```js\nboom\n```\n\n```js\nOK\n```\n");
     });
 
     it("confines file= to the markdown's directory, and --base selects another", async () => {

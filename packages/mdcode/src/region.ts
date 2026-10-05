@@ -72,9 +72,12 @@ const SEMI_ONLY: CommentStyles = [ SEMI ];
 const HTML_ONLY: CommentStyles = [ HTML ];
 const BLOCK_ONLY: CommentStyles = [ BLOCK_SLASH ];
 
+/** Every comment style any language uses, to spot a marker written in the wrong language's syntax. */
+const ALL_STYLES: CommentStyles = [ LINE_SLASH, BLOCK_SLASH, HASH, DASH, SEMI, HTML ];
+
 /**
  * Comment styles per language. Kept in step with `getExtensionForLang` in
- * commands/extract.ts: a language that can be extracted must also be able to
+ * commands/validate.ts: a language that can be extracted must also be able to
  * carry a region marker in its own syntax.
  */
 const LANG_COMMENT_STYLES: Readonly<Record<string, CommentStyles>> = {
@@ -212,7 +215,7 @@ function splitLines(source: string): Array<RawLine> {
 }
 
 /**
- * Build the marker pattern for one language.
+ * Build the marker pattern for a set of comment styles, by default one language's.
  *
  * A marker is accepted anywhere on the line as long as it terminates the line,
  * so both `  // #region x` and `} // #endregion x` match, as do JSDoc-style
@@ -220,12 +223,25 @@ function splitLines(source: string): Array<RawLine> {
  * terminator is never captured as the name, and names are compared exactly, so
  * `join` never matches `join-sql`.
  */
-function markerScanner(lang?: string): RegExp {
-  const opens = getCommentStyle(lang ?? "")
+function markerScanner(lang?: string, styles: CommentStyles = getCommentStyle(lang ?? "")): RegExp {
+  const opens = styles
     .map(style => escapeRegex(style.open))
     .join("|");
 
   return new RegExp(`(?:${opens})[\\s*]*#(region|endregion)(?:\\s+([\\w.:-]+))?\\s*(?:\\*/|-->)?\\s*$`);
+}
+
+/**
+ * Whether `source` opens a region called `name` in any language's comment
+ * syntax. Tells a region written for another language apart from a missing one.
+ */
+export function hasRegionMarker(source: string, name: string): boolean {
+  const scanner = markerScanner(undefined, ALL_STYLES);
+
+  return splitLines(source).some(line => {
+    const marker = markerAt(line.text, scanner);
+    return marker?.kind === "region" && marker.name === name;
+  });
 }
 
 function markerAt(text: string, scanner: RegExp): Marker | undefined {

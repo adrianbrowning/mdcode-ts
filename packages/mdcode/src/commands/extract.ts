@@ -1,14 +1,16 @@
 import { chmod, lstat, mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { styleText } from "node:util";
 
 import { parse, updateInfoStrings } from "../parser.ts";
-import { canonicalPath, resolveContained, UnsafePathError } from "../paths.ts";
+import { isMissing } from "../paths.ts";
 import type { RegionEdit } from "../region.ts";
-import { isValidRegionName, spliceRegions, wrapRegion } from "../region.ts";
+import { spliceRegions, wrapRegion } from "../region.ts";
 import type { BlockRef, ResultError } from "../result.ts";
-import { BlockFailure, blockError, blockRef } from "../result.ts";
-import type { Block, FilterOptions } from "../types.ts";
+import { BlockFailure, blockRef } from "../result.ts";
+import type { FilterOptions } from "../types.ts";
+import type { ExtractItem } from "./validate.ts";
+import { planExtract } from "./validate.ts";
 
 export type ExtractOptions = {
   source: string;
@@ -45,23 +47,11 @@ export type ExtractResult = {
   errors: Array<ResultError>;
 };
 
-type Item = {
-  block: Block;
-  index: number;
-  /** The block-N name extract made up, when the block has no file=. */
-  generated?: string;
-};
-
-type TargetGroup = {
-  /** Path as written in the markdown, for messages. */
-  display: string;
-  items: Array<Item>;
-};
-
 /**
- * Extract code blocks to files based on their metadata
+ * Extract code blocks to files based on their metadata. Every target is
+ * validated before any is written; see validate().
  * @throws {MetadataError} when the document's metadata is invalid
- * @throws {BlockFailure} with an unsafe_path error per file= that is absolute or leads outside outputDir; nothing is written
+ * @throws {BlockFailure} with an error per block that breaks a mapping rule (unsafe_path, ambiguous_target, malformed_region, duplicate_region, region_language_mismatch); nothing is written
  */
 export async function extract(options: ExtractOptions): Promise<ExtractResult> {
   const {
@@ -78,15 +68,18 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     throw new Error("Cannot use --update-source and --ignore-anonymous together");
   }
 
-  // Parse all blocks (without filter for tracking indices)
-  const allBlocks = parse({ source });
+  let blocks = parse({ source, filter });
 
-  // Apply filter if provided
-  let blocks = filter ? parse({ source, filter }) : allBlocks;
-
-  // Filter anonymous blocks if requested
   if (ignoreAnonymous) {
     blocks = blocks.filter(b => b.meta.file);
+  }
+
+  // Every target is checked before anything is written, so one hostile or
+  // ambiguous file= cannot ride along with a batch of legitimate ones.
+  const { groups, errors: problems } = await planExtract(source, blocks, outputDir);
+
+  if (problems.length > 0) {
+    throw new BlockFailure(problems);
   }
 
   // Generated filenames for anonymous blocks whose file was written (for --update-source)
@@ -95,7 +88,7 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
   const targets: Array<ExtractTarget> = [];
   const errors: Array<ResultError> = [];
 
-  const record = (path: string, action: ExtractTarget["action"], items: Array<Item>, reason?: string): void => {
+  const record = (path: string, action: ExtractTarget["action"], items: Array<ExtractItem>, reason?: string): void => {
     const regions = items.flatMap(({ block }) => block.meta.region === undefined ? [] : [ block.meta.region ]);
     targets.push({ path, action, blocks: items.map(({ block }) => blockRef(block)), regions, ...(reason === undefined ? {} : { reason }) });
 
@@ -113,95 +106,12 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     }
   };
 
-  // Group blocks by the file they resolve to. Keying on the resolved path means
-  // two spellings of one file (`./src/a.ts` and a symlinked `./link/a.ts`) form
-  // a single group and produce a single write, rather than racing each other.
-  const groups = new Map<string, TargetGroup>();
-  // Every target is checked before anything is written, so one hostile file=
-  // cannot ride along with a batch of legitimate ones.
-  const unsafe: Array<ResultError> = [];
-
-  for (const block of blocks) {
-    const index = allBlocks.findIndex(b => b.position?.start === block.position?.start);
-
-    // extract writes files; a block asking for a marker-only skeleton has no
-    // file content to contribute, so it is not an extraction target.
-    if (block.meta.outline === "true") {
-      continue;
-    }
-
-    let declared = block.meta.file;
-    let generated: string | undefined;
-
-    if (declared === undefined) {
-      generated = `block-${index + 1}${getExtensionForLang(block.lang)}`;
-      declared = generated;
-    }
-
-    try {
-      // Even a generated name, which has no directory part, can be an existing symlink that leads out.
-      await resolveContained(declared, outputDir);
-    }
-    catch (error: unknown) {
-      if (!(error instanceof UnsafePathError)) {
-        throw error;
-      }
-      unsafe.push(blockError(block, { code: "unsafe_path", message: error.message, path: declared }));
-      continue;
-    }
-
-    const display = join(outputDir, declared);
-
-    if (block.meta.region !== undefined && !isValidRegionName(block.meta.region)) {
-      record(display, "skipped", [{ block, index, generated }], `invalid region name ${JSON.stringify(block.meta.region)}`);
-      continue;
-    }
-
-    const key = await resolveTarget(display);
-
-    const group = groups.get(key);
-
-    if (group) {
-      group.items.push({ block, index, generated });
-    }
-    else {
-      groups.set(key, { display, items: [{ block, index, generated }] });
-    }
-  }
-
-  if (unsafe.length > 0) {
-    throw new BlockFailure(unsafe);
-  }
-
-  for (const [ , { display, items }] of groups) {
-    const withRegion = items.filter(item => item.block.meta.region !== undefined);
+  // Validation leaves two shapes: one whole-file block, or region blocks only.
+  for (const { display, items } of groups) {
+    const regions = items[0]!.block.meta.region !== undefined;
     const existing = await stat(display).catch(rethrowUnlessMissing);
 
-    // A group mixing whole-file and region blocks has no coherent result: the
-    // whole-file block would erase the very region the other block splices.
-    if (withRegion.length > 0 && withRegion.length !== items.length) {
-      record(display, "skipped", items, "blocks for this file mix region= with whole-file blocks");
-      continue;
-    }
-
-    // Several blocks each claiming to be the whole file only agree if they are
-    // byte-identical; otherwise picking one would silently discard the others.
-    if (withRegion.length === 0 && new Set(items.map(item => item.block.code)).size > 1) {
-      record(display, "skipped", items, `${items.length} whole-file blocks disagree about its contents`);
-      continue;
-    }
-
-    // Two blocks naming one region cannot both land: a splice would keep only
-    // the last body, and a fresh file would get two markers that every later
-    // splice refuses as duplicated.
-    const regionNames = withRegion.map(item => item.block.meta.region!);
-
-    if (new Set(regionNames).size !== regionNames.length) {
-      record(display, "skipped", items, "two blocks for this file declare the same region=");
-      continue;
-    }
-
-    if (existing !== undefined && withRegion.length === items.length) {
+    if (existing !== undefined && regions) {
       const refusal = await spliceInPlace(display, items);
 
       record(display, refusal === undefined ? "spliced" : "skipped", items, refusal);
@@ -213,7 +123,7 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
       continue;
     }
 
-    const content = withRegion.length === items.length
+    const content = regions
       ? items.map(({ block }) => wrapRegion(block.lang, block.meta.region!, block.code)).join("\n")
       : items[0]!.block.code;
 
@@ -256,7 +166,7 @@ export function formatExtract({ targets }: Pick<ExtractResult, "targets">, optio
  * any region the file does not already declare. Returns why the file was left
  * untouched, or undefined when it was written.
  */
-async function spliceInPlace(target: string, items: Array<Item>): Promise<string | undefined> {
+async function spliceInPlace(target: string, items: Array<ExtractItem>): Promise<string | undefined> {
   // rename() would replace a symlink with a regular file rather than write
   // through it; refuse outright so the link's meaning is never silently changed.
   if ((await lstat(target)).isSymbolicLink()) {
@@ -298,7 +208,7 @@ async function spliceInPlace(target: string, items: Array<Item>): Promise<string
   return undefined;
 }
 
-/** Explain, in one clause, why a splice was refused. */
+/** Explain, in one clause, why a splice was refused: the file changed after validation. */
 function spliceRefusal(result: { unclosed: Array<string>; duplicated: Array<string>; overlapping: Array<string>; }): string {
   if (result.unclosed.length > 0) {
     return `region ${result.unclosed.join(", ")} is never closed`;
@@ -335,68 +245,10 @@ async function writeAtomic(target: string, content: string, mode?: number): Prom
   await rename(temp, target);
 }
 
-/** ENOENT means "not there yet"; anything else is a real failure to surface. */
+/** "Not there yet" is undefined; anything else is a real failure to surface. */
 function rethrowUnlessMissing(error: unknown): undefined {
-  if (error !== null && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+  if (isMissing(error)) {
     return undefined;
   }
   throw error;
-}
-
-/**
- * Canonical identity for a target: the realpath of its directory plus its own
- * name, so aliased spellings collapse to one key without the file, or
- * directories still to be created, having to exist. The file itself is not
- * followed: a symlinked target is its own key.
- */
-async function resolveTarget(path: string): Promise<string> {
-  const absolute = resolve(path);
-  return join(await canonicalPath(dirname(absolute)), basename(absolute));
-}
-
-/**
- * Get file extension based on language
- */
-function getExtensionForLang(lang: string): string {
-  const extensions: Record<string, string> = {
-    js: ".js",
-    javascript: ".js",
-    ts: ".ts",
-    typescript: ".ts",
-    py: ".py",
-    python: ".py",
-    go: ".go",
-    rust: ".rs",
-    rs: ".rs",
-    java: ".java",
-    c: ".c",
-    cpp: ".cpp",
-    "c++": ".cpp",
-    cs: ".cs",
-    "c#": ".cs",
-    rb: ".rb",
-    ruby: ".rb",
-    php: ".php",
-    swift: ".swift",
-    kt: ".kt",
-    kotlin: ".kt",
-    sh: ".sh",
-    bash: ".sh",
-    zsh: ".sh",
-    fish: ".fish",
-    html: ".html",
-    css: ".css",
-    scss: ".scss",
-    sass: ".sass",
-    json: ".json",
-    yaml: ".yaml",
-    yml: ".yml",
-    xml: ".xml",
-    sql: ".sql",
-    md: ".md",
-    markdown: ".md",
-    txt: ".txt",
-  };
-
-  return extensions[lang.toLowerCase()] || ".txt";
 }

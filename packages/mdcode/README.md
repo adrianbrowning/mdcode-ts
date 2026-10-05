@@ -19,6 +19,7 @@ This TypeScript implementation is designed as a **drop-in replacement** for the 
 - **Extract** code blocks from markdown to files
 - **List** code blocks with metadata and previews (text or JSON format)
 - **Update** markdown code blocks from source files OR transform with custom functions
+- **Validate** that blocks map safely onto files before `update` or `extract` writes anything
 - **Run** shell commands on code blocks with enhanced control
 - **Dump** code blocks to tar archives (stdout or file)
 - Support for metadata in code block info strings
@@ -300,7 +301,21 @@ mdcode list -l js -f "*.test.js" docs/
 
 Extract code blocks to files based on their `file` metadata.
 
-Extract is non-destructive. When the target file already exists:
+Extract is non-destructive. Before it writes anything, it checks every target (see
+[Validate Command](#validate-command)). When any block breaks a rule, nothing is written and `extract`
+exits 1 with an error per block:
+
+- **Several blocks write one file** → allowed only when every one declares its own `region=` and all
+  are in the same language. Two whole-file blocks for one file, even identical ones, a whole-file
+  block beside a region block, a repeated `region=`, or regions in different languages are refused
+  as `ambiguous_target`. Two spellings of one file (`./a.ts` and `a.ts`, or a symlinked directory
+  inside `--dir`) count as one file.
+- **An existing file's markers for a declared region are broken** → a region that is never closed or
+  overlaps another is `malformed_region`, one opened more than once is `duplicate_region`, and one
+  marked only in another language's comment syntax is `region_language_mismatch`. An invalid
+  `region=` name is `malformed_region` too.
+
+When the target file already exists:
 
 - **All blocks for that file declare `region=`** → each region body is spliced in place. Surrounding
   code, and any regions in the file that the markdown doesn't declare, are preserved.
@@ -308,10 +323,8 @@ Extract is non-destructive. When the target file already exists:
   end of the file, wrapped in markers written with the block language's comment syntax (`//`, `#`,
   `<!-- -->`). Existing markers are matched in any of that language's comment styles, so `/* #region
   name */` in a JS file is spliced rather than duplicated.
-- **Any block for that file has no `region=`** → the file is skipped with a warning, since writing it
-  would replace the whole file. Use `--force` to overwrite.
-- **Two blocks for that file declare the same `region=`** → the file is skipped with a warning
-  rather than keeping only one body. This also applies when the file doesn't exist yet.
+- **The block has no `region=`** → the file is skipped with a warning, since writing it would replace
+  the whole file. Use `--force` to overwrite.
 
 Otherwise, files that don't exist yet are created.
 
@@ -326,8 +339,8 @@ Otherwise, files that don't exist yet are created.
 - **No `file=`** → written as `block-N.<ext>` directly inside `--dir`. An existing symlink of that
   name that leads out of `--dir` is refused too.
 
-Whenever a file is skipped (an existing file without `--force`, or a region problem described
-above), `extract` prints a summary (even under `--quiet`) and exits with status 2.
+Whenever a file is skipped (an existing file without `--force`, a symlinked target, or a target that is
+not valid UTF-8), `extract` prints a summary (even under `--quiet`) and exits with status 2.
 With `--update-source` on stdin, the updated markdown is still written to stdout in full first.
 
 ### Basic Usage
@@ -511,10 +524,13 @@ The modes cannot be combined. `--apply` needs a markdown file: with stdin, use `
 block changes, `--apply` leaves the file untouched. The diff labels both sides with the markdown path,
 so `patch -p0 < changes.diff` applies it.
 
-`--check` reports each drifted block as an `out_of_sync` error. A `file=` that cannot be read is a
-`read_failed` error instead, a `file=` outside the base is `unsafe_path`, a transformer that throws is
-`transform_failed`, and a broken `--transform` module is `invalid_transform`. All of them exit 1; with
-`--json` the error codes tell them apart (see [JSON Contract](#json-contract)).
+`--check` reports each drifted block as an `out_of_sync` error. A `file=` that cannot be read, or does
+not exist, is a `read_failed` error instead, a `file=` outside the base is `unsafe_path`, a transformer
+that throws is `transform_failed`, and a broken `--transform` module is `invalid_transform`. A
+`region=` must be opened exactly once in the file, in the block language's comment syntax, and
+closed: otherwise the block fails with `missing_region`, `duplicate_region`, `malformed_region` or
+`region_language_mismatch`. All of them exit 1; with `--json` the error codes tell them apart (see
+[JSON Contract](#json-contract)).
 
 ### Where `file=` Is Read From
 
@@ -534,13 +550,16 @@ mdcode update --check --base . docs/README.md
 ### When a Read or Transform Fails
 
 By default `update` stops at the first block whose `file=` cannot be read (`read_failed`), is refused
-(`unsafe_path`), or whose transformer throws (`transform_failed`). Nothing is written and nothing is
-printed except that error. The command exits 1, and under `--json` the envelope has `result: null`
-and that one error.
+(`unsafe_path`), breaks a region rule, or whose transformer throws (`transform_failed`). Nothing is
+written and nothing is printed except that error. The command exits 1, and under `--json` the
+envelope has `result: null` and that one error. `mdcode validate` lists every such problem at once
+without stopping; see [Validate Command](#validate-command).
 
 `--continue-on-error` collects every failure and keeps going. A failed block keeps its previous code,
-and a block whose read failed is still transformed from its original code. `--apply` still writes
-the blocks that succeeded, every failed block is reported, and the command still exits 1.
+and a block whose read failed is still transformed from its original code. Every failed block is
+reported and the command still exits 1. `--apply` does not write a document in which any block's
+`file=` or `region=` failed, so the markdown is never left half in sync with its sources; it still
+writes the other blocks of a document where only a transformer threw, and the other documents.
 
 ```bash file=block-continue.sh
 # Report every broken file= at once instead of stopping at the first
@@ -694,6 +713,54 @@ mdcode update --apply --meta region=main README.md
 
 # Check only the setup region
 mdcode update --check -m region=setup README.md
+```
+
+---
+
+## Validate Command
+
+Check how the selected blocks map onto files before `update` or `extract` writes anything. `validate`
+reads the markdown and the files it names, writes nothing, and reports every problem at once instead
+of stopping at the first. It exits 1 when it finds any.
+
+```bash file=block-validate.sh
+# Would `mdcode update README.md` be able to read every file= and region=?
+mdcode validate README.md
+
+# Would `mdcode extract -d out README.md` refuse anything?
+mdcode validate --for extract -d out README.md
+
+# Also require every selected block to name its file
+mdcode validate --strict README.md
+
+# Every document in mdcode.config.json, as JSON
+mdcode validate --project --json
+```
+
+`--for` picks the command to check for, `update` by default. Each finding names the document, the
+block's line and name, the file concerned and the rule, which is the error code:
+
+| Rule | `--for update` | `--for extract` |
+|------|----------------|-----------------|
+| `unsafe_path` | `file=` is empty or leads outside `--base` | `file=` is empty, or it or a generated `block-N` name leads outside `--dir` |
+| `read_failed` | `file=` does not exist or cannot be read | - |
+| `missing_region` | `region=` is not in the file, or `outline=true` finds no markers | - (a missing region is appended) |
+| `duplicate_region` | `region=` is opened more than once in the file | Same, in an existing target |
+| `malformed_region` | invalid `region=` name, or its markers are unclosed or do not nest | Same, or two declared regions overlap |
+| `region_language_mismatch` | `region=` is marked only in another language's comment syntax | Same, in an existing target |
+| `ambiguous_target` | - | Several blocks write one file, but not each with its own `region=` in one language |
+| `missing_file_metadata` | `--strict`: a selected block has no `file=` | Same |
+
+`update` and `extract` enforce every rule here except `--strict`, which only `validate` applies, so a
+document `validate` passes is one they will not refuse for these reasons. For `extract`, a region an
+existing target lacks is appended, not an error. `extract` can still skip an existing file it would
+overwrite whole without `--force`, and a symlinked or non-UTF-8 target it would splice.
+
+```text
+$ mdcode validate --for extract doc.md
+✗ line 5: out.ts: blocks on lines 5, 9 all write this file, but not every one declares region=; give each block a region= of its own, or a file of its own (ambiguous_target)
+✗ line 9: out.ts: blocks on lines 5, 9 all write this file, but not every one declares region=; give each block a region= of its own, or a file of its own (ambiguous_target)
+2 problem(s) found; extract would refuse them.
 ```
 
 ---
@@ -1252,6 +1319,14 @@ Additional flags by command:
   [Project Configuration](#project-configuration)
 - `--config <path>` - Load this configuration file instead
 
+**validate:**
+- `--for <command>` - The command to check the documents for: `update` (default) or `extract`
+- `--strict` - Require `file=` metadata on every selected block
+- `--base <dir>` - With `--for update`: as for `update`
+- `-d, --dir <dir>` - With `--for extract`: as for `extract`
+- `--ignore-anonymous` - With `--for extract`: skip blocks without `file=`, as `extract` does
+- `--project`, `--config <path>` - As for `update` and `extract`
+
 **run:**
 - `--allow-shell` - Confirm that `<command>` may run through the shell once per selected block
   (required)
@@ -1295,10 +1370,11 @@ The library functions apply the same checks: `update()` against `basePath`, `ext
 ### Failure Policy
 
 A refusal leaves no partial work behind. `extract` checks every target before writing any, and `dump`
-checks every entry before building the archive, so one unsafe path fails the whole command with exit
-1. `update` stops at its first failed read, unsafe path or transform and writes nothing. With
-`--continue-on-error` it reports every failure instead, `--apply` writes the blocks that succeeded,
-and the command still exits 1.
+checks every entry before building the archive, so one unsafe or ambiguous target fails the whole
+command with exit 1. `update` stops at its first failed read, broken region rule, unsafe path or
+transform and writes nothing. With `--continue-on-error` it reports every failure instead, `--apply`
+writes only the documents whose every `file=` and `region=` could be read, and the command still
+exits 1. `validate` reports every problem for a document without writing anything.
 
 ### Running Code
 
@@ -1333,12 +1409,12 @@ stdout and nothing else: no colours and no progress text. Without `--json`, the 
 
 - `version` - The contract version, currently `1`. It changes only when the contract changes
   incompatibly. The library exports it as `CONTRACT_VERSION`.
-- `command` - The command that ran: `list`, `extract`, `update`, `run` or `dump`.
+- `command` - The command that ran: `list`, `extract`, `update`, `validate`, `run` or `dump`.
 - `ok` - `true` when `errors` is empty.
 - `result` - What the command did, described below. It is `null` when the command failed before doing
   any work: invalid metadata, bad flags, an invalid configuration, unreadable input, a transform
-  module that could not be loaded, an `unsafe_path` refusal from `extract` or `dump`, or `update`
-  stopping at its first failed block. For `extract` and `update`, it is `null` when no document got as
+  module that could not be loaded, a refusal from `extract`, an `unsafe_path` refusal from `dump`, or
+  `update` stopping at its first failed block. For `extract` and `update`, it is `null` when no document got as
   far as a result.
 - `errors` - Everything that went wrong. A command can fail for some blocks and still report a result
   for all of them.
@@ -1365,6 +1441,12 @@ Each error has a `code` and a `message`. These fields are added when they apply:
 | `read_failed` | `update` could not read a block's `file=` or region |
 | `transform_failed` | `update`'s transformer threw for a block |
 | `unsafe_path` | A block's `file=` is absolute or leads outside the allowed base, directly or through a symlink; or a configuration path leaves the configuration's directory |
+| `ambiguous_target` | Several selected blocks write one `extract` target, but not each with its own `region=` in one language |
+| `missing_region` | `update`: a block's `region=` is not in its `file=`, or `outline=true` finds no region markers |
+| `duplicate_region` | A block's `region=` is opened more than once in its file |
+| `malformed_region` | A block's `region=` is not a valid name, or its markers are never closed, overlap, or do not nest |
+| `region_language_mismatch` | A block's `region=` is marked only in another language's comment syntax |
+| `missing_file_metadata` | `validate --strict`: a selected block has no `file=` |
 | `out_of_sync` | `update --check` found a selected block that differs from its source |
 | `command_failed` | `run`'s command exited non-zero for a block |
 | `unexpected_error` | Anything else |
@@ -1422,6 +1504,12 @@ type ErrorCode =
   | "read_failed"
   | "transform_failed"
   | "unsafe_path"
+  | "ambiguous_target"
+  | "missing_region"
+  | "duplicate_region"
+  | "malformed_region"
+  | "region_language_mismatch"
+  | "missing_file_metadata"
   | "out_of_sync"
   | "command_failed"
   | "unexpected_error";
@@ -1498,6 +1586,24 @@ type UpdateEnvelope = Envelope<{
   >;
 }>;
 
+// mdcode validate --json
+type ValidateEnvelope = Envelope<{
+  operation: "extract" | "update";
+  /** One entry per document, in the order they were read */
+  documents: Array<{
+    /** As named on the command line, or relative to the current directory; null for stdin */
+    document: string | null;
+    blocks: Array<BlockRef & {
+      lang: string;
+      /** The target extract would write, or the file= update would read; null for none */
+      path: string | null;
+      region?: string;
+      /** false when an error concerns this block */
+      valid: boolean;
+    }>;
+  }>;
+}>;
+
 // mdcode run --allow-shell --json
 type RunEnvelope = Envelope<{
   /** Where block files were written; removed afterwards unless --keep or --dir was given */
@@ -1538,13 +1644,20 @@ type DumpEnvelope = Envelope<{
 - `update` - One entry in `documents` per document, each with one entry per selected block, in
   document order. `changed` and `code` are the plan: which blocks would change, and the exact code
   each would get. Only `--apply` writes the markdown; `written` holds its path, or `null` when nothing
-  changed and the file was left alone. `diff` holds the unified diff under `--diff`, and `source` the
-  updated markdown under `--stdout`. Under `--check`, each changed block adds an `out_of_sync` error,
+  changed and the file was left alone, or a block's `file=` or `region=` failed. `diff` holds the
+  unified diff under `--diff`, and `source` the updated markdown under `--stdout`. Under `--check`,
+  each changed block adds an `out_of_sync` error,
   with `path` set to its `file=` when it has one. With `--continue-on-error`, a block whose `file=`
   cannot be read keeps its original code, which is still passed to the transformer, a block whose
   transformer throws keeps the code it had before the transform, and a document that fails is
   reported and skipped. Without it, the first such failure stops the command, `--apply` writes
   nothing, and a document that never got a result has no entry.
+- `validate` - `operation` is the command the documents were checked for. One entry in `documents` per
+  document, each with one entry per selected block, in document order. `path` is the file the block
+  maps to: for `extract`, the target joined onto `--dir`, with the generated `block-N` name for a
+  block without `file=`; for `update`, its `file=` as written; `null` when it maps to no file. `valid`
+  is `false` when an error concerns the block, and each problem adds an error whose code names the
+  rule.
 - `run` - One entry per selected block, with the command's exit code and output. Each block whose
   command failed adds a `command_failed` error.
 - `dump` - `dump --json` needs `--out <file>`. The archive is written to that file and never encoded
@@ -1719,7 +1832,7 @@ Exit codes are the same with and without `--json`:
 | Code | Meaning |
 |------|---------|
 | `0` | Success; for `update --check`, every selected block is in sync |
-| `1` | Any error, including `update --check` finding a block out of sync and `extract` refusing an unsafe target |
+| `1` | Any error, including `update --check` finding a block out of sync, `validate` finding a problem, and `extract` refusing a target before writing |
 | `2` | `extract` skipped one or more targets |
 
 ### Changes from Earlier Versions
@@ -1760,6 +1873,20 @@ Exit codes are the same with and without `--json`:
   [Project Configuration](#project-configuration). The new `invalid_config` error code reports a
   configuration that cannot be used.
 - mdcode-ts needs Node 22.17 or later, for `fs.glob`.
+- `extract` checks every target before writing any. Blocks that share a file without each declaring
+  its own `region=` in one language, and region blocks whose existing file has broken markers, are
+  refused as `ambiguous_target`, `malformed_region`, `duplicate_region` or `region_language_mismatch`
+  and nothing is written. They used to skip that one file with `extract_skipped` and exit 2. Two
+  identical whole-file blocks for one file used to be written once; they are now refused too.
+- `update` reports a missing, duplicated, unclosed or wrongly marked `region=` as `missing_region`,
+  `duplicate_region`, `malformed_region` or `region_language_mismatch` instead of `read_failed`. A
+  region found more than once in its file used to have its bodies joined; it is now refused. An empty
+  `region=` used to read the whole file; it is now `malformed_region`. An empty `file=` is now
+  `unsafe_path`: `update` used to ignore it, and `extract` aimed it at `--dir` itself.
+- The new `validate` command reports every problem `extract` or `update` would refuse, without writing.
+- `update --apply --continue-on-error` no longer writes a document in which a block's `file=` or
+  `region=` failed; it used to write that document's other blocks. A document where only a
+  transformer threw is still written.
 
 ---
 
@@ -1997,10 +2124,11 @@ what to do with the result.
   at the first
 - **Returns** - Promise of `{ source, blocks, errors }`: the updated markdown and one `UpdatedBlock`
   per selected block with its resulting `code` and whether it `changed`. `errors` is only filled with
-  `continueOnError`: a `read_failed`, `unsafe_path` or `transform_failed` error for each failed block,
-  which keeps the code it had before the failing step.
+  `continueOnError`: for each failed block, a `read_failed`, `unsafe_path` or `transform_failed`
+  error, or the region rule it broke (`missing_region`, `duplicate_region`, `malformed_region` or
+  `region_language_mismatch`). The block keeps the code it had before the failing step.
 - **Throws** - `MetadataError` when the document's metadata is invalid. Without `continueOnError`,
-  the first failed read, unsafe path or failed transform throws an `Error` whose `errors` array holds
+  the first failed read, broken rule or failed transform throws an `Error` whose `errors` array holds
   that one `ResultError`.
 
 #### `list(options: ListOptions): ListResult`
@@ -2027,9 +2155,25 @@ Write code blocks to files based on their `file` metadata.
 - **Returns** - Promise of `{ targets, updatedSource?, errors }`: one `ExtractTarget` per target file,
   the markdown with `file=` added when `updateSource` added any, and one `extract_skipped` error per
   skipped target. `extract` writes the target files but not the markdown.
-- **Throws** - `MetadataError` when the document's metadata is invalid. When any target is absolute
-  or leads outside `outputDir`, directly or through a symlink, it throws an `Error` whose `errors`
-  array holds one `unsafe_path` `ResultError` per refused target, and nothing is written.
+- **Throws** - `MetadataError` when the document's metadata is invalid. When any block breaks a
+  mapping rule checked by `validate()` for extract, it throws an `Error` whose `errors` array holds
+  one `ResultError` per block (`unsafe_path`, `ambiguous_target`, `malformed_region`,
+  `duplicate_region` or `region_language_mismatch`), and nothing is written.
+
+#### `validate(options: ValidateOptions): Promise<ValidateResult>`
+
+Check how the selected blocks map onto files for `extract` or `update`. It reads the files the blocks
+name, where they exist, but never writes. See [Validate Command](#validate-command) for the rules.
+
+- **options.source** - The markdown source string
+- **options.operation** - `"extract"` or `"update"`
+- **options.filter** - Optional filter criteria
+- **options.base** - `extract`'s `outputDir`, or `update`'s `basePath` (default: '.')
+- **options.strict** - Require `file=` on every selected block
+- **options.ignoreAnonymous** - For `"extract"`, leave out blocks without `file=`
+- **Returns** - Promise of `{ blocks, errors }`: one `ValidatedBlock` (`name`, `line`, `lang`, `path`,
+  `region?`, `valid`) per selected block, and one `ResultError` per broken rule, in document order
+- **Throws** - `MetadataError` when the document's metadata is invalid
 
 #### `run(options: RunOptions): Promise<RunResult>`
 
@@ -2136,7 +2280,7 @@ and length are kept as written.
 
 ### Region Extraction
 
-Use region comments in your source files to extract specific sections. If the same region name appears multiple times, all occurrences are joined together:
+Use region comments in your source files to extract specific sections. Each region name may be used once per file: `update` refuses a region it finds more than once as `duplicate_region`, rather than guessing which body you meant.
 
 ```javascript file=block-66.md
 // #region factorial

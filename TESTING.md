@@ -36,6 +36,7 @@ Two packages, `packages/mdcode` (published as `mdcode-ts`) and `packages/usage`.
   - `parser.test.ts` — info-string and fenced-block parsing
   - `commands/extract.test.ts` — in-place splicing, `--force`, and every refusal path
   - `commands/update.test.ts` — filling blocks from source regions
+  - `commands/validate.test.ts` — every mapping rule for extract and update, and `--strict`
   - `config.test.ts` — `mdcode.config.json` validation, glob expansion and path containment
 - **Fixture-driven tests** — `packages/mdcode/tests/examples/integration.test.ts`, against the
   worked examples under `packages/mdcode/tests/examples/`
@@ -43,6 +44,8 @@ Two packages, `packages/mdcode` (published as `mdcode-ts`) and `packages/usage`.
   - `cli-integration.test.ts` spawns the **built** CLI at `packages/mdcode/dist/main.js`
   - `json-contract.test.ts` and `project-config.test.ts` spawn it too: the `--json` envelope, and
     `--project`/`--config` discovery, precedence and multi-document runs
+  - `validate.test.ts` spawns it for `mdcode validate`'s text and JSON reports, and for `extract`
+    refusing before it writes
   - `check-docs-sync.test.ts` and `validate-snippets.test.ts` run the `examples/ci/` scripts against
     the built CLI, through an `mdcode` shim on `PATH`
   - the rest exercise the public library API as an external consumer would

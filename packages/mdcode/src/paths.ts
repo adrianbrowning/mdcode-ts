@@ -23,10 +23,13 @@ export class UnsafePathError extends Error {
  * Resolve a metadata path against `base` and confirm it stays inside it, after
  * following every symlink that already exists along the way. The target itself
  * need not exist yet.
- * @returns the absolute path, as resolved (not through symlinks)
- * @throws {UnsafePathError} when the path is absolute or leads outside `base`
+ * @throws {UnsafePathError} when the path is empty, absolute or leads outside `base`
  */
 export async function resolveContained(path: string, base: string): Promise<string> {
+  if (path === "") {
+    throw new UnsafePathError(path, `an empty path names ${resolve(base)} itself; name a file inside it`);
+  }
+
   if (isAbsolute(path) || win32.isAbsolute(path)) {
     throw new UnsafePathError(path, `absolute path ${path} is refused; write it relative to ${resolve(base)}`);
   }
@@ -119,6 +122,7 @@ function isInside(path: string, root: string): boolean {
   return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 }
 
-function isMissing(error: unknown): boolean {
+/** Whether a filesystem error means the path, or one of its parents, does not exist. */
+export function isMissing(error: unknown): boolean {
   return error !== null && typeof error === "object" && "code" in error && (error.code === "ENOENT" || error.code === "ENOTDIR");
 }

@@ -49,7 +49,7 @@ describe("update from file regions", () => {
 
     assert.equal(result.source, source, "an unterminated region must not rewrite the markdown block");
     assert.deepStrictEqual(result.blocks.map(block => block.changed), [ false ]);
-    assert.deepStrictEqual(result.errors.map(({ code, line, path }) => ({ code, line, path })), [{ code: "read_failed", line: 1, path: "a.js" }]);
+    assert.deepStrictEqual(result.errors.map(({ code, line, path }) => ({ code, line, path })), [{ code: "malformed_region", line: 1, path: "a.js" }]);
     assert.match(result.errors[0]!.message, /alpha/);
   });
 
@@ -67,7 +67,30 @@ describe("update from file regions", () => {
     const result = await update({ source, basePath: dir, continueOnError: true });
 
     assert.equal(result.source, source, "a missing region must not empty the markdown block");
-    assert.deepStrictEqual(result.errors.map(error => error.code), [ "read_failed" ]);
+    assert.deepStrictEqual(result.errors.map(error => error.code), [ "missing_region" ]);
+  });
+
+  it("refuses a region the file opens twice, rather than joining both bodies", async () => {
+    const dir = await tempDir();
+    await writeSource(dir, "a.js", "// #region alpha\n1\n// #endregion alpha\n// #region alpha\n2\n// #endregion alpha\n");
+
+    const source = "```js file=a.js region=alpha\nORIGINAL\n```\n";
+
+    await assert.rejects(update({ source, basePath: dir }), (error: unknown) => {
+      assert.ok(error instanceof BlockFailure);
+      assert.deepStrictEqual(error.errors.map(({ code, path }) => ({ code, path })), [{ code: "duplicate_region", path: "a.js" }]);
+      return true;
+    });
+  });
+
+  it("refuses an empty file=, as validate does, instead of ignoring it", async () => {
+    const dir = await tempDir();
+    const source = "```js file=\"\"\nORIGINAL\n```\n";
+
+    const result = await update({ source, basePath: dir, continueOnError: true });
+
+    assert.equal(result.source, source);
+    assert.deepStrictEqual(result.errors.map(error => error.code), [ "unsafe_path" ]);
   });
 
   it("still fills the block from a well-formed region", async () => {

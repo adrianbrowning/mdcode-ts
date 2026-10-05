@@ -5,7 +5,7 @@ import { stdin } from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { styleText } from "node:util";
 
-import { Command, CommanderError } from "commander";
+import { Command, CommanderError, Option } from "commander";
 import { createTwoFilesPatch, FILE_HEADERS_ONLY } from "diff";
 
 import { dump, formatDump } from "./commands/dump.ts";
@@ -15,13 +15,15 @@ import { formatList, list } from "./commands/list.ts";
 import { formatRunBlock, run } from "./commands/run.ts";
 import type { UpdateResult } from "./commands/update.ts";
 import { describeChange, formatUpdate, update } from "./commands/update.ts";
+import type { ValidatedBlock, ValidateOperation } from "./commands/validate.ts";
+import { validate } from "./commands/validate.ts";
 import type { ProjectConfig } from "./config.ts";
 import { CONFIG_FILE, loadConfig } from "./config.ts";
 import type { CommandName, Envelope, ResultError } from "./result.ts";
-import { CommandError, CONTRACT_VERSION, errorsFrom } from "./result.ts";
+import { BlockFailure, CommandError, CONTRACT_VERSION, describeError, errorsFrom } from "./result.ts";
 import type { FilterOptions, TransformerFunction } from "./types.ts";
 
-const COMMANDS: ReadonlyArray<CommandName> = [ "list", "extract", "update", "run", "dump" ];
+const COMMANDS: ReadonlyArray<CommandName> = [ "list", "extract", "update", "validate", "run", "dump" ];
 
 /**
  * Read input from file or stdin
@@ -102,6 +104,21 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** A failure as lines of text: one per block a BlockFailure names, else its message. */
+function errorLines(error: unknown): Array<string> {
+  return error instanceof BlockFailure ? error.errors.map(describeError) : [ messageOf(error) ];
+}
+
+/** Where update resolves a document's file= paths: --base, else sourceRoot, else the markdown's directory, or the current directory for stdin. */
+function updateBase(base: string | undefined, config: ProjectConfig | undefined, document: Document): string {
+  return base ? resolve(base) : config?.sourceRoot ?? (document.file ? dirname(resolve(document.file)) : process.cwd());
+}
+
+/** Where extract writes: --dir, else outputRoot, else the current directory. */
+function extractDir(dir: string | undefined, config: ProjectConfig | undefined): string {
+  return dir ?? config?.outputRoot ?? ".";
+}
+
 /** What `mdcode update` does with the updated markdown; only apply writes it. */
 const UPDATE_MODES = [ "plan", "apply", "diff", "check", "stdout" ] as const;
 
@@ -137,6 +154,23 @@ type ExtractedDocument = Omit<ExtractResult, "errors"> & {
   document: string | null;
   /** --update-source: the Markdown file rewritten with file= metadata. */
   written?: string;
+};
+
+const VALIDATE_OPERATIONS: ReadonlyArray<ValidateOperation> = [ "extract", "update" ];
+
+/** Flags accepted by `mdcode validate`. */
+type ValidateCliOptions = FilterCliOptions & ProjectCliOptions & {
+  for: ValidateOperation;
+  strict?: boolean;
+  base?: string;
+  dir?: string;
+  ignoreAnonymous?: boolean;
+};
+
+/** What validate found for one document, as it appears in the result's documents. */
+type ValidatedDocument = {
+  document: string | null;
+  blocks: Array<ValidatedBlock>;
 };
 
 /**
@@ -250,7 +284,7 @@ export async function Execute(
         writeEnvelope(command, null, errorsFrom(error));
       }
       else {
-        stderr.write(`Error: ${error instanceof Error ? error.message : String(error)}\n`);
+        writeLines(stderr, errorLines(error).map(line => `Error: ${line}`));
       }
       exitCode = 1;
       return;
@@ -339,7 +373,7 @@ export async function Execute(
         const config = await loadProject(options);
         const documents = selectDocuments(files, config);
         const filter = mergeFilters(config?.filter, parseFilterOptions(options));
-        const outputDir = options.dir ?? config?.outputRoot ?? ".";
+        const outputDir = extractDir(options.dir, config);
         const several = documents.length > 1;
         const results: Array<ExtractedDocument> = [];
         const errors: Array<ResultError> = [];
@@ -363,7 +397,7 @@ export async function Execute(
           catch (error: unknown) {
             // Extract writes as it goes, so later documents are not started.
             errors.push(...inDocument(document, errorsFrom(error)));
-            reports.push(() => stderr.write(`Error: ${at(messageOf(error))}\n`));
+            reports.push(() => writeLines(stderr, errorLines(error).map(line => `Error: ${at(line)}`)));
             break;
           }
 
@@ -514,7 +548,7 @@ export async function Execute(
           try {
             const source = await readInput(document.file);
             // file= paths resolve against, and must stay inside, the base
-            const basePath = options.base ? resolve(options.base) : config?.sourceRoot ?? (document.file ? dirname(resolve(document.file)) : process.cwd());
+            const basePath = updateBase(options.base, config, document);
             worked.push({ document, source, outcome: await update({ source, filter, transformer, basePath, continueOnError: options.continueOnError }) });
           }
           catch (error: unknown) {
@@ -553,7 +587,7 @@ export async function Execute(
 
           if ("error" in item) {
             errors.push(...inDocument(document, errorsFrom(item.error)));
-            reports.push(() => stderr.write(`Error: ${at(messageOf(item.error))}\n`));
+            reports.push(() => writeLines(stderr, errorLines(item.error).map(line => `Error: ${at(line)}`)));
             continue;
           }
 
@@ -570,16 +604,26 @@ export async function Execute(
           errors.push(...inDocument(document, outcome.errors));
 
           if (mode === "apply") {
+            // A block whose file= or region= broke a mapping rule leaves the whole document
+            // unwritten, even with --continue-on-error; only a failed transform lets the rest land.
+            const refused = outcome.errors.some(error => error.code !== "transform_failed");
             // An unchanged file is left untouched, so its modification time says nothing changed.
-            const written = changed.length > 0 ? document.label : null;
+            const written = changed.length > 0 && !refused ? document.label : null;
 
-            if (changed.length > 0) {
+            if (written !== null) {
               await writeFile(document.file!, outcome.source, "utf-8");
             }
 
             results.push({ document: document.label, blocks, written });
             reports.push(() => {
               progress();
+
+              if (refused) {
+                // Reported even under --quiet, so a refusal is never silent.
+                stderr.write(styleText("yellow", at("Not written: a block's file= or region= failed. Run mdcode validate to list every problem.")) + "\n");
+                return;
+              }
+
               status(written === null
                 ? styleText("yellow", at("No blocks were updated."))
                 : styleText([ "bold", "green" ], `\nUpdated ${changed.length} block(s) in ${written}.`));
@@ -679,6 +723,82 @@ export async function Execute(
             for (const report of reports) {
               report();
             }
+          },
+        };
+      });
+    });
+
+  // Validate command
+  program
+    .command("validate")
+    .description("Check that code blocks map safely onto files for update or extract, without writing anything")
+    .argument("[files...]", DOCUMENTS_HELP)
+    .addOption(new Option("--for <command>", "The command to check the documents for").choices(VALIDATE_OPERATIONS).default("update"))
+    .option("-l, --lang <lang>", "Filter by language")
+    .option("-f, --file <file>", "Filter by file metadata")
+    .option("-m, --meta <key=value...>", "Filter by custom metadata")
+    .option("-n, --name <name>", NAME_FLAG_HELP, collect)
+    .option("--strict", "Require file= metadata on every selected block")
+    .option("--base <dir>", "With --for update: directory file= paths resolve against and must stay inside, as for update")
+    .option("-d, --dir <dir>", "With --for extract: directory file= targets resolve against and must stay inside, as for extract")
+    .option("--ignore-anonymous", "With --for extract: skip blocks without file metadata, as extract does")
+    .option("--project", PROJECT_HELP)
+    .option("--config <path>", CONFIG_HELP)
+    .option("--json", "Print one versioned JSON result instead of text")
+    .action(async (files: Array<string>, options: ValidateCliOptions) => {
+      await perform("validate", options.json, async () => {
+        const operation = options.for;
+        const misplaced = operation === "update"
+          ? [ options.dir === undefined ? "" : "--dir", options.ignoreAnonymous ? "--ignore-anonymous" : "" ]
+          : [ options.base === undefined ? "" : "--base" ];
+
+        if (misplaced.some(flag => flag !== "")) {
+          throw new CommandError("invalid_usage", `${misplaced.filter(flag => flag !== "").join(" and ")} cannot be used with --for ${operation}`);
+        }
+
+        const config = await loadProject(options);
+        const documents = selectDocuments(files, config);
+        const filter = mergeFilters(config?.filter, parseFilterOptions(options));
+        const several = documents.length > 1;
+        const results: Array<ValidatedDocument> = [];
+        const errors: Array<ResultError> = [];
+        const lines: Array<string> = [];
+
+        // Every document is checked, so one run reports every problem.
+        for (const document of documents) {
+          const at = (text: string): string => several ? `${document.label}: ${text}` : text;
+
+          try {
+            const checked = await validate({
+              source: await readInput(document.file),
+              operation,
+              filter,
+              base: operation === "extract" ? extractDir(options.dir, config) : updateBase(options.base, config, document),
+              strict: options.strict,
+              ignoreAnonymous: options.ignoreAnonymous,
+            });
+
+            results.push({ document: document.label, blocks: checked.blocks });
+            errors.push(...inDocument(document, checked.errors));
+            lines.push(...checked.errors.map(error => styleText("red", at(`✗ ${describeError(error)} (${error.code})`))));
+          }
+          catch (error: unknown) {
+            errors.push(...inDocument(document, errorsFrom(error)));
+            lines.push(...errorLines(error).map(line => `Error: ${at(line)}`));
+          }
+        }
+
+        const checkedBlocks = results.reduce((count, result) => count + result.blocks.length, 0);
+
+        return {
+          // null when no document got as far as a result, as for any failure before work.
+          result: results.length === 0 ? null : { operation, documents: results },
+          errors,
+          human: () => {
+            writeLines(stderr, lines);
+            stderr.write(errors.length === 0
+              ? styleText("green", `✓ ${checkedBlocks} block(s) ready for ${operation}.`) + "\n"
+              : styleText("yellow", `${errors.length} problem(s) found; ${operation} would refuse them.`) + "\n");
           },
         };
       });

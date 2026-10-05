@@ -8,7 +8,7 @@ import type { Block } from "./types.ts";
 /** Bumped only when the JSON contract changes incompatibly. */
 export const CONTRACT_VERSION = 1;
 
-export type CommandName = "list" | "extract" | "update" | "run" | "dump";
+export type CommandName = "list" | "extract" | "update" | "validate" | "run" | "dump";
 
 export type ErrorCode =
   /** A block's info string breaks the metadata grammar, or two blocks share a name. */
@@ -23,12 +23,24 @@ export type ErrorCode =
   | "invalid_transform"
   /** extract left a target file untouched. */
   | "extract_skipped"
-  /** update could not read a block's file= or region. */
+  /** update could not read a block's file=, which includes a file that does not exist. */
   | "read_failed"
   /** update's transformer threw for a block. */
   | "transform_failed"
   /** A block's file= is absolute or leads outside the allowed base, directly or through a symlink. */
   | "unsafe_path"
+  /** Several selected blocks write one extract target without each declaring a distinct region= in one language. */
+  | "ambiguous_target"
+  /** update: the block's region= is not in its file=, or outline=true finds no region markers. */
+  | "missing_region"
+  /** The block's region= is opened more than once in the file, so which body it means is ambiguous. */
+  | "duplicate_region"
+  /** The block's region= is not a valid name, or its markers are unclosed, overlap, or do not nest. */
+  | "malformed_region"
+  /** The block's region= is marked in another language's comment syntax than the block's language. */
+  | "region_language_mismatch"
+  /** validate --strict: a selected block has no file=. */
+  | "missing_file_metadata"
   /** update --check: a selected block differs from what update would write. */
   | "out_of_sync"
   /** run's command exited non-zero for a block. */
@@ -108,7 +120,7 @@ export class BlockFailure extends Error {
 }
 
 /** One error as a line of text, e.g. `line 3 (greet): greet.js: not found`. */
-function describeError({ line, name, path, message }: ResultError): string {
+export function describeError({ line, name, path, message }: ResultError): string {
   const where = line === undefined ? "" : name === undefined ? `line ${line}: ` : `line ${line} (${name}): `;
   return `${where}${path === undefined || message.includes(path) ? "" : `${path}: `}${message}`;
 }

@@ -20,6 +20,8 @@ export type { ExtractOptions, ExtractResult, ExtractTarget } from "./commands/ex
 export { extract } from "./commands/extract.ts";
 export type { UpdatedBlock, UpdateOptions, UpdateResult } from "./commands/update.ts";
 export { update } from "./commands/update.ts";
+export type { SourceRead, ValidatedBlock, ValidateOperation, ValidateOptions, ValidateResult } from "./commands/validate.ts";
+export { validate } from "./commands/validate.ts";
 export type { ListedBlock, ListOptions, ListResult } from "./commands/list.ts";
 export { list } from "./commands/list.ts";
 export type { RunBlockResult, RunOptions, RunResult } from "./commands/run.ts";
