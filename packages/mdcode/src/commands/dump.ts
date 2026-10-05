@@ -5,7 +5,7 @@ import { pack } from "tar-stream";
 import { parse } from "../parser.ts";
 import { escapesArchiveRoot } from "../paths.ts";
 import type { BlockRef, ResultError } from "../result.ts";
-import { BlockFailure, blockError, blockRef } from "../result.ts";
+import { blockError, BlockFailure, blockRef } from "../result.ts";
 import type { FilterOptions } from "../types.ts";
 
 export interface DumpOptions {

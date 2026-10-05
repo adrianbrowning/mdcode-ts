@@ -300,7 +300,7 @@ describe("--json contract", () => {
       for (const [ args, stdin ] of [
         [[ "--check", "-n", "greet", "-n", "gret", doc ]],
         [[ "--apply", "--diff", doc ]],
-        [[ "--apply" ], DOC],
+        [[ "--apply" ], DOC ],
       ] as const) {
         const { exitCode, envelope } = await runJson("update", [ ...args ], { stdin });
 
@@ -315,7 +315,7 @@ describe("--json contract", () => {
     it("--stdout returns the markdown in the result and writes nothing", async () => {
       const { dir, doc } = await staleDoc();
 
-      for (const [ args, stdin ] of [[[ "--stdout", doc ]], [[ "--stdout" ], DOC]] as const) {
+      for (const [ args, stdin ] of [[[ "--stdout", doc ]], [[ "--stdout" ], DOC ]] as const) {
         const { envelope } = await runJson("update", [ ...args ], { stdin, cwd: dir });
 
         assert.match(onlyDocument(envelope).source, /console\.log\('fresh'\);/);

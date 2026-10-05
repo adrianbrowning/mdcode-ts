@@ -2,7 +2,7 @@ import { styleText } from "node:util";
 
 import { walk } from "../parser.ts";
 import type { BlockRef, ResultError } from "../result.ts";
-import { BlockFailure, blockError, blockRef } from "../result.ts";
+import { blockError, BlockFailure, blockRef } from "../result.ts";
 import type { Block, FilterOptions, TransformerFunction } from "../types.ts";
 import type { SourceRead } from "./validate.ts";
 import { readSource, SourceError } from "./validate.ts";
