@@ -8,7 +8,7 @@ import type { Block } from "./types.ts";
 /** Bumped only when the JSON contract changes incompatibly. */
 export const CONTRACT_VERSION = 1;
 
-export type CommandName = "list" | "extract" | "update" | "validate" | "run" | "dump";
+export type CommandName = "list" | "extract" | "update" | "validate" | "watch" | "run" | "dump";
 
 export type ErrorCode =
   /** A block's info string breaks the metadata grammar, or two blocks share a name. */

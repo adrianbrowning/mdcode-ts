@@ -75,6 +75,7 @@ Each command is a separate module with typed options:
   - File mode: reads from `file` metadata, supports `region` extraction
   - Transform mode: uses `--transform` flag with custom function
 - **validate** - Report every block that update (`--for update`, default) or extract (`--for extract`) would refuse, without writing. The rules live in `commands/validate.ts`: `planExtract()` (target grouping, `ambiguous_target`, existing-target markers) is what `extract()` runs before writing, and `readSource()` (file= read, region exactly once in the block's language) is what `update()` reads through
+- **watch** - `commands/watch.ts`: one `update()` pass per document now, then again after each debounced burst of changes to documents, `file=` sources or the config. `--apply` writes, and remembers what it wrote so its own change events don't start another pass. The `WatchFiles` seam replaces `fs.watch` in tests. The CLI re-resolves the config before every pass and stops on SIGINT/SIGTERM with exit 0
 - **run** - Execute shell commands on each block (uses temp files)
 - **dump** - Create tar archive using `tar-stream`
 

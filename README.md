@@ -68,10 +68,11 @@ To check that snippets actually run, mark them `runnable=true` and copy [`exampl
 | `update` | Refresh blocks from the files they reference, or rewrite them with a transform function. Plans by default; `--apply` writes, `--diff` and `--check` review |
 | `extract` | Write blocks to files named by their `file=` metadata |
 | `validate` | Report every block that `update` or `extract` would refuse, such as a missing region or two blocks writing one file, without writing anything |
+| `watch` | Report drift as you edit documents or their sources; `--apply` writes it |
 | `run` | Run a shell command on each block, such as a compiler or test runner |
 | `dump` | Pack blocks into a tar archive |
 
-Every command reads a Markdown file or stdin, filters blocks by language, file, name or other metadata, and supports `--json`. Running `mdcode` with no command lists the blocks in `README.md`.
+Every command filters blocks by language, file, name or other metadata. All but `watch` read a Markdown file or stdin and support `--json`. Running `mdcode` with no command lists the blocks in `README.md`.
 
 ## Documentation
 

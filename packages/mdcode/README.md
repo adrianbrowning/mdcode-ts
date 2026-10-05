@@ -20,6 +20,7 @@ This TypeScript implementation is designed as a **drop-in replacement** for the 
 - **List** code blocks with metadata and previews (text or JSON format)
 - **Update** markdown code blocks from source files OR transform with custom functions
 - **Validate** that blocks map safely onto files before `update` or `extract` writes anything
+- **Watch** documents and their sources, reporting drift, or writing it with `--apply`, as you edit
 - **Run** shell commands on code blocks with enhanced control
 - **Dump** code blocks to tar archives (stdout or file)
 - Support for metadata in code block info strings
@@ -765,6 +766,51 @@ $ mdcode validate --for extract doc.md
 
 ---
 
+## Watch Command
+
+Keep a terminal open while you edit, and `watch` tells you which documents and blocks drift from
+their sources as soon as you save.
+
+```bash file=block-watch.sh
+# Report drift in README.md after each change, without writing
+mdcode watch README.md
+
+# Every document in mdcode.config.json; edits to the configuration take effect at the next change
+mdcode watch --project
+
+# Write each change into the markdown as it happens
+mdcode watch --apply README.md
+```
+
+`watch` checks the documents when it starts, then again after each change to a document, to a file a
+block's `file=` reads, or to the configuration file. Changes that arrive within `--debounce` (100 ms by
+default) of each other are checked once. Each check prints one line per drifted block, failed block
+or written document, or a single `✓ N document(s) in sync` line when there is nothing to report:
+
+```text
+[14:02:11] Watching 1 document(s) and 2 source file(s). Press Ctrl+C to stop.
+[14:02:11] ✓ 1 document(s) in sync
+[14:02:30] README.md: ✗ Out of sync: line 12 (greet): js from src/greet.js
+```
+
+- **Without `--apply`** nothing is written; run `mdcode update --apply` when you are ready.
+- **With `--apply`** each check writes the documents whose blocks drifted, as `update --apply` does,
+  and skips a document while one of its blocks' `file=` or `region=` cannot be read. The change event
+  of its own write does not start another check.
+- **Files it watches** - Each document and every file its selected blocks' `file=` resolve to inside
+  the base, worked out again after every check, so a `file=` you add is watched from then on. A file
+  that does not exist yet is watched too, so creating it starts a check. With `--project`, a document
+  that newly matches `documents` is not watched until then: creating one does not start a check by
+  itself, but the next check, started by any other change, picks it up.
+- **Errors** - A file that cannot be read, a broken region and an unsafe path are reported for their
+  block, and an invalid configuration is reported once; `watch` keeps going and checks again at the
+  next change.
+- **Starting and stopping** - `watch` exits 1 before watching anything when it has no documents (no
+  files and no `--project` or `--config`), bad flags, or a configuration that cannot be used. Ctrl+C
+  (`SIGINT`) or `SIGTERM` stops it with exit 0. It has no `--json`.
+
+---
+
 ## Run Command
 
 Execute shell commands on each code block.
@@ -1287,7 +1333,8 @@ All commands support these common flags:
 - `-f, --file <file>` - Filter by file metadata pattern
 - `-m, --meta <key=value>` - Filter by custom metadata (can specify multiple times)
 - `-n, --name <name>` - Select the block with this `name` metadata; repeat to select several
-- `--json` - Print one versioned JSON envelope instead of text; see [JSON Contract](#json-contract)
+- `--json` - Print one versioned JSON envelope instead of text (every command except `watch`); see
+  [JSON Contract](#json-contract)
 
 Additional flags by command:
 
@@ -1326,6 +1373,12 @@ Additional flags by command:
 - `-d, --dir <dir>` - With `--for extract`: as for `extract`
 - `--ignore-anonymous` - With `--for extract`: skip blocks without `file=`, as `extract` does
 - `--project`, `--config <path>` - As for `update` and `extract`
+
+**watch:**
+- `--base <dir>` - As for `update`
+- `--apply` - Write drifted blocks into the markdown after each change
+- `--debounce <ms>` - Wait this long after the last change before checking (default: 100)
+- `--project`, `--config <path>` - As for `update`
 
 **run:**
 - `--allow-shell` - Confirm that `<command>` may run through the shell once per selected block
@@ -1402,8 +1455,9 @@ mdcode is not a sandbox.
 
 ## JSON Contract
 
-Every command accepts `--json`. With it, the command prints exactly one JSON object, the envelope, on
-stdout and nothing else: no colours and no progress text. Without `--json`, the output is text.
+Every command except `watch`, which prints a line per change until you stop it, accepts `--json`.
+With it, the command prints exactly one JSON object, the envelope, on stdout and nothing else: no
+colours and no progress text. Without `--json`, the output is text.
 
 ### Envelope
 
@@ -1887,6 +1941,7 @@ Exit codes are the same with and without `--json`:
 - `update --apply --continue-on-error` no longer writes a document in which a block's `file=` or
   `region=` failed; it used to write that document's other blocks. A document where only a
   transformer threw is still written.
+- The new `watch` command reports drift after each change to a document or a file its blocks read.
 
 ---
 
@@ -2174,6 +2229,24 @@ name, where they exist, but never writes. See [Validate Command](#validate-comma
 - **Returns** - Promise of `{ blocks, errors }`: one `ValidatedBlock` (`name`, `line`, `lang`, `path`,
   `region?`, `valid`) per selected block, and one `ResultError` per broken rule, in document order
 - **Throws** - `MetadataError` when the document's metadata is invalid
+
+#### `watch(options: WatchOptions): Promise<WatchHandle>`
+
+Run one pass now, then another after each burst of changes to the watched files, until closed. See
+[Watch Command](#watch-command).
+
+- **options.resolve** - Called before every pass; returns `{ documents, filter?, extra? }`, where each
+  document is `{ file, label, basePath }` and `extra` lists further files whose change starts a pass.
+  When the first call rejects, `watch()` rejects; a later rejection is reported and watching goes on.
+- **options.apply** - Write each document whose blocks drifted, unless a block's `file=` or `region=`
+  failed (default: false)
+- **options.debounceMs** - Quiet time after the last change before a pass (default: 100)
+- **options.onEvent** - Receives `{ type: "ready" }`, then `{ type: "pass", documents }` after every
+  pass (each document with its `changed` blocks, `errors` and whether it was `written`), and
+  `{ type: "error", errors }` for a failure watching carried on through
+- **options.watchFiles** - Replaces the file watcher, for tests; by default each file is watched
+  through its directory with `fs.watch`
+- **Returns** - `{ close }`, which stops watching and waits for a running pass to finish
 
 #### `run(options: RunOptions): Promise<RunResult>`
 

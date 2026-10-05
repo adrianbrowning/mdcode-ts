@@ -22,6 +22,8 @@ export type { UpdatedBlock, UpdateOptions, UpdateResult } from "./commands/updat
 export { update } from "./commands/update.ts";
 export type { SourceRead, ValidatedBlock, ValidateOperation, ValidateOptions, ValidateResult } from "./commands/validate.ts";
 export { validate } from "./commands/validate.ts";
+export type { WatchDocument, WatchedDocument, WatchEvent, WatchFiles, WatchHandle, WatchOptions, WatchTarget } from "./commands/watch.ts";
+export { watch } from "./commands/watch.ts";
 export type { ListedBlock, ListOptions, ListResult } from "./commands/list.ts";
 export { list } from "./commands/list.ts";
 export type { RunBlockResult, RunOptions, RunResult } from "./commands/run.ts";
