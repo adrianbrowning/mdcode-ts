@@ -751,11 +751,12 @@ block's line and name, the file concerned and the rule, which is the error code:
 | `ambiguous_target` | - | Several blocks write one file, but not each with its own `region=` in one language |
 | `missing_file_metadata` | `--strict`: a selected block has no `file=` | Same |
 
-`update` and `extract` apply the same rules themselves, so a document `validate` passes is one they
-will not refuse for these reasons. `extract` can still skip an existing file it would overwrite
-whole without `--force`, and a symlinked or non-UTF-8 target it would splice.
+`update` and `extract` enforce every rule here except `--strict`, which only `validate` applies, so a
+document `validate` passes is one they will not refuse for these reasons. For `extract`, a region an
+existing target lacks is appended, not an error. `extract` can still skip an existing file it would
+overwrite whole without `--force`, and a symlinked or non-UTF-8 target it would splice.
 
-```text file=block-validate-output.txt
+```text
 $ mdcode validate --for extract doc.md
 ✗ line 5: out.ts: blocks on lines 5, 9 all write this file, but not every one declares region=; give each block a region= of its own, or a file of its own (ambiguous_target)
 ✗ line 9: out.ts: blocks on lines 5, 9 all write this file, but not every one declares region=; give each block a region= of its own, or a file of its own (ambiguous_target)

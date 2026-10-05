@@ -346,6 +346,16 @@ describe("extract: refuses unsafe targets", () => {
     assert.deepEqual(errors, [{ code: "unsafe_path", line: 1, path: outside }]);
   });
 
+  test("refuses an empty file= before writing anything, even with force", async () => {
+    const dir = await tempDir();
+    const source = "```ts file=safe.ts\nok\n```\n\n```ts file=\"\"\npwned\n```\n";
+
+    const errors = await refusal(extract({ source, outputDir: dir, force: true }));
+
+    assert.deepEqual(errors, [{ code: "unsafe_path", line: 5, path: "" }]);
+    assert.deepEqual(await readdir(dir), [], "the safe block must not be written either");
+  });
+
   test("refuses a file= that leads out through a symlinked directory", async () => {
     const dir = await tempDir();
     const out = join(dir, "out");

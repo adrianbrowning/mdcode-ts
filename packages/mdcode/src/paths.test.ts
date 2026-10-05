@@ -65,6 +65,10 @@ describe("resolveContained", () => {
 
     assert.equal(await resolveContained("soon.ts", base), join(base, "soon.ts"));
   });
+
+  test("refuses an empty path, which would name the base itself", async () => {
+    await assert.rejects(resolveContained("", await tempDir()), UnsafePathError);
+  });
 });
 
 describe("escapesArchiveRoot", () => {
