@@ -140,15 +140,15 @@
       ]
     },
     "source:packages/usage/tests/cli-integration.test.ts": {
-      "fingerprint": "0fc685f78cefa4dc0ae3597176c941aeb5cc89f4b7a33b51752566f0027f6305",
+      "fingerprint": "b25382b7ae8989834f89d3ab788edc35da848362fa32b6105ddf5e234103b399",
       "snapshot": {
-        "packages/usage/tests/cli-integration.test.ts": "d95b6f11091013d9b21683b124670ebbc5b5c206fe94c3faae5dba847f4a8abd"
+        "packages/usage/tests/cli-integration.test.ts": "ccc6b9b7a0f4c9a41c3fb6c7563e7f55ce1f38d8c04e79dcaf9c76000a3b2d0f"
       },
-      "head": "1d5875a70d51efab8c48ee12071e0d3d68fa66da",
+      "head": "e880bfe898c0c2ff605662bbf74d71ab3497c97d",
       "outcome": "no-change",
-      "reason": "New regression test for --meta; it pins behaviour the skill relies on but changes no guidance.",
+      "reason": "Adds a table test that each of list, update, validate, extract, run and dump reads the document after --meta; it pins the CLI behaviour the skill describes and changes no guidance.",
       "evidence": [
-        "cli-integration.test.ts '--meta takes one key=value, so a file after it is still the file to read' failed on the variadic build and passes after; `mdcode list --json --meta runnable=true README.md` now returns the runnable block (it returned none before); a scan of packages/mdcode/README.md and examples/CLI_EXAMPLES.md finds no list/run/dump with several files or a directory and no glob --file value; skill task check still passes."
+        "The test fails on origin/main's cli.ts ('list must read doc.md after --meta') and passes on this branch."
       ]
     }
   }

@@ -249,6 +249,39 @@ const y = 2;
         await rm(dir, { recursive: true, force: true });
       }
     });
+
+    it("every command reads the file that follows --meta", async () => {
+      const dir = await mkdtemp(join(tmpdir(), "mdcode-meta-each-"));
+      await writeFile(join(dir, "doc.md"), "```sh kind=keep name=keep\necho keep\n```\n\n```sh name=other\necho other\n```\n", "utf-8");
+
+      type Json = { result: Record<string, unknown>; };
+      const blocks = (envelope: Json): Array<{ name: string; }> => envelope.result.blocks as Array<{ name: string; }>;
+      const inDocuments = (key: string) => (envelope: Json): Array<{ name: string; }> =>
+        (envelope.result.documents as Array<Record<string, Array<{ name: string; blocks?: Array<{ name: string; }>; }>>>)
+          .flatMap(document => document[key]!)
+          .flatMap(entry => entry.blocks ?? [ entry ]);
+
+      const commands: Array<[ Array<string>, (envelope: Json) => Array<{ name: string; }> ]> = [
+        [[ "list" ], blocks ],
+        [[ "update" ], inDocuments("blocks") ],
+        [[ "validate", "--for", "extract" ], inDocuments("blocks") ],
+        [[ "extract", "-d", "out" ], inDocuments("targets") ],
+        [[ "run", "--allow-shell", "true" ], blocks ],
+        [[ "dump", "-o", "out.tar" ], envelope => envelope.result.files as Array<{ name: string; }> ],
+      ];
+
+      try {
+        for (const [ [ command, ...flags ], selected ] of commands) {
+          const { exitCode, stdout } = await execCli([ command!, "--json", ...flags, "--meta", "kind=keep", "doc.md" ], { cwd: dir });
+
+          assert.equal(exitCode, 0, `${command}: ${stdout}`);
+          assert.deepEqual(selected(JSON.parse(stdout)).map(({ name }) => name), [ "keep" ], `${command} must read doc.md after --meta`);
+        }
+      }
+      finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    });
   });
 
   describe("block names", () => {
