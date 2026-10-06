@@ -7,7 +7,7 @@ TypeScript port of [szkiba/mdcode](https://github.com/szkiba/mdcode): keeps Mark
 
 ## Checks
 
-`pnpm check` runs everything CI runs: type check, ESLint, the style config (`lint:s`), build and both test packages. The husky pre-push hook runs it. `pnpm lint:fix` fixes most `lint:s` errors.
+`pnpm check` runs everything CI runs: type check, ESLint, the style config (`lint:s`), build, both test packages, `docs:check` (Markdown blocks match their `file=`) and `docs:examples` (`runnable=true` blocks run). The husky pre-push hook runs it. `pnpm lint:fix` fixes most `lint:s` errors.
 
 ## Conventions
 
@@ -27,6 +27,7 @@ TypeScript port of [szkiba/mdcode](https://github.com/szkiba/mdcode): keeps Mark
 
 - Adding or changing a command, flag or error code: `docs/agents/adding-a-command.md`
 - Test layout: `TESTING.md`
+- Releasing and the release gates: `RELEASING.md`
 - Issues (GitHub, `gh` CLI): `docs/agents/issue-tracker.md`
 - Triage labels: `docs/agents/triage-labels.md`
 - Domain language: `CONTEXT.md` and `docs/adr/`, see `docs/agents/domain.md`

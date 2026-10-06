@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "prepare": "husky",
-    "check": "pnpm lint:ts && pnpm lint:esl && pnpm lint:s && pnpm build && pnpm test",
+    "check": "pnpm lint:ts && pnpm lint:esl && pnpm lint:s && pnpm build && pnpm test && pnpm docs:check && pnpm docs:examples",
     "build": "pnpm --filter mdcode-ts build",
     "dev": "pnpm --filter mdcode-ts dev",
     "test": "pnpm -r test",
@@ -14,6 +14,8 @@
     "test:usage": "pnpm --filter usage test",
     "test:usage:watch": "pnpm --filter usage test:watch",
     "test:all": "pnpm test && pnpm test:usage",
+    "docs:check": "PATH=\"$PWD/scripts/bin:$PATH\" node examples/ci/check-docs-sync.mjs README.md packages/mdcode/README.md examples/CLI_EXAMPLES.md TESTING.md packages/mdcode/tests/examples/factorial/README.md packages/mdcode/tests/examples/fibonacci/README.md",
+    "docs:examples": "PATH=\"$PWD/scripts/bin:$PATH\" node examples/ci/validate-snippets.mjs --tmp-dir packages/mdcode/.mdcode-tmp README.md packages/mdcode/README.md -- node --experimental-strip-types {file}",
     "lint:ts": "pnpm -r lint:ts",
     "lint": "pnpm -r lint",
     "lint:esl": "pnpm -r lint:esl",

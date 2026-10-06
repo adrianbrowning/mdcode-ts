@@ -26,8 +26,65 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-  version-pr:
+  # Every check the release depends on, as one named step each. Runs with a
+  # read-only token and no id-token, because the runnable-examples gate
+  # executes code from the Markdown.
+  gates:
     needs: plan
+    if: needs.plan.outputs.mode == 'version-pr' || needs.plan.outputs.mode == 'publish'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup-base
+
+      - id: type-check
+        name: 'Gate: type check'
+        run: pnpm lint:ts
+
+      - id: lint
+        name: 'Gate: lint'
+        run: pnpm lint:esl && pnpm lint:s
+
+      - id: build
+        name: 'Gate: build'
+        run: pnpm build
+
+      - id: tests
+        name: 'Gate: tests'
+        run: pnpm test
+
+      - id: docs-sync
+        name: 'Gate: docs in sync'
+        run: pnpm docs:check
+
+      - id: runnable-examples
+        name: 'Gate: runnable examples'
+        run: pnpm docs:examples
+
+      - name: Report the failed gate
+        if: failure()
+        env:
+          STEPS: ${{ toJSON(steps) }}
+          MODE: ${{ needs.plan.outputs.mode }}
+        run: |
+          failed=$(jq -r '[to_entries[] | select(.value.outcome == "failure") | .key] | join(", ")' <<< "$STEPS")
+          # Setup Base installs and builds before the first gate, so a failure there has no gate id.
+          failed="${failed:-setup (install or first build)}"
+          if [ "$MODE" = version-pr ]; then effect="No version PR was opened or updated."; else effect="Nothing was published."; fi
+          echo "::error title=Release blocked::Release gate failed: $failed. $effect See RELEASING.md."
+          {
+            echo "## Release blocked"
+            echo
+            echo "Failed gate: \`$failed\` (mode: \`$MODE\`). $effect"
+            echo
+            echo "Open the failed step above for its output, fix it on a pull request to \`main\`, and merge. See RELEASING.md."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  version-pr:
+    needs: [plan, gates]
     if: needs.plan.outputs.mode == 'version-pr'
     runs-on: ubuntu-latest
     permissions:
@@ -46,7 +103,7 @@ jobs:
           BUMPY_GH_TOKEN: ${{ secrets.BUMPY_GH_TOKEN }}
 
   publish:
-    needs: plan
+    needs: [plan, gates]
     if: needs.plan.outputs.mode == 'publish'
     runs-on: ubuntu-latest
     environment: publish

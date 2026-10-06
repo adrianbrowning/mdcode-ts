@@ -1,0 +1,5 @@
+#!/bin/sh
+# Puts the workspace build of mdcode on PATH for the repo's docs:check and
+# docs:examples scripts. pnpm only links a workspace bin when dist/ exists at
+# install time, and CI installs before it builds. Run `pnpm build` first.
+exec node "$(dirname "$0")/../../packages/mdcode/dist/main.js" "$@"

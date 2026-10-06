@@ -20,7 +20,7 @@ This installs the `mdcode` command. Node.js 22 or later is required. To try it w
 
 Put the example in a source file and mark the part you want to show with a region:
 
-```ts
+```ts runnable=true
 // src/greet.ts
 // #region greet
 export function greet(name: string): string {
@@ -97,7 +97,7 @@ Every command filters blocks by language, file, name or other metadata. All but 
 
 ## Development
 
-This is a pnpm workspace. `packages/mdcode` is the published package and `packages/usage` holds end-to-end tests against the built CLI. See [TESTING.md](TESTING.md) for the test layout.
+This is a pnpm workspace. `packages/mdcode` is the published package and `packages/usage` holds end-to-end tests against the built CLI. See [TESTING.md](TESTING.md) for the test layout and [RELEASING.md](RELEASING.md) for how releases are gated and published.
 
 ```bash
 pnpm install
