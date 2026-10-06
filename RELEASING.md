@@ -12,7 +12,7 @@ A push with no bump files and nothing unpublished does nothing.
 
 ## Release gates
 
-The `gates` job runs before both the `version-pr` and `publish` jobs, and both of them need it to pass. If any gate fails, nothing is published and no Version Packages PR is opened or updated.
+The `gates` job runs before both the `version-pr` and `publish` jobs, and both of them need it to pass. If a gate fails in `version-pr` mode, the Version Packages PR is not opened or updated; in `publish` mode, nothing is published to npm.
 
 | Step | Command | Fails when |
 |------|---------|------------|
