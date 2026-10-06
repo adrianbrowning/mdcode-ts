@@ -40,49 +40,70 @@ Documentation examples often become outdated. You write great examples in your R
 
 ### The Solution
 
-**mdcode** solves this by making your documentation executable and testable:
+**mdcode** keeps each example in a source or test file and copies it into the Markdown:
 
-1. **Write code examples directly in your markdown** with metadata
-2. **Extract them to files** for testing and development
-3. **Run them as part of your test suite** to ensure they actually work
-4. **Update your markdown** when the code changes
+1. **Write the example as ordinary code**, marking the part to show with a `#region` if it's only part of a file
+2. **Point a code block at it**, for example ```` ```ts file=src/greet.ts region=greet ````
+3. **Lint and test the code** with your project's usual tools, like any other file
+4. **Copy it into the Markdown** with `mdcode update --apply`, and fail CI with `mdcode update --check` when a block has drifted
+
+The source file stays authoritative. The code block is a copy, so it shows whatever passed your checks.
 
 ### Key Benefits
 
-**Test Your Documentation**
+**Keep Examples Fresh**
+```bash
+# Change the code and check it as usual
+nano src/calculator.js
+npm test
+
+# Copy the change into the README
+mdcode update --apply README.md
+```
+
+**Catch Drift in CI**
+```bash
+npm run lint && npm test            # check the code where it lives
+mdcode update --check README.md     # exit 1 if a block has drifted from it
+```
+
+**One Copy to Maintain**
+- The code lives in one file, which your tools already lint, type-check and test
+- The README holds a copy that `mdcode update` refreshes
+- A block can show a whole file, one `#region` of it, or an outline of its regions
+
+### Writing Examples in the Markdown
+
+mdcode also works the other way. Write a block in the Markdown, then `extract` it to a file and `run` a command on it:
+
 ```bash file=block-1.sh
 # Extract examples from README
 mdcode extract README.md -d ./examples
 
 # Run them as tests
 mdcode run --allow-shell -l js "node {file}" README.md
-
-# They work? Great! They fail? Fix them before users see broken examples.
 ```
 
-**Keep Examples Fresh**
-```bash file=tests/examples/base-1.sh
-# Update your source code
-nano src/calculator.js
-
-# Sync changes back to README
-mdcode update --apply README.md
-```
-
-**Single Source of Truth**
-- Write examples once in your README
-- Extract to files for actual implementation
-- Bidirectional sync keeps everything in sync
-- No duplicate code to maintain
-
-**Documentation-Driven Development**
-1. Write your README with examples first (TDD for docs)
+This suits documentation-driven development:
+1. Write your README with examples first
 2. Extract code blocks to create skeleton files
 3. Implement the functionality
 4. Update README from working code
-5. Your docs are always accurate because they **are** the code
 
-If your README examples don't work, the build fails. Simple.
+Once the files exist, they become the source and `mdcode update` keeps the README in step. To run Markdown-only blocks in CI, mark them `runnable=true`; see [Validating Runnable Snippets in CI](#validating-runnable-snippets-in-ci).
+
+### mdcode and Snippet Checkers
+
+mdcode copies code between source files and Markdown. It doesn't type-check, lint or compile the code in a fence itself, and it has no editor integration. In the source-first workflow, your project's own tools check the source file before mdcode copies it.
+
+Snippet checkers such as [Kiira](https://github.com/AlemTuzlak/kiira) treat the fence as the source. Kiira extracts TypeScript and JavaScript fences from Markdown and MDX, type-checks them against your project and reports errors on the fence's line, in your editor, on the command line and in CI.
+
+They suit different snippets:
+
+- An example that should be complete, tested code belongs in a source or test file, and mdcode copies it into the docs.
+- A fragment that only makes sense in the prose, such as a single call or part of a config, can stay in the Markdown, where a snippet checker type-checks it.
+
+mdcode can also run your own type checker over blocks written in the Markdown. [`validate-snippets.mjs`](#validating-runnable-snippets-in-ci) extracts the `runnable=true` blocks into a temporary workspace and runs a command such as `tsc --noEmit` there. A failure names the block on the command line; nothing shows in your editor.
 
 ## Installation
 

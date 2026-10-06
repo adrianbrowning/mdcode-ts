@@ -2,9 +2,11 @@
 
 [![npm version](https://img.shields.io/npm/v/mdcode-ts)](https://www.npmjs.com/package/mdcode-ts)
 
-mdcode keeps the code blocks in your Markdown docs in sync with real source files. You write and test examples as ordinary code, point a code block at the file (or a `#region` inside it), and `mdcode update` copies the current code into the document. Your README can't drift from code that compiles and passes its tests.
+mdcode keeps the code blocks in your Markdown docs in sync with real source files. Your examples live in ordinary source or test files, so your linter, type checker and tests run on them like any other code. Point a code block at the file (or a `#region` inside it), and `mdcode update` copies the current code into the document. Run your checks first and the README shows the code that passed them.
 
 It also works the other way: `mdcode extract` writes code blocks out to files, and `mdcode run` runs a command against each block. It is a TypeScript port of [szkiba/mdcode](https://github.com/szkiba/mdcode), compatible with its CLI, and adds transform functions, a library API and a versioned `--json` output.
+
+mdcode copies code into Markdown. It doesn't type-check or lint the code inside a fence. If you'd rather write snippets in the Markdown and check them there, use a snippet checker such as [Kiira](https://github.com/AlemTuzlak/kiira). See [mdcode and Snippet Checkers](packages/mdcode/README.md#mdcode-and-snippet-checkers) for how the two differ.
 
 ## Install
 
@@ -28,6 +30,8 @@ export function greet(name: string): string {
 
 console.log(greet("docs"));
 ```
+
+It's an ordinary file, so your existing lint, type check and tests already cover it.
 
 In your README, add an empty code block that names the file and region:
 
@@ -54,7 +58,14 @@ export function greet(name: string): string {
 ```
 ````
 
-When `src/greet.ts` changes, run `mdcode update --apply README.md` again. In CI, `mdcode update --check README.md` exits 1 when a block has drifted from its source, without writing anything. To check several documents and tell drift apart from a broken `file=`, copy [`examples/ci/check-docs-sync.mjs`](examples/ci/check-docs-sync.mjs); see [Checking Docs in CI](packages/mdcode/README.md#checking-docs-in-ci).
+When `src/greet.ts` changes, run your checks, then `mdcode update --apply README.md` again. CI runs the same two steps in the same order, with `--check` instead of `--apply`:
+
+```bash
+npm run lint && npm test            # check the code where it lives
+npx mdcode update --check README.md # exit 1 if a block has drifted from it
+```
+
+`--check` never writes. To check several documents and tell drift apart from a broken `file=`, copy [`examples/ci/check-docs-sync.mjs`](examples/ci/check-docs-sync.mjs); see [Checking Docs in CI](packages/mdcode/README.md#checking-docs-in-ci).
 
 To keep several documents in sync without repeating their paths, list them in `mdcode.config.json` and run `mdcode update --project --check`. See [Project Configuration](packages/mdcode/README.md#project-configuration).
 
