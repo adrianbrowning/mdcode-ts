@@ -1363,8 +1363,8 @@ stale reaches npm.
 
 ### Gating a Release
 
-The smallest gate is `prepublishOnly`. `npm publish` runs it first and stops without publishing if
-it fails:
+When you publish from your own machine, the smallest gate is `prepublishOnly`. `npm publish` runs it
+first and stops without publishing if it fails:
 
 ```json
 {
@@ -1435,8 +1435,9 @@ the workflow file and the `npm` environment. To publish with a token instead, st
 repository secret, drop `id-token: write`, and pass it to `npm publish` as `NODE_AUTH_TOKEN`.
 
 Only the `publish` job can mint an npm credential. The `checks` job runs the snippets, which is
-running code from the Markdown, so it gets a read-only token and no `id-token`. If you also keep the
-`prepublishOnly` gate, `npm publish` runs the checks a second time, which is harmless.
+running code from the Markdown, so it gets a read-only token and no `id-token`. Use one gate or the
+other, not both: `npm publish` runs `prepublishOnly`, so a `prepublishOnly` that runs `docs:snippets`
+would execute the snippets again inside the `publish` job, where they could mint the credential.
 
 mdcode-ts gates its own releases the same way; see its
 [RELEASING.md](https://github.com/adrianbrowning/mdcode-ts/blob/main/RELEASING.md).
