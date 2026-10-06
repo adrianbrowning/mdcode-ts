@@ -15,7 +15,7 @@
     "test:watch": "node --watch --test-reporter=spec --test './{tests,src}/**/*.test.ts'",
     "prepublishOnly": "pnpm build",
     "lint:ts": "tsc --noEmit",
-    "lint": "tsc --noEmit ; eslint \"src/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
+    "lint": "tsc --noEmit && eslint \"src/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
     "lint:esl": "eslint \"src/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
     "lint:s": "eslint --config .eslintrc.style.json \"src/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
     "lint:fix": "eslint --config .eslintrc.style.json \"src/**/*.{j,t}s{,x}\" --cache --max-warnings=0 --fix"

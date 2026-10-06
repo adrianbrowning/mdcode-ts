@@ -42,6 +42,8 @@ Two packages, `packages/mdcode` (published as `mdcode-ts`) and `packages/usage`.
   - `config.test.ts` — `mdcode.config.json` validation, glob expansion and path containment
 - **Fixture-driven tests** — `packages/mdcode/tests/examples/integration.test.ts`, against the
   worked examples under `packages/mdcode/tests/examples/`
+- **Docs coverage** — `packages/mdcode/tests/docs.test.ts` fails when a command or error code in
+  `src/result.ts` is missing from the READMEs; see `docs/agents/adding-a-command.md`
 - **Integration tests** — `packages/usage/tests/`
   - `cli-integration.test.ts` spawns the **built** CLI at `packages/mdcode/dist/main.js`
   - `json-contract.test.ts` and `project-config.test.ts` spawn it too: the `--json` envelope, and
@@ -55,18 +57,18 @@ Two packages, `packages/mdcode` (published as `mdcode-ts`) and `packages/usage`.
 
 ### Important Notes
 
-- The tests that spawn the CLI, and the `examples/ci/` script tests, run `dist/`, not `src/`. **Run
-  `pnpm build` before them** or you will be testing the previous build.
+- The tests that spawn the CLI, and the `examples/ci/` script tests, run `dist/`, not `src/`. The
+  `usage` package's `pretest` rebuilds it, so `pnpm test` is always current. Running a single usage
+  test file with `node --test` skips that, so run `pnpm build` first.
 - Region fixtures live in `packages/mdcode/tests/testdata/region/` and are compared byte-for-byte, so
   trailing newlines matter.
 - Tests that assert on warnings use `mock.method(console, "error", …)` with `mock.restoreAll()` in a
   `finally`, so a failing assertion cannot leak the stub into sibling tests.
 
-## Before Committing
+## Before Pushing
 
-1. **`pnpm test`** — all packages pass
-2. **`pnpm build`** — build succeeds, and refreshes `dist/` for the CLI tests
-3. **`pnpm -r lint`** — type check and ESLint are clean
+`pnpm check` runs what CI runs: type check, ESLint, `lint:s`, build and both test packages. The
+pre-push hook runs it too.
 
 ## Adding New Tests
 

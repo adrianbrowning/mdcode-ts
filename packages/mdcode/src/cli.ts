@@ -22,10 +22,8 @@ import { formatWatch, watch } from "./commands/watch.ts";
 import type { ProjectConfig } from "./config.ts";
 import { CONFIG_FILE, loadConfig } from "./config.ts";
 import type { CommandName, Envelope, ResultError } from "./result.ts";
-import { BlockFailure, CommandError, CONTRACT_VERSION, describeError, errorsFrom } from "./result.ts";
+import { BlockFailure, COMMAND_NAMES, CommandError, CONTRACT_VERSION, describeError, errorsFrom } from "./result.ts";
 import type { FilterOptions, TransformerFunction } from "./types.ts";
-
-const COMMANDS: ReadonlyArray<CommandName> = [ "list", "extract", "update", "validate", "watch", "run", "dump" ];
 
 /**
  * Read input from file or stdin
@@ -250,7 +248,7 @@ export async function Execute(
   // Set by the command that runs; parsing errors set it too.
   let exitCode = 0;
   // Default behavior: if no subcommand is provided, run list on README.md
-  const hasCommand = COMMANDS.includes(args[0] as CommandName);
+  const hasCommand = COMMAND_NAMES.includes(args[0] as CommandName);
 
   if (!hasCommand && args.length === 0) {
     // No arguments at all - run list README.md
@@ -262,7 +260,7 @@ export async function Execute(
     args = [ "list", ...args ];
   }
 
-  const commandName = COMMANDS.find(name => name === args[0]);
+  const commandName = COMMAND_NAMES.find(name => name === args[0]);
   // Known before parsing, so that even a flag error can be reported as JSON.
   const jsonRequested = commandName !== undefined && args.includes("--json");
 
