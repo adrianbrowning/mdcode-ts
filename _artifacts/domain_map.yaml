@@ -127,8 +127,8 @@ cross_references: []
 gaps:
   - skill: sync-markdown-code-blocks
     question: Package README and examples/CLI_EXAMPLES.md show globs, directories and --file patterns the CLI rejects
-    context: The skill states the real behaviour, verified against the CLI; the docs are tracked in issue #54
-    status: open
+    context: Fixed in issue #54. The examples now pass one file to list, run and dump and an exact --file value, and --meta takes one pair per flag so a file after it is read
+    status: resolved
   - skill: sync-markdown-code-blocks
     question: Fresh-consumer session and discovery checks
     context: Recorded in skill_spec.md with what was and was not verified

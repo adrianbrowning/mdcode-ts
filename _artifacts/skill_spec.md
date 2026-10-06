@@ -42,7 +42,7 @@ ships the `mdcode` CLI and a library API from the workspace package `packages/md
 
 | Skill | Question | Status |
 | --- | --- | --- |
-| sync-markdown-code-blocks | The package README and examples/CLI_EXAMPLES.md show globs, directories and --file patterns the CLI rejects (issue #54). The skill states the verified behaviour; README.md stays a source for the parts that are accurate. | open |
+| sync-markdown-code-blocks | The package README and examples/CLI_EXAMPLES.md showed globs, directories and --file patterns the CLI rejects. Fixed in #54. | resolved |
 | sync-markdown-code-blocks | Discovery (whether agents load the skill from its description for unrelated phrasings) is unverified. | open |
 
 ## Coverage and batch history
@@ -61,4 +61,10 @@ ships the `mdcode` CLI and a library API from the workspace package `packages/md
   - Task check `packages/usage/tests/skill-sync-markdown-code-blocks.test.ts` (fixture in `packages/usage/tests/skills/sync-markdown-code-blocks/`). It accepts `update --apply --project`. It rejects plan-only, applying without the configuration's `sourceRoot`, and changing the source to match the docs.
   - Consumer session: a separate agent got the task text and was pointed at a disposable project with the packed `mdcode-ts-0.0.4.tgz` and `@tanstack/intent@0.5.4`. The project was set up with `intent install` choosing "Enable all", which writes `intent.skills: ["*"]`; that is broader than a consumer should configure, and a least-privilege selection of just this skill was not tested. The agent loaded `mdcode-ts#sync-markdown-code-blocks` through `intent load`, ran `update --diff --project`, then `update --apply --project`, and the unchanged grader passed on its result. **Not an isolated run:** the session also read this repository's own agent instructions and edited an unrelated file here (reverted), so it is not independent fresh-consumer evidence.
   - Discovery: not verified.
-- **Remaining work:** repeat the consumer run in a sandbox that exposes only the consumer project; run discovery checks; revisit the README sources once #54 lands.
+- **Remaining work:** repeat the consumer run in a sandbox that exposes only the consumer project; run discovery checks.
+
+### Batch 2 — 2026-10-06, mdcode-ts 0.0.4 (issue #54)
+
+- **Change:** `--meta` is now repeatable, one `key=value` per flag, instead of variadic. Before, it took every following argument, so `mdcode list --meta runnable=true README.md` read stdin and found nothing. That included the skill's own `--meta` example. A value may now contain `=`. The package README and `examples/CLI_EXAMPLES.md` now pass one file to `list`, `run` and `dump` and an exact `--file` value. The flags reference no longer calls `--file` a pattern.
+- **Guidance:** no change. The skill already said `list`, `run` and `dump` read one file and that `--file` is exact, and its `--meta` example is now correct as written. README.md remains a source; the parts that disagreed with the CLI are fixed.
+- **Checks:** `cli-integration.test.ts` adds "--meta takes one key=value, so a file after it is still the file to read". It failed before the change and passes after. The skill task check still passes.

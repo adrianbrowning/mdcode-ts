@@ -180,7 +180,7 @@ documents the full contract.
 ```bash
 # Long form
 mdcode list --lang js README.md
-mdcode list --lang python docs/*.md
+mdcode list --lang python docs/guide.md
 
 # Short form
 mdcode list -l js README.md
@@ -189,14 +189,16 @@ mdcode list -l sql API.md
 
 ### Filter by File Metadata
 
+`--file` selects blocks whose `file=` is exactly the value given; it is not a glob.
+
 ```bash
 # Long form
 mdcode list --file app.js README.md
-mdcode list --file "*.test.js" docs/
+mdcode list --file app.test.js docs/guide.md
 
 # Short form
 mdcode list -f app.js README.md
-mdcode list -f server.py docs/
+mdcode list -f server.py docs/guide.md
 ```
 
 ### Filter by Custom Metadata
@@ -204,7 +206,7 @@ mdcode list -f server.py docs/
 ```bash
 # Long form
 mdcode list --meta region=main README.md
-mdcode list --meta type=example docs/
+mdcode list --meta type=example docs/guide.md
 
 # Short form
 mdcode list -m region=main README.md
@@ -222,8 +224,8 @@ mdcode list --lang js --file app.js --meta region=main README.md
 # Short forms
 mdcode list -l js -f app.js -m region=main README.md
 
-# Filter JavaScript test files
-mdcode list -l js -f "*.test.js" docs/
+# Filter one JavaScript test file
+mdcode list -l js -f app.test.js docs/guide.md
 ```
 
 ### JSON with Filters
@@ -233,7 +235,7 @@ mdcode list -l js -f "*.test.js" docs/
 mdcode list --json --lang js README.md
 
 # JSON with multiple filters
-mdcode list --json -l python -m type=example docs/
+mdcode list --json -l python -m type=example docs/guide.md
 ```
 
 ---
@@ -286,7 +288,7 @@ mdcode extract --dir ./extracted docs/API.md
 
 # Short form
 mdcode extract -d output README.md
-mdcode extract -d ./build docs/
+mdcode extract -d ./build docs/*.md
 ```
 
 ### Quiet Mode
@@ -313,11 +315,11 @@ mdcode extract -l js -d ./src docs/*.md
 
 # Extract specific file
 mdcode extract --file app.js README.md
-mdcode extract -f server.py -d ./src docs/
+mdcode extract -f server.py -d ./src docs/*.md
 
 # Extract with metadata filter
 mdcode extract --meta type=component README.md
-mdcode extract -m region=main -d ./lib docs/
+mdcode extract -m region=main -d ./lib docs/*.md
 ```
 
 ### Combined Examples
@@ -447,8 +449,8 @@ Combine transformers with filters to target specific blocks:
 # Transform only SQL blocks
 mdcode update --apply --transform ./uppercase.js --lang sql README.md
 
-# Transform only test files
-mdcode update --apply -t ./add-headers.js -f "*.test.js" docs/API.md
+# Transform only the blocks for one test file
+mdcode update --apply -t ./add-headers.js -f app.test.js docs/API.md
 
 # Transform JavaScript blocks in examples
 mdcode update --apply -t ./format.js -l js -m type=example docs/API.md
@@ -517,7 +519,7 @@ mdcode run --allow-shell "node {file}" README.md
 mdcode run --allow-shell "python {file}" --lang python README.md
 
 # Compile and run C code
-mdcode run --allow-shell "gcc {file} -o out && ./out" --lang c docs/
+mdcode run --allow-shell "gcc {file} -o out && ./out" --lang c docs/guide.md
 ```
 
 ### Filter by Language
@@ -530,8 +532,11 @@ mdcode run --allow-shell --lang js "node {file}" README.md
 mdcode run --allow-shell -l js "node {file}" README.md
 
 # Multiple languages (run separately)
-mdcode run --allow-shell -l python "python {file}" docs/*.md
-mdcode run --allow-shell -l js "node {file}" docs/*.md
+mdcode run --allow-shell -l python "python {file}" docs/guide.md
+mdcode run --allow-shell -l js "node {file}" docs/guide.md
+
+# run reads one Markdown file; loop for several
+for doc in docs/*.md; do mdcode run --allow-shell -l js "node {file}" "$doc"; done
 ```
 
 ### Filter by Name
@@ -546,7 +551,7 @@ mdcode run --allow-shell --name test-example "node {file}" README.md
 mdcode run --allow-shell -n calculate "python {file}" docs/API.md
 
 # With language filter
-mdcode run --allow-shell -l js -n integration-test "node {file}" tests/
+mdcode run --allow-shell -l js -n integration-test "node {file}" tests/README.md
 ```
 
 ### Custom Working Directory
@@ -558,7 +563,7 @@ Specify where to save temporary files and run commands:
 mdcode run --allow-shell --dir /tmp/mdcode "node {file}" README.md
 
 # Short form
-mdcode run --allow-shell -d ./temp "python {file}" docs/
+mdcode run --allow-shell -d ./temp "python {file}" docs/guide.md
 
 # With filters
 mdcode run --allow-shell -l js -d ./build "node {file}" README.md
@@ -573,7 +578,7 @@ Preserve temporary directory after execution (useful for debugging):
 mdcode run --allow-shell --keep "node {file}" README.md
 
 # Short form
-mdcode run --allow-shell -k "python {file}" docs/
+mdcode run --allow-shell -k "python {file}" docs/guide.md
 
 # The command will print the temp directory location
 ```
@@ -585,13 +590,13 @@ mdcode run --allow-shell -k "python {file}" docs/
 mdcode run --allow-shell -l js -n test -k -d ./temp "node {file}" README.md
 
 # Run Python examples in custom directory
-mdcode run --allow-shell -l python -m type=example -d ./examples "python {file}" docs/
+mdcode run --allow-shell -l python -m type=example -d ./examples "python {file}" docs/guide.md
 
 # Run and keep files, filter by file metadata
 mdcode run --allow-shell -k -f "calculator.py" "python {file}" README.md
 
 # Run with multiple filters
-mdcode run --allow-shell -l js -f "*.test.js" -n unit "npm test {file}" docs/
+mdcode run --allow-shell -l js -f app.test.js -n unit "npm test {file}" docs/guide.md
 ```
 
 ### Advanced Usage
@@ -601,13 +606,13 @@ mdcode run --allow-shell -l js -f "*.test.js" -n unit "npm test {file}" docs/
 mdcode run --allow-shell -l js "eslint {file}" README.md
 
 # Format code blocks
-mdcode run --allow-shell -l python "black {file}" docs/*.md
+mdcode run --allow-shell -l python "black {file}" docs/guide.md
 
 # Type check TypeScript blocks
 mdcode run --allow-shell -l typescript "tsc --noEmit {file}" API.md
 
 # Run tests with coverage
-mdcode run --allow-shell -l js -n test "jest --coverage {file}" docs/
+mdcode run --allow-shell -l js -n test "jest --coverage {file}" docs/guide.md
 
 # Compile and analyze
 mdcode run --allow-shell -l c "gcc -Wall -Wextra {file} && valgrind ./a.out" examples.md
@@ -635,7 +640,7 @@ Create a tar archive of all code blocks.
 mdcode dump README.md > code-blocks.tar
 
 # Pipe to tar command
-mdcode dump docs/*.md | tar -x
+mdcode dump docs/guide.md | tar -x
 ```
 
 ### Output to File
@@ -658,7 +663,7 @@ mdcode dump -o examples-$(date +%Y%m%d).tar README.md
 mdcode dump --quiet --out archive.tar README.md
 
 # Short form
-mdcode dump -q -o archive.tar docs/
+mdcode dump -q -o archive.tar docs/guide.md
 
 # Quiet to stdout
 mdcode dump -q README.md > archive.tar
@@ -669,14 +674,14 @@ mdcode dump -q README.md > archive.tar
 ```bash
 # Dump only JavaScript files
 mdcode dump --lang js -o js-blocks.tar README.md
-mdcode dump -l js -o javascript.tar docs/*.md
+mdcode dump -l js -o javascript.tar docs/guide.md
 
-# Dump specific file patterns
-mdcode dump --file "*.py" -o python.tar docs/
+# Dump the blocks for one file= value
+mdcode dump --file build.py -o python.tar docs/guide.md
 mdcode dump -f server.js -o server.tar README.md
 
 # Dump by metadata
-mdcode dump --meta type=example -o examples.tar docs/
+mdcode dump --meta type=example -o examples.tar docs/guide.md
 mdcode dump -m region=main -o main.tar API.md
 ```
 
@@ -684,7 +689,7 @@ mdcode dump -m region=main -o main.tar API.md
 
 ```bash
 # Dump JavaScript examples quietly
-mdcode dump -q -l js -m type=example -o js-examples.tar docs/
+mdcode dump -q -l js -m type=example -o js-examples.tar docs/guide.md
 
 # Dump Python files to archive
 mdcode dump -l python -o python-code.tar README.md
@@ -696,7 +701,7 @@ mdcode dump -m region=tests -o tests.tar docs/API.md
 mdcode dump -l js README.md | tar -xv
 
 # Create dated archive with filters
-mdcode dump -q -l typescript -o "ts-$(date +%Y%m%d).tar" docs/
+mdcode dump -q -l typescript -o "ts-$(date +%Y%m%d).tar" docs/guide.md
 ```
 
 ### Extract Tar Archive
@@ -733,12 +738,12 @@ mdcode dump -l sql -o queries.tar API.md
 
 # By file metadata
 mdcode list -f app.js README.md
-mdcode extract -f "*.test.js" docs/
+mdcode extract -f app.test.js docs/*.md
 mdcode run --allow-shell -f server.py "python {file}" README.md
 
 # By custom metadata
 mdcode list -m region=main README.md
-mdcode extract -m type=example docs/
+mdcode extract -m type=example docs/*.md
 mdcode update --apply -m author=admin API.md
 ```
 
@@ -751,7 +756,7 @@ When you combine filters, ALL filters must match:
 mdcode list -l js -f app.js README.md
 
 # Language AND metadata
-mdcode extract -l python -m type=example docs/
+mdcode extract -l python -m type=example docs/*.md
 
 # File AND metadata
 mdcode dump -f server.js -m region=main -o server.tar README.md
@@ -760,33 +765,35 @@ mdcode dump -f server.js -m region=main -o server.tar README.md
 mdcode list -l js -f app.js -m region=main README.md
 ```
 
-### Wildcards and Patterns
+### No Wildcards
+
+Filters match exactly: `-f "*.test.js"` selects only a block whose `file=` is literally `*.test.js`,
+and `-m "region=*"` only one whose `region=` is `*`. To select a group of blocks, give them a shared
+metadata value and filter on that. To cover several documents with `list`, `run` or `dump`, which read
+one file each, loop in the shell:
 
 ```bash
-# File patterns
-mdcode extract -f "*.test.js" docs/
-mdcode list -f "server.*" README.md
-mdcode dump -f "**/*.py" -o python.tar docs/
+# Mark the blocks with kind=test in the Markdown, then select them together
+mdcode extract -m kind=test -d ./tests docs/*.md
 
-# Metadata patterns (exact match)
-mdcode list -m "region=*" README.md
-mdcode extract -m type=component docs/
+# One document at a time
+for doc in docs/*.md; do mdcode list -m kind=test "$doc"; done
 ```
 
 ### Complex Filtering Scenarios
 
 ```bash
-# Extract all test files that are JavaScript
-mdcode extract -l js -f "*.test.js" -d ./tests docs/
+# Extract one JavaScript test file
+mdcode extract -l js -f app.test.js -d ./tests docs/*.md
 
 # List Python examples in main region
-mdcode list -l python -m type=example -m region=main docs/
+mdcode list -l python -m type=example -m region=main docs/guide.md
 
 # Run tests only for specific component
 mdcode run --allow-shell -l js -f "auth.test.js" -n "login-test" "node {file}" README.md
 
-# Dump production code (exclude tests)
-mdcode dump -f "src/**/*.js" -o production.tar docs/
+# Dump the blocks for one source file
+mdcode dump -f src/index.js -o index.tar docs/guide.md
 
 # Update only SQL queries in specific file
 mdcode update -l sql -f queries.sql --stdout README.md
@@ -978,14 +985,14 @@ mdcode update --apply README.md
 ### Workflow: Test All Code Blocks
 
 ```bash
-# Extract test files
-mdcode extract -l js -f "*.test.js" -d ./tests docs/
+# Extract the blocks marked kind=test
+mdcode extract -l js -m kind=test -d ./tests docs/guide.md
 
-# Run all tests
-mdcode run --allow-shell -l js -f "*.test.js" "npm test {file}" docs/
+# Run each of them
+mdcode run --allow-shell -l js -m kind=test "node --test {file}" docs/guide.md
 
 # If tests pass, create archive
-mdcode dump -l js -f "*.test.js" -o tests.tar docs/
+mdcode dump -l js -m kind=test -o tests.tar docs/guide.md
 ```
 
 ### Workflow: Transform and Publish
@@ -1061,7 +1068,7 @@ mdcode extract -l js --force -d temp README.md && \
   mdcode update --apply README.md
 
 # Check for syntax errors
-mdcode run --allow-shell -l python "python -m py_compile {file}" docs/*.md
+for doc in docs/*.md; do mdcode run --allow-shell -l python "python -m py_compile {file}" "$doc"; done
 ```
 
 ### 3. Using Stdin Effectively

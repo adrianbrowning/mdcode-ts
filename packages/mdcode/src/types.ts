@@ -33,9 +33,10 @@ export type WalkerFunction = (block: Block) => Block | null | Promise<Block | nu
  * Metadata for transformer functions
  * Contains only the supported metadata fields: file and region
  */
-export type TransformerMeta = { /** Filter by file metadata (supports glob patterns) */
+export type TransformerMeta = {
+  /** The block's `file=` metadata. As a filter, it matches exactly; it is not a glob. */
   file?: string;
-  /** Filter by custom metadata key-value pairs */
+  /** The block's `region=` metadata. As a filter, it matches exactly. */
   region?: string;
 };
 

@@ -45,7 +45,7 @@ type FilterCliOptions = {
   lang?: string;
   name?: Array<string>;
   file?: string;
-  meta?: Record<string, string>;
+  meta?: Array<string>;
   json?: boolean;
 };
 
@@ -55,6 +55,7 @@ function collect(value: string, previous: Array<string> | undefined): Array<stri
 }
 
 const NAME_FLAG_HELP = "Select the block with this name= metadata; repeat to select several";
+const META_FLAG_HELP = "Select blocks with this key=value metadata; repeat to require several";
 const DOCUMENTS_HELP = "Markdown files to read (default: the configuration's documents with --project or --config, otherwise stdin)";
 const PROJECT_HELP = `Load ${CONFIG_FILE} from the current directory for default documents, roots and filters`;
 const CONFIG_HELP = "Load this configuration file instead; implies --project";
@@ -236,12 +237,13 @@ function parseFilterOptions(options: FilterCliOptions): FilterOptions | undefine
   }
 
   if (options.meta) {
-    // Parse meta as key=value pairs
+    // Each --meta is one key=value pair; the value may itself contain =
     filter.meta = {};
-    const pairs = Array.isArray(options.meta) ? options.meta : [ options.meta ];
-    for (const pair of pairs) {
-      const [ key, value ] = pair.split("=");
-      if (key && value) {
+    for (const pair of options.meta) {
+      const at = pair.indexOf("=");
+      const key = pair.slice(0, at);
+      const value = pair.slice(at + 1);
+      if (at > 0 && value) {
         filter.meta[key] = value;
       }
     }
@@ -380,7 +382,7 @@ export async function Execute(
     .argument("[file]", "Markdown file to read (default: stdin)")
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
-    .option("-m, --meta <key=value...>", "Filter by custom metadata")
+    .option("-m, --meta <key=value>", META_FLAG_HELP, collect)
     .option("-n, --name <name>", NAME_FLAG_HELP, collect)
     .option("--json", "Print one versioned JSON result instead of text")
     .action(async (file: string | undefined, options: FilterCliOptions) => {
@@ -398,7 +400,7 @@ export async function Execute(
     .argument("[files...]", DOCUMENTS_HELP)
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
-    .option("-m, --meta <key=value...>", "Filter by custom metadata")
+    .option("-m, --meta <key=value>", META_FLAG_HELP, collect)
     .option("-n, --name <name>", NAME_FLAG_HELP, collect)
     .option("-d, --dir <dir>", "Directory file= paths resolve against and must stay inside; absolute paths and paths leading out, including through symlinks, are refused (default: the configuration's outputRoot, else the current directory)")
     .option("-q, --quiet", "Suppress status messages")
@@ -523,7 +525,7 @@ export async function Execute(
     .argument("[file]", "Markdown file to read (default: stdin)")
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
-    .option("-m, --meta <key=value...>", "Filter by custom metadata")
+    .option("-m, --meta <key=value>", META_FLAG_HELP, collect)
     .option("-n, --name <name>", NAME_FLAG_HELP, collect)
     .option("-k, --keep", "Keep temporary directory after execution")
     .option("-d, --dir <dir>", "Working directory for command execution (default: temp directory)")
@@ -567,7 +569,7 @@ export async function Execute(
     .argument("[files...]", DOCUMENTS_HELP)
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
-    .option("-m, --meta <key=value...>", "Filter by custom metadata")
+    .option("-m, --meta <key=value>", META_FLAG_HELP, collect)
     .option("-n, --name <name>", NAME_FLAG_HELP, collect)
     .option("-t, --transform <path>", "Path to transformer function file (must export default)")
     .option("-q, --quiet", "Suppress status messages")
@@ -801,7 +803,7 @@ export async function Execute(
       .default("update"))
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
-    .option("-m, --meta <key=value...>", "Filter by custom metadata")
+    .option("-m, --meta <key=value>", META_FLAG_HELP, collect)
     .option("-n, --name <name>", NAME_FLAG_HELP, collect)
     .option("--strict", "Require file= metadata on every selected block")
     .option("--base <dir>", "With --for update: directory file= paths resolve against and must stay inside, as for update")
@@ -855,7 +857,7 @@ export async function Execute(
     .argument("[files...]", "Markdown files to watch (default: the configuration's documents with --project or --config)")
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
-    .option("-m, --meta <key=value...>", "Filter by custom metadata")
+    .option("-m, --meta <key=value>", META_FLAG_HELP, collect)
     .option("-n, --name <name>", NAME_FLAG_HELP, collect)
     .option("--base <dir>", "Directory file= paths resolve against and must stay inside, as for update")
     .option("--apply", "Write drifted blocks into the markdown after each change, as update --apply does")
@@ -911,7 +913,7 @@ export async function Execute(
     .argument("[file]", "Markdown file to read (default: stdin)")
     .option("-l, --lang <lang>", "Filter by language")
     .option("-f, --file <file>", "Filter by file metadata")
-    .option("-m, --meta <key=value...>", "Filter by custom metadata")
+    .option("-m, --meta <key=value>", META_FLAG_HELP, collect)
     .option("-n, --name <name>", NAME_FLAG_HELP, collect)
     .option("-q, --quiet", "Suppress status messages")
     .option("-o, --out <file>", "Output file (default: stdout; required with --json)")
