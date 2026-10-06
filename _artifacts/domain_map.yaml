@@ -1,0 +1,135 @@
+# domain_map.yaml
+# Library: mdcode-ts (workspace package packages/mdcode)
+# Version: 0.0.4
+# Status: reviewed
+
+library:
+  name: mdcode-ts
+  version: 0.0.4
+  repository: https://github.com/adrianbrowning/mdcode-ts
+  description: Keep Markdown code blocks in sync with source files (CLI `mdcode` and library API)
+  primary_framework: framework-agnostic
+
+domains:
+  - name: Markdown code blocks
+    slug: markdown-code-blocks
+    description: Linking fenced blocks in Markdown to source files and regions, and moving code between the two safely
+
+skills:
+  - name: sync-markdown-code-blocks
+    slug: sync-markdown-code-blocks
+    domain: markdown-code-blocks
+    description: Keep README and docs code blocks in sync with real source files using mdcode
+    type: core
+    packages:
+      - mdcode-ts
+    covers:
+      - file= and region= metadata, region markers per language, outline=true
+      - update plan, --diff, --apply, --check, --stdout, --base
+      - list and validate for inspection
+      - block selection with --name, --lang, --file, --meta
+      - extract with region splicing, --force, --ignore-anonymous, --dir
+      - run --allow-shell and dump
+      - --transform modules and the update(), parse(), extract() library functions
+      - --json envelope and exit codes
+      - containment and approval rules for untrusted Markdown
+    tasks:
+      - Point a Markdown code block at a source file or region and fill it with mdcode update
+      - 'Update Markdown blocks after source code changes: plan, diff, apply'
+      - Fail CI when Markdown blocks drift from their sources
+      - Extract Markdown code blocks to files, splicing regions into existing files
+      - Select blocks by name, language, file or custom metadata
+      - Run or archive Markdown snippets with run and dump
+      - Transform block contents with a transformer during update
+    reference_candidates:
+      - topic: JSON envelope, error codes and exit codes
+        reason: scripts and CI need the exact contract; most tasks do not
+      - topic: transformers and the library API
+        reason: only needed when writing a --transform module or calling the functions from code
+    failure_modes:
+      - mistake: Editing code inside a linked block
+        mechanism: update --apply replaces the block with the file's code, and update --check fails until then
+        wrong_pattern: |
+          (edit the code between the fences of a block that has file=)
+        correct_pattern: |
+          edit src/greet.ts, then: mdcode update --apply README.md
+        source: src/commands/update.ts
+        priority: CRITICAL
+        status: active
+      - mistake: Treating the default plan as having written
+        mechanism: update without a mode only lists changes and exits 0
+        wrong_pattern: |
+          mdcode update README.md
+        correct_pattern: |
+          mdcode update --apply README.md && mdcode update --check README.md
+        source: src/cli.ts (UPDATE_MODES); packages/usage/tests/skill-sync-markdown-code-blocks.test.ts
+        priority: HIGH
+        status: active
+      - mistake: Plain extract on a README
+        mechanism: every block without file= is written as block-N.<ext> into --dir
+        wrong_pattern: |
+          mdcode extract README.md
+        correct_pattern: |
+          mdcode validate --for extract README.md && mdcode extract --ignore-anonymous README.md
+        source: src/commands/validate.ts (planExtract)
+        priority: HIGH
+        status: active
+      - mistake: Overwriting existing files with --force
+        mechanism: --force replaces a whole existing file whose block has no region=
+        wrong_pattern: |
+          mdcode extract --force README.md
+        correct_pattern: |
+          give the block region= so extract splices it in place
+        source: src/commands/extract.ts
+        priority: HIGH
+        status: active
+      - mistake: Globs or directories as file arguments or --file values
+        mechanism: --file matches file= exactly, and list, run and dump read a single file
+        wrong_pattern: |
+          mdcode list --file "src/*.ts" docs/
+        correct_pattern: |
+          for f in docs/*.md; do mdcode list --file src/greet.ts "$f"; done
+        source: src/parser.ts (matchesFilter); src/cli.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Region markers in another language's comment syntax
+        mechanism: markers are matched per block language; a mismatch is region_language_mismatch
+        wrong_pattern: |
+          # #region greet   (in a ts file)
+        correct_pattern: |
+          // #region greet
+        source: src/region.ts (LANG_COMMENT_STYLES)
+        priority: MEDIUM
+        status: active
+      - mistake: file= relative to the wrong directory
+        mechanism: file= resolves against the Markdown file's directory unless --base is given
+        wrong_pattern: |
+          docs/page.md: ```ts file=src/greet.ts```
+        correct_pattern: |
+          mdcode update --base . docs/page.md   (or sourceRoot "." in mdcode.config.json with --project)
+        source: src/cli.ts (updateBase); packages/usage/tests/skill-sync-markdown-code-blocks.test.ts
+        priority: MEDIUM
+        status: active
+      - mistake: Running update on untrusted Markdown that names secrets
+        mechanism: update reads any file= inside the base, and --diff and --stdout print it
+        wrong_pattern: |
+          mdcode update --diff untrusted.md    (with file=.env)
+        correct_pattern: |
+          mdcode list untrusted.md, review every file= first
+        source: 'README.md (Security: Untrusted Markdown)'
+        priority: CRITICAL
+        status: active
+
+tensions: []
+
+cross_references: []
+
+gaps:
+  - skill: sync-markdown-code-blocks
+    question: Package README and examples/CLI_EXAMPLES.md show globs, directories and --file patterns the CLI rejects
+    context: The skill states the real behaviour, verified against the CLI; the docs are tracked in issue #54
+    status: open
+  - skill: sync-markdown-code-blocks
+    question: Fresh-consumer session and discovery checks
+    context: Recorded in skill_spec.md with what was and was not verified
+    status: open

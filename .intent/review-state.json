@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "baseline": "5254174a2a13060d110f34dbc0a4421b5302f5cb",
+  "items": {
+    "skill:packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": {
+      "fingerprint": "beaa8202e375f5130b2c3ef22daf8b69906fffc982b49001a3a9a5985ab0f9b6",
+      "snapshot": {
+        "examples/ci/check-docs-sync.mjs": "7a1dc943571637883dfc28de98825c3c595d6c5a5561239373bacf1dfbf1dc72",
+        "examples/ci/validate-snippets.mjs": "d177fba60f830179c285a25ea0a878d98dc044684114447f687366907e9e722d",
+        "packages/mdcode/README.md": "7e629127cc7300619ae4017572f07670cdb57120f0f150abd9ec9009346e55a2",
+        "packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": "bfbfe9fb88fb1bb1ef18eb55338632d2ac6408d023de7c05c60dc307c8626033",
+        "packages/mdcode/skills/sync-markdown-code-blocks/references/json-results.md": "ccbcb240d796eccc02c6f1974573df1f8a9052ea37808b78a15420f9e66f1f63",
+        "packages/mdcode/skills/sync-markdown-code-blocks/references/transformers.md": "b35f5caf45b6334d21e534facb2d22a76c52f576d1640e3a5732fd1d6119cf13",
+        "packages/mdcode/src/cli.ts": "ac83b806571195eaf0298f69a2be6de503e676803c656b7dce33a7da8146819a",
+        "packages/mdcode/src/commands/dump.ts": "c51ca44f0159c59b849c5cb725e2de36ca5ef0578356bc9f921330ce8677d346",
+        "packages/mdcode/src/commands/extract.ts": "8a1897da665e95e20a6e645565632cf4aff17c2c5cdc4f4fae3f904bdd3c074d",
+        "packages/mdcode/src/commands/list.ts": "d919894dd08249bb1eb0d12bcd5c21016cb87c0a6cba484de7da492bbe3c5c75",
+        "packages/mdcode/src/commands/run.ts": "2c35da6b7ee31feb34df303d532715299f6e6eb87f24d914637bb299f875b77c",
+        "packages/mdcode/src/commands/update.ts": "0e3c7d632ca3a424e8c01d64b3bd5872fe8ec9c0856610e3e95ce28e5dfe67c8",
+        "packages/mdcode/src/commands/validate.ts": "a71b2c43dbf84df343d84635e89a1341a2e4c8a0c328d89bccf2201bbeffcedb",
+        "packages/mdcode/src/outline.ts": "56a871dc88cd65a82c5ded1bbfcea1fd516f093b8fc15ade6fe92da2bba9e7f8",
+        "packages/mdcode/src/parser.ts": "d0595a4beea7239c7f68934998b59a21712c5a90d1f0c9eac35a2f6e32e41c60",
+        "packages/mdcode/src/region.ts": "91c2b92a90807034d15b84c164e8da81637fe4b4d7ae6e245d66c6d3140ed990",
+        "packages/mdcode/src/result.ts": "696490ffa087c54d67935b46695f9fc42db35fafa810bf3d6feb38369ebac850",
+        "packages/mdcode/tests/examples/factorial/README.md": "18659f56984ea189e8694f1414ef7765607983ec113fe534603b38cd26f032e5",
+        "packages/mdcode/tests/examples/fibonacci/README.md": "57c88dca07d3d3d68233c87495cb238ce6f079a7702133640481ce82e094298b",
+        "packages/mdcode/tests/examples/fibonacci/fibonacci.js": "2255b9da6afa80522e3a317200613d7fd5f73838845921b33ce6c513fb598a46",
+        "packages/usage/tests/skill-sync-markdown-code-blocks.test.ts": "f63e7ad92ec1da26f335a78dae25f2ea5a382b976efcd4bdece8f69080148f3e",
+        "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/README.md": "cd167516d04044180ceb5a30c45fca38e69ea35cc9bb43e555fa15a392d1e9da",
+        "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/docs/usage.md": "b31e0fd979afe035d206880ba1e0cd7735961a6905b37d6510006a5f7f8ae71a",
+        "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/mdcode.config.json": "4e14dbeb39966e8d17ed35147ff099e18246c583765c302b23023500c56b2969",
+        "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/src/greet.ts": "a2938e7cf0fa1f29393bd2ac1cb3e1f7c8a6fe0ff4c9ea8b1c47becffd4fa168",
+        "packages/usage/tests/skills/sync-markdown-code-blocks/task.md": "69f373db5a34c8165e1abe370e63230a6652c1412f2fa44a413dfd8534d84dbc"
+      },
+      "head": "5254174a2a13060d110f34dbc0a4421b5302f5cb",
+      "outcome": "updated",
+      "reason": "Source mappings extended to the examples; SKILL.md frontmatter changed, body guidance verified unchanged against them.",
+      "evidence": [
+        "Added source mappings for the worked examples the skill's region, outline and CI guidance rests on: tests/examples/fibonacci (outline=true plus region blocks, fibonacci.js), tests/examples/factorial (region in a test file), examples/ci/check-docs-sync.mjs (named in references/json-results.md for telling drift from breakage) and examples/ci/validate-snippets.mjs (runnable=true snippets, the adjacent task the description excludes). Guidance unchanged: `mdcode update --check` passes on both example READMEs and pnpm docs:check covers them; the skill's statements about check-docs-sync.mjs exit codes (0/1/2) match the script header. intent validate packages/mdcode/skills: passed (1 skill). Task check packages/usage/tests/skill-sync-markdown-code-blocks.test.ts: accepts `update --apply --project`; rejects plan-only, applying without the configuration's sourceRoot, and changing the source to match the docs (4/4 pass). CLI claims verified by running packages/mdcode/dist/main.js built from this revision (update modes and exit codes, --check drift, region_language_mismatch, --base and unsafe_path for ../, extract splice/skip exit 2, run without --allow-shell refused, transform, outline, --json envelope, exact-match --file). Packed mdcode-ts-0.0.4.tgz contains skills/sync-markdown-code-blocks/{SKILL.md,references/*} and no _artifacts. Consumer run with intent install + intent load passed the unchanged grader, but was not isolated (it also read this repo's agent instructions); discovery unverified."
+      ]
+    },
+    "planning:_artifacts": {
+      "fingerprint": "86a8c63931e392d46de957953e4351d5ecb89e7ae457082319fbfbe000a8d2d6",
+      "snapshot": {
+        "_artifacts/domain_map.yaml": "cb60c619ea31f10641d88e63124e086ffdd74541f84f30dc7395a39eac215aa0",
+        "_artifacts/skill_spec.md": "f84305a081b968cf61ffe079d24732049779044f60643828c35ee9328c29ab44",
+        "_artifacts/skill_tree.yaml": "2490b6a1d7a2abab698fe1a91e036ddec9dc76de5cfb15dedd8639ebf2875229",
+        "examples/ci/check-docs-sync.mjs": "7a1dc943571637883dfc28de98825c3c595d6c5a5561239373bacf1dfbf1dc72",
+        "examples/ci/validate-snippets.mjs": "d177fba60f830179c285a25ea0a878d98dc044684114447f687366907e9e722d",
+        "packages/mdcode/README.md": "7e629127cc7300619ae4017572f07670cdb57120f0f150abd9ec9009346e55a2",
+        "packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": "bfbfe9fb88fb1bb1ef18eb55338632d2ac6408d023de7c05c60dc307c8626033",
+        "packages/mdcode/skills/sync-markdown-code-blocks/references/json-results.md": "ccbcb240d796eccc02c6f1974573df1f8a9052ea37808b78a15420f9e66f1f63",
+        "packages/mdcode/skills/sync-markdown-code-blocks/references/transformers.md": "b35f5caf45b6334d21e534facb2d22a76c52f576d1640e3a5732fd1d6119cf13",
+        "packages/mdcode/src/cli.ts": "ac83b806571195eaf0298f69a2be6de503e676803c656b7dce33a7da8146819a",
+        "packages/mdcode/src/commands/dump.ts": "c51ca44f0159c59b849c5cb725e2de36ca5ef0578356bc9f921330ce8677d346",
+        "packages/mdcode/src/commands/extract.ts": "8a1897da665e95e20a6e645565632cf4aff17c2c5cdc4f4fae3f904bdd3c074d",
+        "packages/mdcode/src/commands/list.ts": "d919894dd08249bb1eb0d12bcd5c21016cb87c0a6cba484de7da492bbe3c5c75",
+        "packages/mdcode/src/commands/run.ts": "2c35da6b7ee31feb34df303d532715299f6e6eb87f24d914637bb299f875b77c",
+        "packages/mdcode/src/commands/update.ts": "0e3c7d632ca3a424e8c01d64b3bd5872fe8ec9c0856610e3e95ce28e5dfe67c8",
+        "packages/mdcode/src/commands/validate.ts": "a71b2c43dbf84df343d84635e89a1341a2e4c8a0c328d89bccf2201bbeffcedb",
+        "packages/mdcode/src/outline.ts": "56a871dc88cd65a82c5ded1bbfcea1fd516f093b8fc15ade6fe92da2bba9e7f8",
+        "packages/mdcode/src/parser.ts": "d0595a4beea7239c7f68934998b59a21712c5a90d1f0c9eac35a2f6e32e41c60",
+        "packages/mdcode/src/region.ts": "91c2b92a90807034d15b84c164e8da81637fe4b4d7ae6e245d66c6d3140ed990",
+        "packages/mdcode/src/result.ts": "696490ffa087c54d67935b46695f9fc42db35fafa810bf3d6feb38369ebac850",
+        "packages/mdcode/tests/examples/factorial/README.md": "18659f56984ea189e8694f1414ef7765607983ec113fe534603b38cd26f032e5",
+        "packages/mdcode/tests/examples/fibonacci/README.md": "57c88dca07d3d3d68233c87495cb238ce6f079a7702133640481ce82e094298b",
+        "packages/mdcode/tests/examples/fibonacci/fibonacci.js": "2255b9da6afa80522e3a317200613d7fd5f73838845921b33ce6c513fb598a46",
+        "packages/usage/tests/skill-sync-markdown-code-blocks.test.ts": "f63e7ad92ec1da26f335a78dae25f2ea5a382b976efcd4bdece8f69080148f3e",
+        "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/README.md": "cd167516d04044180ceb5a30c45fca38e69ea35cc9bb43e555fa15a392d1e9da",
+        "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/docs/usage.md": "b31e0fd979afe035d206880ba1e0cd7735961a6905b37d6510006a5f7f8ae71a",
+        "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/mdcode.config.json": "4e14dbeb39966e8d17ed35147ff099e18246c583765c302b23023500c56b2969",
+        "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/src/greet.ts": "a2938e7cf0fa1f29393bd2ac1cb3e1f7c8a6fe0ff4c9ea8b1c47becffd4fa168",
+        "packages/usage/tests/skills/sync-markdown-code-blocks/task.md": "69f373db5a34c8165e1abe370e63230a6652c1412f2fa44a413dfd8534d84dbc"
+      },
+      "head": "5254174a2a13060d110f34dbc0a4421b5302f5cb",
+      "outcome": "updated",
+      "reason": "skill_spec.md batch 1 now records the source-mapping decision, including the tests/examples and examples/ci sources; domain_map.yaml and skill_tree.yaml unchanged and accurate.",
+      "evidence": [
+        "skill_spec.md Decisions gains one bullet listing the mapped sources; skill_tree.yaml sources match SKILL.md frontmatter (intent maintainer sync: nothing to synchronize). intent validate packages/mdcode/skills: passed (1 skill). Task check packages/usage/tests/skill-sync-markdown-code-blocks.test.ts: accepts `update --apply --project`; rejects plan-only, applying without the configuration's sourceRoot, and changing the source to match the docs (4/4 pass). CLI claims verified by running packages/mdcode/dist/main.js built from this revision (update modes and exit codes, --check drift, region_language_mismatch, --base and unsafe_path for ../, extract splice/skip exit 2, run without --allow-shell refused, transform, outline, --json envelope, exact-match --file). Packed mdcode-ts-0.0.4.tgz contains skills/sync-markdown-code-blocks/{SKILL.md,references/*} and no _artifacts. Consumer run with intent install + intent load passed the unchanged grader, but was not isolated (it also read this repo's agent instructions); discovery unverified."
+      ]
+    },
+    "source:.bumpy/agent-skill.md": {
+      "fingerprint": "4d48f073d138c6175bc892952d197d946d02129ba1eac207f60391cf1827d7cf",
+      "snapshot": {
+        ".bumpy/agent-skill.md": "64b2531bb263e39ea3adb38aa8e8281faf2b3837d4fb03a574e37ae6d142e1ce"
+      },
+      "head": "5254174a2a13060d110f34dbc0a4421b5302f5cb",
+      "outcome": "out-of-scope",
+      "reason": "Changelog entry for this release; it describes the skill but is not guidance or a source the skill relies on.",
+      "evidence": [
+        "Contents: a minor bump for mdcode-ts announcing the shipped skill and the intent install command."
+      ]
+    },
+    "source:TESTING.md": {
+      "fingerprint": "03b93608dd90211b2b9e704c6bac5bf63ff24919a57e4e5c6691d7463f506032",
+      "snapshot": {
+        "TESTING.md": "2c4e27053f2b6e9f679688efd4bfe5a34568ada863771ace2e56674757508151"
+      },
+      "head": "5254174a2a13060d110f34dbc0a4421b5302f5cb",
+      "outcome": "out-of-scope",
+      "reason": "Contributor test-layout doc; it now lists the skill task check but the skill does not depend on it.",
+      "evidence": [
+        "Diff adds one bullet describing skill-sync-markdown-code-blocks.test.ts and SKILL_TASK_DIR."
+      ]
+    }
+  }
+}

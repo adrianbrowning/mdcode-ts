@@ -5,7 +5,8 @@
   "type": "module",
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "skills/sync-markdown-code-blocks"
   ],
   "scripts": {
     "bp": "pnpm version prerelease  --no-git-tag-version && pnpm --filter mdcode-ts build && pnpm pack",
@@ -35,7 +36,8 @@
     "documentation-testing",
     "cli",
     "mdcode",
-    "typescript"
+    "typescript",
+    "tanstack-intent"
   ],
   "author": "Adrian Elton-Browning",
   "license": "MIT",
