@@ -6,4 +6,4 @@ Added `mdcode extract --check`. It works out every target exactly as `extract` w
 
 Added the `check-sync` GitHub Action (`adrianbrowning/mdcode-ts/.github/actions/check-sync`). It fails a job when Markdown blocks and their files disagree in either direction, using `update --check` and `extract --check --force`, and writes nothing. Each problem becomes an annotation and a row in the job summary.
 
-Fixed `extract` indenting a spliced region a second time when its markers are indented. `update` copies such a region with its indentation, so extracting it used to push every line right. `extract --force` now keeps an overwritten file's final newline, and refuses to replace a symlinked target with a regular file.
+Fixed `extract` indenting a spliced region a second time when its markers are indented. `update` copies such a region with its indentation, so extracting it used to push every line right. `extract --force` now keeps an overwritten file's final newline, and refuses a target that is a symlink or not valid UTF-8, as region splices already did.

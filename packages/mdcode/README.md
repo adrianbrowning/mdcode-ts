@@ -367,7 +367,8 @@ When the target file already exists:
   name */` in a JS file is spliced rather than duplicated.
 - **The block has no `region=`** → the file is skipped with a warning, since writing it would replace
   the whole file. Use `--force` to overwrite. An overwritten file keeps its final newline, LF or
-  CRLF; a symlinked target is refused rather than replaced with a regular file.
+  CRLF. A target that is a symlink or not valid UTF-8 is refused, as for a splice, rather than
+  replaced.
 
 Otherwise, files that don't exist yet are created.
 
@@ -2217,8 +2218,9 @@ Exit codes are the same with and without `--json`:
   now written as it stands; a dedented body is still indented to the marker.
 - `extract --force` keeps an overwritten file's final newline (LF or CRLF). It used to drop it. A new
   file is still written as the block's code stands.
-- `extract --force` refuses a target that is a symlink, as region splices already did, instead of
-  replacing the link with a regular file. The target is skipped and `extract` exits 2.
+- `extract --force` refuses a target that is a symlink or not valid UTF-8, as region splices already
+  did, instead of replacing the link with a regular file or re-encoding the bytes. The target is
+  skipped and `extract` exits 2.
 
 ---
 

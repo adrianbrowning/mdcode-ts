@@ -216,15 +216,24 @@ async function planTarget({ display, items }: ExtractGroup, overwrite: boolean):
     return { refusal: "target is a symlink; refusing to overwrite it" };
   }
 
-  const raw = existing === undefined ? undefined : await readFile(display);
-  // Lossy, for messages only: bytes that are not UTF-8 are compared as bytes below.
-  const before = raw?.toString("utf-8");
+  let before: string | undefined;
+
+  if (existing !== undefined) {
+    try {
+      // As for a splice: a target that is not UTF-8 is refused, not silently re-encoded.
+      before = new TextDecoder("utf-8", { fatal: true }).decode(await readFile(display));
+    }
+    catch {
+      return { refusal: "not valid UTF-8" };
+    }
+  }
+
   const content = regions
     ? items.map(({ block }) => wrapRegion(block.lang, block.meta.region!, block.code)).join("\n")
     : keepFinalNewline(items[0]!.block.code, before);
-  const unchanged = raw !== undefined && raw.equals(Buffer.from(content, "utf-8"));
 
-  return { action: "written", content, before, unchanged, mode: existing?.mode };
+  // before was decoded strictly, so equal text is equal bytes.
+  return { action: "written", content, before, unchanged: before === content, mode: existing?.mode };
 }
 
 /**

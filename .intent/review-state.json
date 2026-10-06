@@ -3,17 +3,17 @@
   "baseline": "5254174a2a13060d110f34dbc0a4421b5302f5cb",
   "items": {
     "skill:packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": {
-      "fingerprint": "365cb13f4a75671497c7323e0f14077d6366a576298356f28d2ee074f509ee7a",
+      "fingerprint": "3a240b6e007de3d4c1db8507e4f2d4e35fad2788b7eada45181765ec8c560d17",
       "snapshot": {
         "examples/ci/check-docs-sync.mjs": "7a1dc943571637883dfc28de98825c3c595d6c5a5561239373bacf1dfbf1dc72",
         "examples/ci/validate-snippets.mjs": "d177fba60f830179c285a25ea0a878d98dc044684114447f687366907e9e722d",
-        "packages/mdcode/README.md": "a1e76ea88903f6d0c6f9eb14347dd01c4f837e2e50bd326cf1ddda94b1afa215",
+        "packages/mdcode/README.md": "4090c130b589f23882b7cf99f488528fdc5cdf6b4772c6d91b56a77aebba4e16",
         "packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": "b553026d702b291bc829c0b76de1f2c75fcc7a5ffe62af6084e782cb0d120566",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/json-results.md": "ccbcb240d796eccc02c6f1974573df1f8a9052ea37808b78a15420f9e66f1f63",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/transformers.md": "b35f5caf45b6334d21e534facb2d22a76c52f576d1640e3a5732fd1d6119cf13",
         "packages/mdcode/src/cli.ts": "635c980c65e34a5cc9061e1a423909fc18bcbc85f10ae2ff3e13fdddc021aedf",
         "packages/mdcode/src/commands/dump.ts": "c51ca44f0159c59b849c5cb725e2de36ca5ef0578356bc9f921330ce8677d346",
-        "packages/mdcode/src/commands/extract.ts": "8189da3fefdb3a9b865bc82eb7f667b3d5f8230f2be16c1780b88be30d4c72bd",
+        "packages/mdcode/src/commands/extract.ts": "c798ac7b48031019c5c0d5b9dbee34f88c4c4fdb7b587b406c81a4aa37aab955",
         "packages/mdcode/src/commands/list.ts": "d919894dd08249bb1eb0d12bcd5c21016cb87c0a6cba484de7da492bbe3c5c75",
         "packages/mdcode/src/commands/run.ts": "2c35da6b7ee31feb34df303d532715299f6e6eb87f24d914637bb299f875b77c",
         "packages/mdcode/src/commands/update.ts": "0e3c7d632ca3a424e8c01d64b3bd5872fe8ec9c0856610e3e95ce28e5dfe67c8",
@@ -32,28 +32,28 @@
         "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/src/greet.ts": "a2938e7cf0fa1f29393bd2ac1cb3e1f7c8a6fe0ff4c9ea8b1c47becffd4fa168",
         "packages/usage/tests/skills/sync-markdown-code-blocks/task.md": "69f373db5a34c8165e1abe370e63230a6652c1412f2fa44a413dfd8534d84dbc"
       },
-      "head": "b5da2ad7f9c3c7c4a1fba0bcca9a893d517d888e",
+      "head": "8fd753fe248a42f85ce3fd7d97624156fd74e410",
       "outcome": "no-change",
-      "reason": "extract compares whole-file targets byte for byte in check mode; no guidance affected (the skill already describes extract --check as exact).",
+      "reason": "extract --force now refuses non-UTF-8 whole-file targets like splices do; README notes updated. The skill describes extract at a level these refusals don't change.",
       "evidence": [
-        "Changed: packages/mdcode/src/commands/extract.ts at b5da2ad7f9c3c7c4a1fba0bcca9a893d517d888e"
+        "Changed: packages/mdcode/README.md, packages/mdcode/src/commands/extract.ts at 8fd753fe248a42f85ce3fd7d97624156fd74e410"
       ]
     },
     "planning:_artifacts": {
-      "fingerprint": "0eb9de46f1083f69e3e48188d50aa796ef83a88e0daeecf35629a45c6b32d1a0",
+      "fingerprint": "8a69bcf703e02764565bff53153f281369deccc14e5540753d0fd2059a636629",
       "snapshot": {
         "_artifacts/domain_map.yaml": "ceb4094bf4fa2cd63354e1c76cce3fec97d19c4a807a40b974646e1dbb00152b",
         "_artifacts/skill_spec.md": "d0af268c94e3fefde165ce14f470c88ce52e7f8162c4c8632718fe0f959f5a23",
         "_artifacts/skill_tree.yaml": "2490b6a1d7a2abab698fe1a91e036ddec9dc76de5cfb15dedd8639ebf2875229",
         "examples/ci/check-docs-sync.mjs": "7a1dc943571637883dfc28de98825c3c595d6c5a5561239373bacf1dfbf1dc72",
         "examples/ci/validate-snippets.mjs": "d177fba60f830179c285a25ea0a878d98dc044684114447f687366907e9e722d",
-        "packages/mdcode/README.md": "a1e76ea88903f6d0c6f9eb14347dd01c4f837e2e50bd326cf1ddda94b1afa215",
+        "packages/mdcode/README.md": "4090c130b589f23882b7cf99f488528fdc5cdf6b4772c6d91b56a77aebba4e16",
         "packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": "b553026d702b291bc829c0b76de1f2c75fcc7a5ffe62af6084e782cb0d120566",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/json-results.md": "ccbcb240d796eccc02c6f1974573df1f8a9052ea37808b78a15420f9e66f1f63",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/transformers.md": "b35f5caf45b6334d21e534facb2d22a76c52f576d1640e3a5732fd1d6119cf13",
         "packages/mdcode/src/cli.ts": "635c980c65e34a5cc9061e1a423909fc18bcbc85f10ae2ff3e13fdddc021aedf",
         "packages/mdcode/src/commands/dump.ts": "c51ca44f0159c59b849c5cb725e2de36ca5ef0578356bc9f921330ce8677d346",
-        "packages/mdcode/src/commands/extract.ts": "8189da3fefdb3a9b865bc82eb7f667b3d5f8230f2be16c1780b88be30d4c72bd",
+        "packages/mdcode/src/commands/extract.ts": "c798ac7b48031019c5c0d5b9dbee34f88c4c4fdb7b587b406c81a4aa37aab955",
         "packages/mdcode/src/commands/list.ts": "d919894dd08249bb1eb0d12bcd5c21016cb87c0a6cba484de7da492bbe3c5c75",
         "packages/mdcode/src/commands/run.ts": "2c35da6b7ee31feb34df303d532715299f6e6eb87f24d914637bb299f875b77c",
         "packages/mdcode/src/commands/update.ts": "0e3c7d632ca3a424e8c01d64b3bd5872fe8ec9c0856610e3e95ce28e5dfe67c8",
@@ -72,11 +72,11 @@
         "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/src/greet.ts": "a2938e7cf0fa1f29393bd2ac1cb3e1f7c8a6fe0ff4c9ea8b1c47becffd4fa168",
         "packages/usage/tests/skills/sync-markdown-code-blocks/task.md": "69f373db5a34c8165e1abe370e63230a6652c1412f2fa44a413dfd8534d84dbc"
       },
-      "head": "b5da2ad7f9c3c7c4a1fba0bcca9a893d517d888e",
+      "head": "8fd753fe248a42f85ce3fd7d97624156fd74e410",
       "outcome": "no-change",
-      "reason": "extract compares whole-file targets byte for byte in check mode; no guidance affected (the skill already describes extract --check as exact).",
+      "reason": "extract --force now refuses non-UTF-8 whole-file targets like splices do; README notes updated. The skill describes extract at a level these refusals don't change.",
       "evidence": [
-        "Changed: packages/mdcode/src/commands/extract.ts at b5da2ad7f9c3c7c4a1fba0bcca9a893d517d888e"
+        "Changed: packages/mdcode/README.md, packages/mdcode/src/commands/extract.ts at 8fd753fe248a42f85ce3fd7d97624156fd74e410"
       ]
     },
     "source:.bumpy/agent-skill.md": {
@@ -152,15 +152,15 @@
       ]
     },
     "source:.bumpy/extract-check-and-check-sync.md": {
-      "fingerprint": "7cfddd5a44de15f076ed440e0506acfc3693bd62188120a786f4b391f029f169",
+      "fingerprint": "e8a5ebac5605d944f0bc71136ad0bccf3a017c0873533434a029a616cc623a6c",
       "snapshot": {
-        ".bumpy/extract-check-and-check-sync.md": "9610f0a02be0256ec66d5a440997a5864d27c80a64c37bcad2028a77794fdfe6"
+        ".bumpy/extract-check-and-check-sync.md": "f1f8377f276ca4efdd495680c50a4fd244c46b8985971d27d0b7169beccf2add"
       },
-      "head": "96c394e80f4b69ee75e1d0d0456218a62ffac326",
-      "outcome": "out-of-scope",
-      "reason": "Changelog entry for extract --check, the check-sync action and the extract fixes.",
+      "head": "8fd753fe248a42f85ce3fd7d97624156fd74e410",
+      "outcome": "no-change",
+      "reason": "extract --force now refuses non-UTF-8 whole-file targets like splices do; README notes updated. The skill describes extract at a level these refusals don't change.",
       "evidence": [
-        "Minor bump file."
+        "Changed: .bumpy/extract-check-and-check-sync.md at 8fd753fe248a42f85ce3fd7d97624156fd74e410"
       ]
     },
     "source:.github/actions/check-sync/action.yml": {
@@ -200,15 +200,15 @@
       ]
     },
     "source:packages/mdcode/src/commands/extract.test.ts": {
-      "fingerprint": "cc671b28516a3e4626a3eaf32222e32d493887003e32c119e056fac56e95b788",
+      "fingerprint": "cfef2d2213bfb2e4f7386cf8b79cfa723c3372e5190ecc225603358b73d335b7",
       "snapshot": {
-        "packages/mdcode/src/commands/extract.test.ts": "d80becf6c377bf7277baa39a88e64eeb1dcf02d87fbe8f527a3e205aa9f7fdd8"
+        "packages/mdcode/src/commands/extract.test.ts": "36a6baa0ddd1ff41f0f366b4c7bc45dbf66f6adb785eded1fd4ebc77ffd2f035"
       },
-      "head": "b5da2ad7f9c3c7c4a1fba0bcca9a893d517d888e",
+      "head": "8fd753fe248a42f85ce3fd7d97624156fd74e410",
       "outcome": "no-change",
-      "reason": "extract compares whole-file targets byte for byte in check mode; no guidance affected (the skill already describes extract --check as exact).",
+      "reason": "extract --force now refuses non-UTF-8 whole-file targets like splices do; README notes updated. The skill describes extract at a level these refusals don't change.",
       "evidence": [
-        "Changed: packages/mdcode/src/commands/extract.test.ts at b5da2ad7f9c3c7c4a1fba0bcca9a893d517d888e"
+        "Changed: packages/mdcode/src/commands/extract.test.ts at 8fd753fe248a42f85ce3fd7d97624156fd74e410"
       ]
     },
     "source:packages/mdcode/src/region.test.ts": {

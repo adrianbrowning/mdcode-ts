@@ -735,15 +735,20 @@ describe("extract: check", () => {
     assert.deepEqual((await extract({ source, outputDir: dir, force: true, check: true })).errors, [], "after extract, the check passes");
   });
 
-  test("compares a whole file as bytes, so one that is not valid UTF-8 never passes as unchanged", async () => {
+  test("refuses a forced overwrite of a file that is not valid UTF-8, and check reports it the same way", async () => {
     const dir = await tempDir();
     // 0xff is not UTF-8; read lossily it would look like the block's U+FFFD.
-    await writeFile(join(dir, "a.txt"), Buffer.from([ 0x78, 0xff, 0x0a ]));
+    const bytes = Buffer.from([ 0x78, 0xff, 0x0a ]);
+    await writeFile(join(dir, "a.txt"), bytes);
+    const source = fence("txt file=a.txt", "x\uFFFD");
 
-    const result = await extract({ source: fence("txt file=a.txt", "x\uFFFD"), outputDir: dir, force: true, check: true });
+    const checked = await extract({ source, outputDir: dir, force: true, check: true });
+    const written = await extract({ source, outputDir: dir, force: true });
 
-    assert.deepEqual(result.targets.map(({ action }) => action), [ "written" ]);
-    assert.equal(drift(result).length, 1);
+    for (const result of [ checked, written ]) {
+      assert.deepEqual(result.targets.map(({ action, reason }) => ({ action, reason })), [{ action: "skipped", reason: "not valid UTF-8" }]);
+    }
+    assert.deepEqual(await readFile(join(dir, "a.txt")), bytes, "the bytes must be left as they were");
   });
 
   test("refuses a forced whole-file overwrite through a symlink, and check reports it the same way", async () => {
