@@ -18,7 +18,7 @@ TypeScript port of [szkiba/mdcode](https://github.com/szkiba/mdcode): keeps Mark
 ## Where things live
 
 - **Parser** (`src/parser.ts`): a custom line-by-line state machine instead of remark, so in-place updates keep exact character offsets. `scanFences()` is shared by `parse()` and `updateInfoStrings()` so block indices always agree.
-- **Mapping rules** (`src/commands/validate.ts`): `extract()` runs `planExtract()` before writing anything, and `update()` reads every `file=` through `readSource()`. `mdcode validate` reports the same rules without writing.
+- **Mapping rules** (`src/commands/validate.ts`): `extract()` runs `planExtract()` before writing anything, and `update()` reads every `file=` through `readSource()`. `mdcode validate` reports the same rules without writing. With several documents, the CLI's `validateDocuments()` validates them all, plus `sharedTargetErrors()` across them, before `extract` writes any.
 - **Writes**: `update()` never writes; the CLI decides, and only `--apply` writes the markdown. `watch()` writes only with `apply`.
 - **Config** (`src/config.ts`): `mdcode.config.json` is loaded only with `--project` or `--config`. Without either, input defaults to stdin.
 - **Contract** (`src/result.ts`): `COMMAND_NAMES` and `ERROR_CODES` are the source of truth for commands and error codes.

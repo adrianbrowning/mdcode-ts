@@ -53,6 +53,13 @@ export interface ValidateResult {
   errors: Array<ResultError>;
 }
 
+/** One document's validate() result, labelled with the document it came from. */
+export interface ValidatedDocument {
+  /** The document as named on the command line or relative to the current directory; null for stdin. */
+  document: string | null;
+  blocks: Array<ValidatedBlock>;
+}
+
 /**
  * Check how the selected blocks map onto files for one operation, reading but
  * never writing.
@@ -288,7 +295,8 @@ export async function planExtract(source: string, blocks: Array<Block>, outputDi
  * well formed there.
  */
 async function checkTarget({ display, items }: ExtractGroup): Promise<Array<ResultError>> {
-  const conflict = targetConflict(items);
+  const lines = `blocks on lines ${items.map(({ block }) => block.position?.line ?? 0).join(", ")} all write this file`;
+  const conflict = targetConflict(items.map(({ block }) => ({ region: block.meta.region, lang: block.lang })), lines);
 
   if (conflict !== undefined) {
     return items.map(({ block }) => blockError(block, { code: "ambiguous_target", message: conflict, path: display }));
@@ -313,29 +321,89 @@ async function checkTarget({ display, items }: ExtractGroup): Promise<Array<Resu
   });
 }
 
-/** Why several blocks cannot share one target, or undefined when they can. */
-function targetConflict(items: Array<ExtractItem>): string | undefined {
-  if (items.length < 2) {
+/**
+ * Why several blocks cannot share one target, or undefined when they can.
+ * `where` names the blocks, e.g. "blocks on lines 3, 7 all write this file".
+ */
+function targetConflict(blocks: Array<{ region?: string | undefined; lang: string; }>, where: string): string | undefined {
+  if (blocks.length < 2) {
     return undefined;
   }
 
-  const lines = `blocks on lines ${items.map(({ block }) => block.position?.line ?? 0).join(", ")} all write this file`;
-  const regions = items.map(({ block }) => block.meta.region);
-  const langs = [ ...new Set(items.map(({ block }) => block.lang.toLowerCase())) ];
+  const regions = blocks.map(({ region }) => region);
+  const langs = [ ...new Set(blocks.map(({ lang }) => lang.toLowerCase())) ];
 
   if (regions.includes(undefined)) {
-    return `${lines}, but not every one declares region=; give each block a region= of its own, or a file of its own`;
+    return `${where}, but not every one declares region=; give each block a region= of its own, or a file of its own`;
   }
 
   if (new Set(regions).size !== regions.length) {
-    return `${lines} and repeat a region=; give each block a region= of its own`;
+    return `${where} and repeat a region=; give each block a region= of its own`;
   }
 
   if (langs.length > 1) {
-    return `${lines} in different languages (${langs.map(lang => lang || "none").join(", ")}); blocks that share a file must share its language`;
+    return `${where} in different languages (${langs.map(lang => lang || "none").join(", ")}); blocks that share a file must share its language`;
   }
 
   return undefined;
+}
+
+/**
+ * Check the targets that blocks in different documents of one extract run
+ * share, under the rule that applies within one document: only blocks that
+ * each declare a distinct region=, all in one language, may write one file.
+ * Pass validate()'s extract result for every document in the run. Blocks
+ * already invalid in their own document are left out, since validate()
+ * reported them there. Every error names its document.
+ */
+export async function sharedTargetErrors(documents: Array<ValidatedDocument>): Promise<Array<ResultError>> {
+  const writers = new Map<string, Array<{ document: string | null; block: ValidatedBlock; }>>();
+  const keys = new Map<ValidatedBlock, string>();
+
+  for (const { document, blocks } of documents) {
+    for (const block of blocks) {
+      if (!block.valid || block.path === null) {
+        continue;
+      }
+
+      const key = await resolveTarget(block.path);
+      keys.set(block, key);
+      writers.set(key, [ ...writers.get(key) ?? [], { document, block }]);
+    }
+  }
+
+  const conflicts = new Map<string, string>();
+
+  for (const [ key, sharing ] of writers) {
+    if (new Set(sharing.map(({ document }) => document)).size < 2) {
+      continue;
+    }
+
+    const where = `blocks at ${sharing.map(({ document, block }) => `${document ?? "stdin"}:${block.line}`).join(", ")} all write this file`;
+    const conflict = targetConflict(sharing.map(({ block }) => block), where);
+
+    if (conflict !== undefined) {
+      conflicts.set(key, conflict);
+    }
+  }
+
+  // In document order, then block order, as each document's own errors are.
+  return documents.flatMap(({ document, blocks }) => blocks.flatMap(block => {
+    const conflict = conflicts.get(keys.get(block) ?? "");
+
+    if (conflict === undefined) {
+      return [];
+    }
+
+    return [{
+      ...(document === null ? {} : { document }),
+      code: "ambiguous_target" as const,
+      message: conflict,
+      line: block.line,
+      ...(block.name === null ? {} : { name: block.name }),
+      path: block.path!,
+    }];
+  }));
 }
 
 /**
