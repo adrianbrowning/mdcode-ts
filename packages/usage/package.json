@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "pretest": "pnpm --filter mdcode-ts build",
-    "test": "node --test-reporter=spec --test tests/**/*.test.ts",
+    "test": "node --test-reporter=dot --test tests/**/*.test.ts",
     "test:watch": "pnpm test -w",
     "lint:ts": "tsc --noEmit",
     "lint": "tsc --noEmit && eslint \"{tests,fixtures,examples}/**/*.{j,t}s{,x}\" --cache --max-warnings=0",

@@ -62,8 +62,9 @@ Two packages, `packages/mdcode` (published as `mdcode-ts`) and `packages/usage`.
   test file with `node --test` skips that, so run `pnpm build` first.
 - Region fixtures live in `packages/mdcode/tests/testdata/region/` and are compared byte-for-byte, so
   trailing newlines matter.
-- Tests that assert on warnings use `mock.method(console, "error", …)` with `mock.restoreAll()` in a
-  `finally`, so a failing assertion cannot leak the stub into sibling tests.
+- Library code prints nothing, so assert on returned results and callbacks (`onBlock`, `onEvent`),
+  not on console output. ESLint rejects `console`, process stdio and exit in `packages/mdcode/src`
+  except `cli.ts`, `main.ts` and `*.test.ts`.
 
 ## Before Pushing
 
