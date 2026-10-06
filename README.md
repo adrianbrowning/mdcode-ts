@@ -58,7 +58,7 @@ export function greet(name: string): string {
 ```
 ````
 
-When `src/greet.ts` changes, run your checks, then `mdcode update --apply README.md` again. CI runs the same two steps in the same order, with `--check` instead of `--apply`:
+When `src/greet.ts` changes, run your checks, then `mdcode update --apply README.md` again. In CI, run the same two steps in the same order, with `--check` instead of `--apply`:
 
 ```bash
 npm run lint && npm test            # check the code where it lives

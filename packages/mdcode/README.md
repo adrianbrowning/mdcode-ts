@@ -103,7 +103,7 @@ They suit different snippets:
 - An example that should be complete, tested code belongs in a source or test file, and mdcode copies it into the docs.
 - A fragment that only makes sense in the prose, such as a single call or part of a config, can stay in the Markdown, where a snippet checker type-checks it.
 
-mdcode can also run your own type checker over blocks written in the Markdown. [`validate-snippets.mjs`](#validating-runnable-snippets-in-ci) extracts the `runnable=true` blocks into a temporary workspace and runs a command such as `tsc --noEmit` there. A failure names the block on the command line; nothing shows in your editor.
+For blocks written in the Markdown, the ready-to-copy [`validate-snippets.mjs`](#validating-runnable-snippets-in-ci) script can run your own type checker. It extracts the `runnable=true` blocks into a temporary workspace with `mdcode extract` and runs a command such as `tsc --noEmit` there. A failure names the block on the command line; nothing shows in your editor.
 
 ## Installation
 
