@@ -1427,7 +1427,9 @@ jobs:
       # Trusted publishing needs npm 11.5.1 or later; Node 22 ships npm 10
       - run: npm install -g npm@latest
       - run: npm ci
-      - run: npm publish
+      - run: npm run build --if-present
+      # The checks job already passed; skip prepublishOnly so snippets never run here
+      - run: npm publish --ignore-scripts
 ```
 
 Before the first run, add a trusted publisher for your package on npmjs.com, naming this repository,
@@ -1435,9 +1437,11 @@ the workflow file and the `npm` environment. To publish with a token instead, st
 repository secret, drop `id-token: write`, and pass it to `npm publish` as `NODE_AUTH_TOKEN`.
 
 Only the `publish` job can mint an npm credential. The `checks` job runs the snippets, which is
-running code from the Markdown, so it gets a read-only token and no `id-token`. Use one gate or the
-other, not both: `npm publish` runs `prepublishOnly`, so a `prepublishOnly` that runs `docs:snippets`
-would execute the snippets again inside the `publish` job, where they could mint the credential.
+running code from the Markdown, so it gets a read-only token and no `id-token`. That is why the
+`publish` job builds explicitly and publishes with `--ignore-scripts`: a plain `npm publish` would run
+a `prepublishOnly` like the one above, executing the snippets again in the job that can mint the
+credential. `--ignore-scripts` also skips `prepare` and `prepack`, so run any step they did as its
+own step before publishing.
 
 mdcode-ts gates its own releases the same way; see its
 [RELEASING.md](https://github.com/adrianbrowning/mdcode-ts/blob/main/RELEASING.md).
