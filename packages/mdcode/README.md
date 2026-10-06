@@ -1346,6 +1346,103 @@ jobs:
 
 ---
 
+## CI/CD Integration
+
+mdcode fits into CI in three stages. Each one stands alone, and each builds on the one before:
+
+1. **Check the docs are in sync.** Fail when a block has drifted from the `file=` it points at. See
+   [Checking Docs in CI](#checking-docs-in-ci), or [Project Configuration](#locally-and-in-ci) to
+   list the documents once in `mdcode.config.json`.
+2. **Run the runnable snippets.** Fail when a block written in the Markdown and marked
+   `runnable=true` no longer runs. See [Validating Runnable Snippets in CI](#validating-runnable-snippets-in-ci).
+3. **Gate the release on both.** Publish only after your tests and both docs checks pass, as below.
+
+Stages 1 and 2 give you two npm scripts, `docs:check` and `docs:snippets`. Run them on every pull
+request so drift fails the change that caused it, then run them again before publishing so nothing
+stale reaches npm.
+
+### Gating a Release
+
+The smallest gate is `prepublishOnly`. `npm publish` runs it first and stops without publishing if
+it fails:
+
+```json
+{
+  "scripts": {
+    "test": "node --test",
+    "docs:check": "node scripts/check-docs-sync.mjs README.md docs/guide.md",
+    "docs:snippets": "node scripts/validate-snippets.mjs README.md docs/guide.md -- node {file}",
+    "prepublishOnly": "npm test && npm run docs:check && npm run docs:snippets"
+  },
+  "devDependencies": {
+    "mdcode-ts": "^0.1.0"
+  }
+}
+```
+
+When GitHub Actions publishes, put the checks in their own job and make the publish job need it.
+Each check is a named step, so a failed run names the gate that stopped it, and the publish job never
+starts. This workflow publishes when you push a `v*` tag, using
+[npm trusted publishing](https://docs.npmjs.com/trusted-publishers/), so no npm token is stored:
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: 'Gate: tests'
+        run: npm test
+      - name: 'Gate: docs in sync'
+        run: npm run docs:check
+      - name: 'Gate: runnable snippets'
+        run: npm run docs:snippets
+
+  publish:
+    needs: checks
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      # Trusted publishing needs npm 11.5.1 or later; Node 22 ships npm 10
+      - run: npm install -g npm@latest
+      - run: npm ci
+      - run: npm publish
+```
+
+Before the first run, add a trusted publisher for your package on npmjs.com, naming this repository,
+the workflow file and the `npm` environment. To publish with a token instead, store it as a
+repository secret, drop `id-token: write`, and pass it to `npm publish` as `NODE_AUTH_TOKEN`.
+
+Only the `publish` job can mint an npm credential. The `checks` job runs the snippets, which is
+running code from the Markdown, so it gets a read-only token and no `id-token`. If you also keep the
+`prepublishOnly` gate, `npm publish` runs the checks a second time, which is harmless.
+
+mdcode-ts gates its own releases the same way; see its
+[RELEASING.md](https://github.com/adrianbrowning/mdcode-ts/blob/main/RELEASING.md).
+
+---
+
 ## CLI Flags Reference
 
 All commands support these common flags:

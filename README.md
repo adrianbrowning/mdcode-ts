@@ -71,6 +71,8 @@ To keep several documents in sync without repeating their paths, list them in `m
 
 To check that snippets actually run, mark them `runnable=true` and copy [`examples/ci/validate-snippets.mjs`](examples/ci/validate-snippets.mjs). It extracts only those blocks into a temporary workspace, runs your test or lint command there, and fails CI naming the block that broke. See [Validating Runnable Snippets in CI](packages/mdcode/README.md#validating-runnable-snippets-in-ci).
 
+To publish only after both checks pass, see [CI/CD Integration](packages/mdcode/README.md#cicd-integration). It shows the three stages in order and how to gate a release on them with `prepublishOnly` or a GitHub Actions publish job.
+
 ## Commands
 
 | Command | What it does |
