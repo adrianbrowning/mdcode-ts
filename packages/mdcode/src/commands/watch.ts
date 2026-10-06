@@ -6,7 +6,7 @@
  */
 import type { FSWatcher } from "node:fs";
 import { watch as fsWatch } from "node:fs";
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { dirname, join, sep } from "node:path";
 import { styleText } from "node:util";
 
@@ -15,6 +15,7 @@ import { isMissing, resolveContained } from "../paths.ts";
 import type { ResultError } from "../result.ts";
 import { describeError, errorsFrom } from "../result.ts";
 import type { FilterOptions } from "../types.ts";
+import { writeAtomic } from "../write.ts";
 import type { UpdatedBlock } from "./update.ts";
 import { describeChange, update } from "./update.ts";
 
@@ -56,13 +57,14 @@ export type WatchEvent =
 
 /**
  * Start watching `paths` and call `onChange` with the path of whatever changed.
- * The default uses fs.watch on each path's directory; tests supply their own.
+ * Resolves once every path is being watched, so a change made afterwards is
+ * seen. The default uses fs.watch on each path's directory; tests supply their own.
  */
 export type WatchFiles = (
   paths: ReadonlySet<string>,
   onChange: (path: string) => void,
   onError: (error: unknown) => void
-) => { close: () => void; };
+) => Promise<{ close: () => void; }>;
 
 export interface WatchOptions {
   /** Called before every pass. A rejection on the first call rejects watch(). */
@@ -124,11 +126,20 @@ export async function watch(options: WatchOptions): Promise<WatchHandle> {
     }, debounceMs);
   };
 
-  const rewatch = (paths: Set<string>): void => {
+  // The new watcher is in place before the old one closes, so no change falls between them.
+  const rewatch = async (paths: Set<string>): Promise<void> => {
     if (closed || sameSet(paths, watched)) return;
+
+    const next = await watchFiles(paths, changed, fail);
+
+    if (closed) {
+      next.close();
+      return;
+    }
+
     watcher?.close();
+    watcher = next;
     watched = paths;
-    watcher = watchFiles(paths, changed, fail);
   };
 
   // Every failure is reported and the watch carries on; a later change starts the next pass.
@@ -137,7 +148,7 @@ export async function watch(options: WatchOptions): Promise<WatchHandle> {
       const target = await resolve();
       const { documents, sources } = await reconcile(target, apply, ownWrites);
 
-      rewatch(new Set([ ...target.documents.map(document => document.file), ...sources, ...target.extra ?? [] ]));
+      await rewatch(new Set([ ...target.documents.map(document => document.file), ...sources, ...target.extra ?? [] ]));
       onEvent({ type: "pass", documents });
     }
     catch (error: unknown) {
@@ -148,7 +159,8 @@ export async function watch(options: WatchOptions): Promise<WatchHandle> {
   const first = await resolve();
   const { documents, sources } = await reconcile(first, apply, ownWrites);
 
-  rewatch(new Set([ ...first.documents.map(document => document.file), ...sources, ...first.extra ?? [] ]));
+  // ready means watching: a change made after it is seen.
+  await rewatch(new Set([ ...first.documents.map(document => document.file), ...sources, ...first.extra ?? [] ]));
   onEvent({ type: "ready", documents: first.documents.length, sources: sources.size });
   onEvent({ type: "pass", documents });
 
@@ -228,7 +240,8 @@ async function reconcile(target: WatchTarget, apply: boolean, ownWrites: Map<str
       // As update --apply --continue-on-error: a failed file= or region= leaves the document alone.
       if (apply && result.changed.length > 0 && !outcome.errors.some(error => error.code !== "transform_failed")) {
         ownWrites.set(document.file, outcome.source);
-        await writeFile(document.file, outcome.source, "utf-8");
+        // Atomic, so the watcher's own change event never reads a half-written file and mistakes it for an edit.
+        await writeAtomic(document.file, outcome.source, (await stat(document.file)).mode);
         result.written = true;
       }
     }
@@ -281,20 +294,22 @@ function sameSet(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
  * replacing the file. A path whose directory does not exist yet is watched
  * through its nearest existing ancestor, so creating it starts a pass.
  */
-const watchDirectories: WatchFiles = (paths, onChange, onError) => {
+const watchDirectories: WatchFiles = async (paths, onChange, onError) => {
   const byDirectory = new Map<string, Array<string>>();
+
+  for (const path of paths) {
+    const directory = await existingAncestor(dirname(path));
+    byDirectory.set(directory, [ ...byDirectory.get(directory) ?? [], path ]);
+  }
+
+  // Installed synchronously from here on, so every watcher exists once this resolves.
   const watchers: Array<FSWatcher> = [];
-  let closed = false;
+  const close = (): void => {
+    for (const watcher of watchers) watcher.close();
+  };
 
-  const start = async (): Promise<void> => {
-    for (const path of paths) {
-      const directory = await existingAncestor(dirname(path));
-      byDirectory.set(directory, [ ...byDirectory.get(directory) ?? [], path ]);
-    }
-
+  try {
     for (const [ directory, inside ] of byDirectory) {
-      if (closed) return;
-
       const watcher = fsWatch(directory, (_event, name) => {
         // Some platforms omit the name; then anything in the directory may have changed.
         const changedPath = name === null ? undefined : join(directory, name.toString());
@@ -308,16 +323,14 @@ const watchDirectories: WatchFiles = (paths, onChange, onError) => {
       watcher.on("error", onError);
       watchers.push(watcher);
     }
-  };
+  }
+  catch (error: unknown) {
+    // A directory that cannot be watched leaves none of this set running.
+    close();
+    throw error;
+  }
 
-  start().catch(onError);
-
-  return {
-    close: () => {
-      closed = true;
-      for (const watcher of watchers) watcher.close();
-    },
-  };
+  return { close };
 };
 
 async function existingAncestor(directory: string): Promise<string> {

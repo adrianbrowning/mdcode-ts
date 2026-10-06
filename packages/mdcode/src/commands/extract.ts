@@ -1,5 +1,5 @@
-import { chmod, lstat, mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { lstat, mkdir, readFile, stat } from "node:fs/promises";
+import { dirname } from "node:path";
 import { styleText } from "node:util";
 
 import { parse, updateInfoStrings } from "../parser.ts";
@@ -9,6 +9,7 @@ import { spliceRegions, wrapRegion } from "../region.ts";
 import type { BlockRef, ResultError } from "../result.ts";
 import { BlockFailure, blockRef } from "../result.ts";
 import type { FilterOptions } from "../types.ts";
+import { writeAtomic } from "../write.ts";
 import type { ExtractItem } from "./validate.ts";
 import { planExtract } from "./validate.ts";
 
@@ -218,31 +219,6 @@ function spliceRefusal(result: { unclosed: Array<string>; duplicated: Array<stri
   }
 
   return `regions ${result.overlapping.join(", ")} overlap`;
-}
-
-/**
- * Write via a sibling temp file and rename, so an interrupted or out-of-space
- * write cannot leave a hand-written source file truncated. rename() drops the
- * destination's permissions, so they are copied over first.
- *
- * Tradeoff: rename() replaces the file rather than rewriting it, so the target
- * gets a new inode. Hard links to the old file keep the old contents, and
- * extended attributes and ACLs are not carried over. Both are accepted because
- * the alternative — truncate and rewrite in place — can leave a source file
- * half-written, which is worse. It also means a symlinked target would be
- * replaced rather than followed, which is why the splice path refuses symlinks
- * outright instead of relying on this.
- */
-async function writeAtomic(target: string, content: string, mode?: number): Promise<void> {
-  const temp = join(dirname(target), `.${basename(target)}.mdcode-${process.pid}`);
-
-  await writeFile(temp, content, "utf-8");
-
-  if (mode !== undefined) {
-    await chmod(temp, mode & 0o7777);
-  }
-
-  await rename(temp, target);
 }
 
 /** "Not there yet" is undefined; anything else is a real failure to surface. */

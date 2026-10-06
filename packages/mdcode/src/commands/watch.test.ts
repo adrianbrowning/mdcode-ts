@@ -32,7 +32,7 @@ async function setup(options: { apply?: boolean; resolve?: (target: WatchTarget)
   const watching: Array<ReadonlySet<string>> = [];
   let fire: (path: string) => void = () => {};
 
-  const watchFiles: WatchFiles = (paths, onChange) => {
+  const watchFiles: WatchFiles = async (paths, onChange) => {
     watching.push(paths);
     fire = onChange;
     return { close: () => {} };
@@ -155,7 +155,7 @@ describe("watch", () => {
     const handle = await watch({
       resolve: async () => ({ documents: [{ file: join(dir, "gone.md"), label: "gone.md", basePath: dir }] }),
       onEvent: event => events.push(event),
-      watchFiles: () => ({ close: () => {} }),
+      watchFiles: async () => ({ close: () => {} }),
     });
     handles.push(handle);
 
@@ -170,7 +170,28 @@ describe("watch", () => {
         throw new Error("no configuration");
       },
       onEvent: () => {},
-      watchFiles: () => ({ close: () => {} }),
+      watchFiles: async () => ({ close: () => {} }),
     }), /no configuration/);
+  });
+
+  test("reports ready only once every file is being watched", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "mdcode-watch-"));
+    dirs.push(dir);
+    await writeFile(join(dir, "doc.md"), "x\n", "utf-8");
+
+    const order: Array<string> = [];
+    const handle = await watch({
+      resolve: async () => ({ documents: [{ file: join(dir, "doc.md"), label: "doc.md", basePath: dir }] }),
+      onEvent: event => order.push(event.type),
+      watchFiles: async () => {
+        // Installing a real watcher takes a while; ready must wait for it.
+        await sleep(30);
+        order.push("watching");
+        return { close: () => {} };
+      },
+    });
+    handles.push(handle);
+
+    assert.deepEqual(order, [ "watching", "ready", "pass" ]);
   });
 });
