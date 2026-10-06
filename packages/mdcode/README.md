@@ -331,7 +331,10 @@ exits 1 with an error per block:
   are in the same language. Two whole-file blocks for one file, even identical ones, a whole-file
   block beside a region block, a repeated `region=`, or regions in different languages are refused
   as `ambiguous_target`. Two spellings of one file (`./a.ts` and `a.ts`, or a symlinked directory
-  inside `--dir`) count as one file.
+  inside `--dir`) count as one file. With several documents, the same rule applies to blocks in
+  different documents that write one file, so `docs/a.md` and `docs/b.md` cannot both write
+  `src/x.ts` whole, nor both write region `one` of it. Anonymous blocks count too: `block-1.sh` from
+  two documents is one file.
 - **An existing file's markers for a declared region are broken** → a region that is never closed or
   overlaps another is `malformed_region`, one opened more than once is `duplicate_region`, and one
   marked only in another language's comment syntax is `region_language_mismatch`. An invalid
@@ -770,7 +773,7 @@ block's line and name, the file concerned and the rule, which is the error code:
 | `duplicate_region` | `region=` is opened more than once in the file | Same, in an existing target |
 | `malformed_region` | invalid `region=` name, or its markers are unclosed or do not nest | Same, or two declared regions overlap |
 | `region_language_mismatch` | `region=` is marked only in another language's comment syntax | Same, in an existing target |
-| `ambiguous_target` | - | Several blocks write one file, but not each with its own `region=` in one language |
+| `ambiguous_target` | - | Several blocks write one file, but not each with its own `region=` in one language; with several documents, this includes blocks in different documents |
 | `missing_file_metadata` | `--strict`: a selected block has no `file=` | Same |
 
 `update` and `extract` enforce every rule here except `--strict`, which only `validate` applies, so a
@@ -1275,7 +1278,10 @@ output starts with the document it is about. `--stdout` needs exactly one docume
 
 `update --apply` writes every document or none of them: when one fails, nothing is written. With
 `--continue-on-error`, `update` carries on past a failed document and applies the others. `extract`
-writes as it goes, so it stops at the first document that fails, after extracting the ones before it.
+writes nothing until every document has been checked: when any document breaks a rule, or two
+documents write one file in a way that rule refuses, nothing is written for any of them. It still stops
+at a document that fails while writing, after extracting the ones before it. `validate --for extract`
+runs the same check across its documents.
 
 Under `--json`, `result.documents` holds one entry per document, and each error names its `document`;
 see [JSON Contract](#json-contract).
@@ -2055,6 +2061,11 @@ Exit codes are the same with and without `--json`:
   refused as `ambiguous_target`, `malformed_region`, `duplicate_region` or `region_language_mismatch`
   and nothing is written. They used to skip that one file with `extract_skipped` and exit 2. Two
   identical whole-file blocks for one file used to be written once; they are now refused too.
+- `extract` with several documents checks them all before writing any, including blocks in different
+  documents that write one file. It used to write each document in turn, so a later document's
+  refusal left the earlier ones' files written, and a file two documents both wrote ended up with
+  whichever came first, the second being skipped with `extract_skipped`. Both are now refused before
+  anything is written, and `validate --for extract` reports them.
 - `update` reports a missing, duplicated, unclosed or wrongly marked `region=` as `missing_region`,
   `duplicate_region`, `malformed_region` or `region_language_mismatch` instead of `read_failed`. A
   region found more than once in its file used to have its bodies joined; it is now refused. An empty

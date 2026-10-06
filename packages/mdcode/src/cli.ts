@@ -15,8 +15,8 @@ import { formatList, list } from "./commands/list.ts";
 import { formatRunBlock, run } from "./commands/run.ts";
 import type { UpdateResult } from "./commands/update.ts";
 import { describeChange, formatUpdate, update } from "./commands/update.ts";
-import type { ValidatedBlock, ValidateOperation } from "./commands/validate.ts";
-import { validate } from "./commands/validate.ts";
+import type { ValidatedDocument, ValidateOperation, ValidateOptions } from "./commands/validate.ts";
+import { sharedTargetErrors, validate } from "./commands/validate.ts";
 import type { WatchEvent, WatchTarget } from "./commands/watch.ts";
 import { formatWatch, watch } from "./commands/watch.ts";
 import type { ProjectConfig } from "./config.ts";
@@ -119,6 +119,56 @@ function extractDir(dir: string | undefined, config: ProjectConfig | undefined):
   return dir ?? config?.outputRoot ?? ".";
 }
 
+/**
+ * validate() every document for one operation, reporting every problem rather
+ * than stopping at the first. For extract with several documents, blocks in
+ * different documents that write one file are checked against each other too.
+ */
+async function validateDocuments(
+  documents: Array<Document>,
+  operation: ValidateOperation,
+  options: Pick<ValidateOptions, "filter" | "strict" | "ignoreAnonymous"> & { base: (document: Document) => string; }
+): Promise<{ results: Array<ValidatedDocument>; errors: Array<ResultError>; lines: Array<string>; }> {
+  const { base, ...shared } = options;
+  const several = documents.length > 1;
+  const at = (label: string | null | undefined, text: string): string => several ? `${label}: ${text}` : text;
+  const results: Array<ValidatedDocument> = [];
+  const errors: Array<ResultError> = [];
+  const lines: Array<string> = [];
+  const report = (error: ResultError): void => {
+    lines.push(styleText("red", at(error.document, `✗ ${describeError(error)} (${error.code})`)));
+  };
+
+  for (const document of documents) {
+    try {
+      const checked = await validate({ ...shared, source: await readInput(document.file), operation, base: base(document) });
+      const found = inDocument(document, checked.errors);
+
+      results.push({ document: document.label, blocks: checked.blocks });
+      errors.push(...found);
+      found.forEach(report);
+    }
+    catch (error: unknown) {
+      errors.push(...inDocument(document, errorsFrom(error)));
+      lines.push(...errorLines(error).map(line => `Error: ${at(document.label, line)}`));
+    }
+  }
+
+  if (operation === "extract" && several) {
+    for (const error of await sharedTargetErrors(results)) {
+      const block = results.find(({ document }) => document === (error.document ?? null))?.blocks.find(({ line }) => line === error.line);
+
+      if (block) {
+        block.valid = false;
+      }
+      errors.push(error);
+      report(error);
+    }
+  }
+
+  return { results, errors, lines };
+}
+
 /** What `mdcode update` does with the updated markdown; only apply writes it. */
 const UPDATE_MODES = [ "plan", "apply", "diff", "check", "stdout" ] as const;
 
@@ -165,12 +215,6 @@ type ValidateCliOptions = FilterCliOptions & ProjectCliOptions & {
   base?: string;
   dir?: string;
   ignoreAnonymous?: boolean;
-};
-
-/** What validate found for one document, as it appears in the result's documents. */
-type ValidatedDocument = {
-  document: string | null;
-  blocks: Array<ValidatedBlock>;
 };
 
 /**
@@ -375,6 +419,25 @@ export async function Execute(
         const filter = mergeFilters(config?.filter, parseFilterOptions(options));
         const outputDir = extractDir(options.dir, config);
         const several = documents.length > 1;
+
+        // Plan every document before writing to any, so that one refusal, or two
+        // documents writing one file, leaves every document's targets untouched.
+        // One document plans for itself inside extract().
+        if (several) {
+          const planned = await validateDocuments(documents, "extract", { filter, base: () => outputDir, ignoreAnonymous: options.ignoreAnonymous });
+
+          if (planned.errors.length > 0) {
+            return {
+              result: null,
+              errors: planned.errors,
+              human: () => writeLines(stderr, [
+                ...planned.errors.map(error => `Error: ${error.document}: ${describeError(error)}`),
+                styleText("yellow", `Nothing was written for any of the ${documents.length} documents.`),
+              ]),
+            };
+          }
+        }
+
         const results: Array<ExtractedDocument> = [];
         const errors: Array<ResultError> = [];
         const reports: Array<() => void> = [];
@@ -761,34 +824,13 @@ export async function Execute(
         const config = await loadProject(options);
         const documents = selectDocuments(files, config);
         const filter = mergeFilters(config?.filter, parseFilterOptions(options));
-        const several = documents.length > 1;
-        const results: Array<ValidatedDocument> = [];
-        const errors: Array<ResultError> = [];
-        const lines: Array<string> = [];
-
         // Every document is checked, so one run reports every problem.
-        for (const document of documents) {
-          const at = (text: string): string => several ? `${document.label}: ${text}` : text;
-
-          try {
-            const checked = await validate({
-              source: await readInput(document.file),
-              operation,
-              filter,
-              base: operation === "extract" ? extractDir(options.dir, config) : updateBase(options.base, config, document),
-              strict: options.strict,
-              ignoreAnonymous: options.ignoreAnonymous,
-            });
-
-            results.push({ document: document.label, blocks: checked.blocks });
-            errors.push(...inDocument(document, checked.errors));
-            lines.push(...checked.errors.map(error => styleText("red", at(`✗ ${describeError(error)} (${error.code})`))));
-          }
-          catch (error: unknown) {
-            errors.push(...inDocument(document, errorsFrom(error)));
-            lines.push(...errorLines(error).map(line => `Error: ${at(line)}`));
-          }
-        }
+        const { results, errors, lines } = await validateDocuments(documents, operation, {
+          filter,
+          base: document => operation === "extract" ? extractDir(options.dir, config) : updateBase(options.base, config, document),
+          strict: options.strict,
+          ignoreAnonymous: options.ignoreAnonymous,
+        });
 
         const checkedBlocks = results.reduce((count, result) => count + result.blocks.length, 0);
 
