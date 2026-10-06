@@ -39,7 +39,8 @@ async function checkout(files: Record<string, string>): Promise<string> {
 /** Every file in the checkout with its content, to prove the action wrote nothing. */
 async function snapshot(dir: string): Promise<Record<string, string>> {
   const entries = await readdir(dir, { recursive: true, withFileTypes: true });
-  const files = entries.filter(entry => entry.isFile() && !entry.name.startsWith("action-")).map(entry => join(entry.parentPath, entry.name)).sort();
+  const files = entries.filter(entry => entry.isFile() && !entry.name.startsWith("action-")).map(entry => join(entry.parentPath, entry.name))
+    .sort();
   return Object.fromEntries(await Promise.all(files.map(async file => [ file, await readFile(file, "utf-8") ])));
 }
 

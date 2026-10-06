@@ -3,7 +3,7 @@
   "baseline": "5254174a2a13060d110f34dbc0a4421b5302f5cb",
   "items": {
     "skill:packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": {
-      "fingerprint": "baf22faa40d851c4c4f1f775799ff2585558a0ca71090261d326ec836aa48c93",
+      "fingerprint": "223edffff3a853522d2ed1ee48f2557097e46f3e5acce072c242648916b7bfe7",
       "snapshot": {
         "examples/ci/check-docs-sync.mjs": "7a1dc943571637883dfc28de98825c3c595d6c5a5561239373bacf1dfbf1dc72",
         "examples/ci/validate-snippets.mjs": "d177fba60f830179c285a25ea0a878d98dc044684114447f687366907e9e722d",
@@ -11,9 +11,9 @@
         "packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": "b553026d702b291bc829c0b76de1f2c75fcc7a5ffe62af6084e782cb0d120566",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/json-results.md": "ccbcb240d796eccc02c6f1974573df1f8a9052ea37808b78a15420f9e66f1f63",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/transformers.md": "b35f5caf45b6334d21e534facb2d22a76c52f576d1640e3a5732fd1d6119cf13",
-        "packages/mdcode/src/cli.ts": "cd07a5c2e698e23738b746c87afad1edb158f1c778c87c09d573ac36bb794c40",
+        "packages/mdcode/src/cli.ts": "635c980c65e34a5cc9061e1a423909fc18bcbc85f10ae2ff3e13fdddc021aedf",
         "packages/mdcode/src/commands/dump.ts": "c51ca44f0159c59b849c5cb725e2de36ca5ef0578356bc9f921330ce8677d346",
-        "packages/mdcode/src/commands/extract.ts": "3f49ea1b950b62f8843654f6ee3629e87ac0e23b93a395a131656827871529ec",
+        "packages/mdcode/src/commands/extract.ts": "f31ad3f8bb66ea83cd189415446167c4905adf7e299a8b0f3821bc8e9115efce",
         "packages/mdcode/src/commands/list.ts": "d919894dd08249bb1eb0d12bcd5c21016cb87c0a6cba484de7da492bbe3c5c75",
         "packages/mdcode/src/commands/run.ts": "2c35da6b7ee31feb34df303d532715299f6e6eb87f24d914637bb299f875b77c",
         "packages/mdcode/src/commands/update.ts": "0e3c7d632ca3a424e8c01d64b3bd5872fe8ec9c0856610e3e95ce28e5dfe67c8",
@@ -32,15 +32,15 @@
         "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/src/greet.ts": "a2938e7cf0fa1f29393bd2ac1cb3e1f7c8a6fe0ff4c9ea8b1c47becffd4fa168",
         "packages/usage/tests/skills/sync-markdown-code-blocks/task.md": "69f373db5a34c8165e1abe370e63230a6652c1412f2fa44a413dfd8534d84dbc"
       },
-      "head": "96c394e80f4b69ee75e1d0d0456218a62ffac326",
-      "outcome": "updated",
-      "reason": "Extract section gains `extract --check --force --ignore-anonymous` as the read-only preview and the --force caveat; safety table lists extract --check as writing nothing. Other guidance matches the changed extract (final newline kept on overwrite, symlink refused) and splice (no double indent) behaviour without edits.",
+      "head": "4fc4ec83eccda6aeb542cc6b552262701c8bdc16",
+      "outcome": "no-change",
+      "reason": "Formatting-only lint fixes (chained-call line breaks, import order); no guidance affected.",
       "evidence": [
-        "extract.test.ts 'extract: check' (6 tests) and region.test.ts round-trip test pass; check-sync-action.test.ts (8 tests) passes; `mdcode extract --check --force --ignore-anonymous` verified on a temp project: exit 0 in sync, exit 1 with per-block out_of_sync, files unchanged; dogfood: check-sync over this repo's 6 documents passes in both directions, and a real extract now leaves packages/mdcode/tests/examples/fibonacci/fibonacci.js unchanged."
+        "Changed: packages/mdcode/src/cli.ts, packages/mdcode/src/commands/extract.ts at 4fc4ec83eccda6aeb542cc6b552262701c8bdc16"
       ]
     },
     "planning:_artifacts": {
-      "fingerprint": "8ac4503938ddd3290670e3f6bd04fc39a768d2a87fbc3ff0af1cd2c6b273bfb1",
+      "fingerprint": "49d28691c65a5df54a9e0642d509a810240fd1f23832060997ce9e887d8306a2",
       "snapshot": {
         "_artifacts/domain_map.yaml": "ceb4094bf4fa2cd63354e1c76cce3fec97d19c4a807a40b974646e1dbb00152b",
         "_artifacts/skill_spec.md": "d0af268c94e3fefde165ce14f470c88ce52e7f8162c4c8632718fe0f959f5a23",
@@ -51,9 +51,9 @@
         "packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": "b553026d702b291bc829c0b76de1f2c75fcc7a5ffe62af6084e782cb0d120566",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/json-results.md": "ccbcb240d796eccc02c6f1974573df1f8a9052ea37808b78a15420f9e66f1f63",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/transformers.md": "b35f5caf45b6334d21e534facb2d22a76c52f576d1640e3a5732fd1d6119cf13",
-        "packages/mdcode/src/cli.ts": "cd07a5c2e698e23738b746c87afad1edb158f1c778c87c09d573ac36bb794c40",
+        "packages/mdcode/src/cli.ts": "635c980c65e34a5cc9061e1a423909fc18bcbc85f10ae2ff3e13fdddc021aedf",
         "packages/mdcode/src/commands/dump.ts": "c51ca44f0159c59b849c5cb725e2de36ca5ef0578356bc9f921330ce8677d346",
-        "packages/mdcode/src/commands/extract.ts": "3f49ea1b950b62f8843654f6ee3629e87ac0e23b93a395a131656827871529ec",
+        "packages/mdcode/src/commands/extract.ts": "f31ad3f8bb66ea83cd189415446167c4905adf7e299a8b0f3821bc8e9115efce",
         "packages/mdcode/src/commands/list.ts": "d919894dd08249bb1eb0d12bcd5c21016cb87c0a6cba484de7da492bbe3c5c75",
         "packages/mdcode/src/commands/run.ts": "2c35da6b7ee31feb34df303d532715299f6e6eb87f24d914637bb299f875b77c",
         "packages/mdcode/src/commands/update.ts": "0e3c7d632ca3a424e8c01d64b3bd5872fe8ec9c0856610e3e95ce28e5dfe67c8",
@@ -72,11 +72,11 @@
         "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/src/greet.ts": "a2938e7cf0fa1f29393bd2ac1cb3e1f7c8a6fe0ff4c9ea8b1c47becffd4fa168",
         "packages/usage/tests/skills/sync-markdown-code-blocks/task.md": "69f373db5a34c8165e1abe370e63230a6652c1412f2fa44a413dfd8534d84dbc"
       },
-      "head": "96c394e80f4b69ee75e1d0d0456218a62ffac326",
-      "outcome": "updated",
-      "reason": "domain_map.yaml covers extract --check; skill_spec.md adds batch 3 for #28. skill_tree.yaml unchanged.",
+      "head": "4fc4ec83eccda6aeb542cc6b552262701c8bdc16",
+      "outcome": "no-change",
+      "reason": "Formatting-only lint fixes (chained-call line breaks, import order); no guidance affected.",
       "evidence": [
-        "extract.test.ts 'extract: check' (6 tests) and region.test.ts round-trip test pass; check-sync-action.test.ts (8 tests) passes; `mdcode extract --check --force --ignore-anonymous` verified on a temp project: exit 0 in sync, exit 1 with per-block out_of_sync, files unchanged; dogfood: check-sync over this repo's 6 documents passes in both directions, and a real extract now leaves packages/mdcode/tests/examples/fibonacci/fibonacci.js unchanged."
+        "Changed: packages/mdcode/src/cli.ts, packages/mdcode/src/commands/extract.ts at 4fc4ec83eccda6aeb542cc6b552262701c8bdc16"
       ]
     },
     "source:.bumpy/agent-skill.md": {
@@ -200,15 +200,15 @@
       ]
     },
     "source:packages/mdcode/src/commands/extract.test.ts": {
-      "fingerprint": "ccdc24d55cb6a24fed0cb87107018ce0fe72758347cf40c9a6f543b64ca7a9c9",
+      "fingerprint": "c59bde2eb1ca55a7adbe162b2adfe85ba7379365560c1b419116467613028a7b",
       "snapshot": {
-        "packages/mdcode/src/commands/extract.test.ts": "b70a1b8787a93462dc1fcab3ec2d01cce507df9e982214ecc8bed2da23c0cad6"
+        "packages/mdcode/src/commands/extract.test.ts": "1ea729856591a1ea78a44c834d250ab6af98455985434426ad60c174b30f34ea"
       },
-      "head": "96c394e80f4b69ee75e1d0d0456218a62ffac326",
+      "head": "4fc4ec83eccda6aeb542cc6b552262701c8bdc16",
       "outcome": "no-change",
-      "reason": "Mapped source changed alongside the extract --check feature; the skill's guidance was updated separately where it applies and is otherwise unaffected.",
+      "reason": "Formatting-only lint fixes (chained-call line breaks, import order); no guidance affected.",
       "evidence": [
-        "extract.test.ts 'extract: check' (6 tests) and region.test.ts round-trip test pass; check-sync-action.test.ts (8 tests) passes; `mdcode extract --check --force --ignore-anonymous` verified on a temp project: exit 0 in sync, exit 1 with per-block out_of_sync, files unchanged; dogfood: check-sync over this repo's 6 documents passes in both directions, and a real extract now leaves packages/mdcode/tests/examples/fibonacci/fibonacci.js unchanged."
+        "Changed: packages/mdcode/src/commands/extract.test.ts at 4fc4ec83eccda6aeb542cc6b552262701c8bdc16"
       ]
     },
     "source:packages/mdcode/src/region.test.ts": {
@@ -224,15 +224,15 @@
       ]
     },
     "source:packages/usage/tests/check-sync-action.test.ts": {
-      "fingerprint": "b1380c7cca9aa430bac48d0a76896c505e73463aec08c200758608ef58a29565",
+      "fingerprint": "f702d16f2c0ae7c47b12aa8c49fa2b66044ec27ef3a78407d0a1ab9940607f24",
       "snapshot": {
-        "packages/usage/tests/check-sync-action.test.ts": "90682ac5c209cf0edec389f6ddb06fffb22611a7ff6afda6df0b7b652b26e78b"
+        "packages/usage/tests/check-sync-action.test.ts": "d72e4db5c5c25fdf28c107c6fcfd896cab2e9e2a09fb7541bdcd6e8b178dc4e9"
       },
-      "head": "96c394e80f4b69ee75e1d0d0456218a62ffac326",
+      "head": "4fc4ec83eccda6aeb542cc6b552262701c8bdc16",
       "outcome": "no-change",
-      "reason": "Mapped source changed alongside the extract --check feature; the skill's guidance was updated separately where it applies and is otherwise unaffected.",
+      "reason": "Formatting-only lint fixes (chained-call line breaks, import order); no guidance affected.",
       "evidence": [
-        "extract.test.ts 'extract: check' (6 tests) and region.test.ts round-trip test pass; check-sync-action.test.ts (8 tests) passes; `mdcode extract --check --force --ignore-anonymous` verified on a temp project: exit 0 in sync, exit 1 with per-block out_of_sync, files unchanged; dogfood: check-sync over this repo's 6 documents passes in both directions, and a real extract now leaves packages/mdcode/tests/examples/fibonacci/fibonacci.js unchanged."
+        "Changed: packages/usage/tests/check-sync-action.test.ts at 4fc4ec83eccda6aeb542cc6b552262701c8bdc16"
       ]
     }
   }

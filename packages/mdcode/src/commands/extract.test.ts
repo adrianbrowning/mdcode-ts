@@ -652,7 +652,8 @@ describe("extract: check", () => {
   /** Every file under dir with its content, to prove a check wrote nothing. */
   async function snapshot(dir: string): Promise<Record<string, string>> {
     const entries = await readdir(dir, { recursive: true, withFileTypes: true });
-    const files = entries.filter(entry => entry.isFile()).map(entry => join(entry.parentPath, entry.name)).sort();
+    const files = entries.filter(entry => entry.isFile()).map(entry => join(entry.parentPath, entry.name))
+      .sort();
     return Object.fromEntries(await Promise.all(files.map(async file => [ file, await readFile(file, "utf-8") ])));
   }
 

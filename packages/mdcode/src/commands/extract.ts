@@ -7,7 +7,7 @@ import { isMissing } from "../paths.ts";
 import type { RegionEdit } from "../region.ts";
 import { read as readRegion, spliceRegions, wrapRegion } from "../region.ts";
 import type { BlockRef, ResultError } from "../result.ts";
-import { BlockFailure, blockError, blockRef, CommandError } from "../result.ts";
+import { blockError, BlockFailure, blockRef, CommandError } from "../result.ts";
 import type { Block, FilterOptions } from "../types.ts";
 import { writeAtomic } from "../write.ts";
 import type { ExtractGroup, ExtractItem } from "./validate.ts";

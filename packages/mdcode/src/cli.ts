@@ -496,7 +496,8 @@ export async function Execute(
             const refused = skipped.filter(error => error.code === "extract_skipped");
 
             if (!options.quiet) {
-              writeLines(stderr, formatExtract(result, options).filter((_, index) => !options.check || result.targets[index]!.action === "unchanged" || result.targets[index]!.action === "skipped").map(at));
+              writeLines(stderr, formatExtract(result, options).filter((_, index) => !options.check || result.targets[index]!.action === "unchanged" || result.targets[index]!.action === "skipped")
+                .map(at));
             }
 
             if (updatedSource !== undefined) {
