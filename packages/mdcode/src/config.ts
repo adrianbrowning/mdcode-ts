@@ -3,7 +3,7 @@
  * repository keeps in sync, the roots their paths resolve against, and default
  * block filters. It is plain JSON and never executed.
  */
-import { readFile, glob, stat } from "node:fs/promises";
+import { glob, readFile, stat } from "node:fs/promises";
 import { dirname, isAbsolute, resolve, win32 } from "node:path";
 
 import { isRecord } from "./guards.ts";
@@ -102,7 +102,7 @@ async function expandDocuments(
   entries: Array<string>,
   dir: string,
   path: string,
-  invalid: (message: string) => CommandError,
+  invalid: (message: string) => CommandError
 ): Promise<Array<string>> {
   const documents = new Set<string>();
 
@@ -192,7 +192,7 @@ function checkFields(
   value: Record<string, unknown>,
   allowed: Array<string>,
   prefix: string,
-  invalid: (message: string) => CommandError,
+  invalid: (message: string) => CommandError
 ): void {
   const unknown = Object.keys(value).filter(key => !allowed.includes(key));
 

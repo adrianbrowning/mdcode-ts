@@ -51,7 +51,7 @@ export type CiRun = { code: number | null; stdout: string; stderr: string; };
 export function runCiExample(
   script: string,
   args: Array<string>,
-  options: { cwd: string; env: Record<string, string>; },
+  options: { cwd: string; env: Record<string, string>; }
 ): CiRun {
   const run = spawnSync(process.execPath, [ join(CI_EXAMPLES, script), ...args ], {
     cwd: options.cwd,

@@ -4,7 +4,7 @@ import { mkdir, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
-import { CI_EXAMPLES, type CiRun, cleanupTempDir, createTempDir, installMdcodeShim, runCiExample } from "./test-utils.ts";
+import { type CiRun, CI_EXAMPLES, cleanupTempDir, createTempDir, installMdcodeShim, runCiExample } from "./test-utils.ts";
 
 // Two runnable blocks, a plain block and a runnable=false block. Running the
 // plain or runnable=false block would throw, so passing proves they were skipped.
@@ -194,7 +194,7 @@ describe("examples/ci/validate-snippets.mjs", () => {
   });
 
   it("exits 2 with usage when the command or documents are missing", () => {
-    for (const args of [ [ "guide.md" ], [ "--", "node" ], [ "--bogus", "guide.md", "--", "node" ] ]) {
+    for (const args of [[ "guide.md" ], [ "--", "node" ], [ "--bogus", "guide.md", "--", "node" ]]) {
       const run = validate(args);
 
       assert.equal(run.code, 2, args.join(" "));
