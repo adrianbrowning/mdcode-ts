@@ -1,165 +1,32 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+TypeScript port of [szkiba/mdcode](https://github.com/szkiba/mdcode): keeps Markdown code blocks in sync with source files. A pnpm workspace with two packages:
 
-## Overview
+- `packages/mdcode` is the library and CLI, published as `mdcode-ts`.
+- `packages/usage` holds integration tests that spawn the **built** `dist/main.js`. Its `pretest` rebuilds first.
 
-TypeScript port of [szkiba/mdcode](https://github.com/szkiba/mdcode) - a Markdown code block authoring tool for extracting, updating, and managing code blocks within markdown documents.
+## Checks
 
-This is a **pnpm workspace monorepo** with two packages:
-- `packages/mdcode` - Main library and CLI, published as `mdcode-ts`
-- `packages/usage` - Integration tests that consume the built package
+`pnpm check` runs everything CI runs: type check, ESLint, the style config (`lint:s`), build and both test packages. The husky pre-push hook runs it. `pnpm lint:fix` fixes most `lint:s` errors.
 
-## Essential Commands
+## Conventions
 
-### Testing (ALWAYS RUN BOTH)
-```bash
-# Run ALL tests (mdcode-ts + usage packages )
-pnpm test
+- Tests use `node:test`. The build uses `zshy`, not tsc.
+- Relative imports keep their `.ts` extension: `import { parse } from "./parser.ts"`.
+- Run the CLI from source with `node --experimental-strip-types packages/mdcode/src/main.ts list README.md`.
 
-# Watch mode during development
-pnpm --filter mdcode-ts test:watch
+## Where things live
 
-# Individual packages
-pnpm --filter mdcode-ts test    # unit tests
-pnpm --filter usage test        # E2E tests
-```
+- **Parser** (`src/parser.ts`): a custom line-by-line state machine instead of remark, so in-place updates keep exact character offsets. `scanFences()` is shared by `parse()` and `updateInfoStrings()` so block indices always agree.
+- **Mapping rules** (`src/commands/validate.ts`): `extract()` runs `planExtract()` before writing anything, and `update()` reads every `file=` through `readSource()`. `mdcode validate` reports the same rules without writing.
+- **Writes**: `update()` never writes; the CLI decides, and only `--apply` writes the markdown. `watch()` writes only with `apply`.
+- **Config** (`src/config.ts`): `mdcode.config.json` is loaded only with `--project` or `--config`. Without either, input defaults to stdin.
+- **Contract** (`src/result.ts`): `COMMAND_NAMES` and `ERROR_CODES` are the source of truth for commands and error codes.
 
-**NOTE**: `pnpm test` is `pnpm -r test` — it already covers both packages. `pnpm test:all` also exists but just re-runs `usage` a second time.
+## Docs to read first
 
-### Building
-```bash
-pnpm build                    # Build main package via zshy bundler
-pnpm --filter mdcode dev      # Watch mode
-```
-
-### Linting
-```bash
-pnpm -r lint:ts              # TypeScript type checking
-pnpm -r lint                 # ESLint + type check
-pnpm -r lint:s               # Style lint only
-pnpm -r lint:fix             # Fix style issues
-```
-
-### Direct Execution (Development)
-```bash
-# Node 22.17+ runs TypeScript natively
-node --experimental-strip-types packages/mdcode/src/main.ts list README.md
-```
-
-## Architecture
-
-### Core Parsing Strategy (packages/mdcode/src/parser.ts)
-- **Custom line-by-line state machine** for parsing markdown (no unified/remark)
-- Parses CommonMark backtick and tilde fences (3+ characters, any indent) with metadata from info string; `scanFences()` is shared by `parse()` and `updateInfoStrings()` so block indices always agree
-- Extracts: language, metadata (key=value pairs), code content, position offsets
-- Two main functions:
-  - `parse()` - Extract blocks as array
-  - `walk()` - Transform blocks in-place, returns modified markdown
-
-### Region Extraction (packages/mdcode/src/region.ts)
-Supports `#region name` / `#endregion` markers in source files:
-- `read()` - Extract content between markers
-- `outline()` - Show only markers (hide content)
-- `replace()` - Update content within markers
-- Handles both line comments (`//`, `#`) and block comments (`/* */`)
-
-### Project Configuration (packages/mdcode/src/config.ts)
-`loadConfig()` reads and validates `mdcode.config.json` (JSON only, never executed): `documents` globs, `sourceRoot`, `outputRoot` and default `filter`. Paths resolve against the config file's directory and go through `resolveContained()`. Only `update` and `extract` load it, with `--project` or `--config <path>`; without either, stdin stays the default input. Both commands take several documents and report `result.documents` under `--json`.
-
-### Commands Architecture (packages/mdcode/src/commands/)
-Each command is a separate module with typed options:
-- **list** - Display blocks with metadata (JSON or formatted)
-- **extract** - Write blocks to filesystem based on `file` metadata
-- **update** - Bidirectional sync: read from files OR apply transformers
-  - File mode: reads from `file` metadata, supports `region` extraction
-  - Transform mode: uses `--transform` flag with custom function
-- **validate** - Report every block that update (`--for update`, default) or extract (`--for extract`) would refuse, without writing. The rules live in `commands/validate.ts`: `planExtract()` (target grouping, `ambiguous_target`, existing-target markers) is what `extract()` runs before writing, and `readSource()` (file= read, region exactly once in the block's language) is what `update()` reads through
-- **watch** - `commands/watch.ts`: one `update()` pass per document now, then again after each debounced burst of changes to documents, `file=` sources or the config. `--apply` writes, and remembers what it wrote so its own change events don't start another pass. The `WatchFiles` seam replaces `fs.watch` in tests. The CLI re-resolves the config before every pass and stops on SIGINT/SIGTERM with exit 0
-- **run** - Execute shell commands on each block (uses temp files)
-- **dump** - Create tar archive using `tar-stream`
-
-### Update Command Workflow (packages/mdcode/src/commands/update.ts)
-The `update` command has a two-step process:
-1. **Read from file** (if `file` metadata exists)
-   - Resolves path relative to `basePath`
-   - Supports `region=name` to extract specific region
-   - Supports `outline=true` to show only region markers
-2. **Apply transformer** (if `--transform` flag provided)
-   - Dynamically imports transformer module
-   - Calls with `{tag, meta, code}`
-   - Can further modify file-loaded content
-
-`update()` never writes. The CLI picks what to do with its result: `--plan` (default) lists changed blocks, `--diff` prints a unified diff (`diff` package), `--check` turns each changed block into an `out_of_sync` error (exit 1), `--stdout` prints the markdown, and `--apply` is the only mode that writes the file.
-
-### Transformer Functions
-Type signature: `(options: {tag, meta, code}) => string | Promise<string>`
-
-Use `defineTransform()` helper for type safety:
-```typescript
-import { defineTransform } from 'mdcode-ts';
-
-export default defineTransform(({tag, code}) => {
-  if (tag === 'sql') return code.toUpperCase();
-  return code;
-});
-```
-
-### CLI Architecture (packages/mdcode/src/cli.ts)
-- Uses `commander` for argument parsing
-- All commands support stdin or file input
-- Filter options: `--lang`, `--file`, `--meta key=value`
-- Default behavior: if no command, runs `list README.md`
-
-## Technology Stack
-- **Node 22.17+** with native TypeScript support (`--experimental-strip-types`); `fs.glob` needs 22.17
-- **pnpm workspaces** for monorepo management
-- **zshy** - TypeScript bundler (not tsc, not rollup)
-- **node:test** - Native test runner (NOT vitest, jest, or mocha)
-- **commander** - CLI framework
-- **tar-stream** - Tar archive creation
-- **TypeScript**: strict mode, `verbatimModuleSyntax: true`, ES2022 target
-
-## Key Design Decisions
-
-### Why Custom Parser?
-Original design used `unified` + `remark-parse`, but switched to custom state machine for:
-- Precise character offset tracking (needed for in-place updates)
-- Simpler metadata extraction from info strings
-- No AST overhead for simple code block extraction
-
-### Test Organization
-- **packages/mdcode/src/\*\*/\*.test.ts** - Co-located unit tests (parser, region, commands/extract, commands/update)
-- **packages/mdcode/tests/examples/** - Fixture-driven tests over the worked examples
-- **packages/usage/tests/** - Integration tests; `cli-integration.test.ts` spawns the **built** `dist/main.js`, so run `pnpm build` first
-
-See `TESTING.md` for the full layout.
-
-### File Imports Must Use .ts Extension
-TypeScript config uses `allowImportingTsExtensions: true`:
-```typescript
-// Correct
-import { parse } from './parser.ts';
-
-// Wrong
-import { parse } from './parser';
-```
-
-## Before Committing
-1. `pnpm test` - Ensure ALL tests pass
-2. `pnpm build` - Ensure build succeeds
-3. `pnpm -r lint:ts` - Type check all packages
-
-## Agent skills
-
-### Issue tracker
-
-Issues live in GitHub Issues for adrianbrowning/mdcode-ts (`gh` CLI). See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context: one root `CONTEXT.md` plus `docs/adr/`. See `docs/agents/domain.md`.
+- Adding or changing a command, flag or error code: `docs/agents/adding-a-command.md`
+- Test layout: `TESTING.md`
+- Issues (GitHub, `gh` CLI): `docs/agents/issue-tracker.md`
+- Triage labels: `docs/agents/triage-labels.md`
+- Domain language: `CONTEXT.md` and `docs/adr/`, see `docs/agents/domain.md`

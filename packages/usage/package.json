@@ -5,10 +5,11 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "pretest": "pnpm --filter mdcode-ts build",
     "test": "node --test-reporter=spec --test tests/**/*.test.ts",
     "test:watch": "pnpm test -w",
     "lint:ts": "tsc --noEmit",
-    "lint": "tsc --noEmit ; eslint \"{tests,fixtures,examples}/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
+    "lint": "tsc --noEmit && eslint \"{tests,fixtures,examples}/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
     "lint:esl": "eslint \"{tests,fixtures,examples}/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
     "lint:s": "eslint --config .eslintrc.style.json \"{tests,fixtures,examples}/**/*.{j,t}s{,x}\" --cache --max-warnings=0",
     "lint:fix": "eslint --config .eslintrc.style.json \"{tests,fixtures,examples}/**/*.{j,t}s{,x}\" --cache --max-warnings=0 --fix"

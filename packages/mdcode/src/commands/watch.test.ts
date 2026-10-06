@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, describe, test } from "node:test";
@@ -32,7 +32,7 @@ async function setup(options: { apply?: boolean; resolve?: (target: WatchTarget)
   const watching: Array<ReadonlySet<string>> = [];
   let fire: (path: string) => void = () => {};
 
-  const watchFiles: WatchFiles = (paths, onChange) => {
+  const watchFiles: WatchFiles = async (paths, onChange) => {
     watching.push(paths);
     fire = onChange;
     return { close: () => {} };
@@ -116,6 +116,27 @@ describe("watch", () => {
     assert.equal(await readFile(doc, "utf-8"), broken);
   });
 
+  test("with apply, a failed write does not hide a later edit that matches it", { skip: process.getuid?.() === 0 && "root ignores directory permissions" }, async () => {
+    const { dir, doc, passes, change } = await setup({ apply: true });
+    await writeFile(join(dir, "greet.js"), "console.log('new');\n", "utf-8");
+    // The temp file for the atomic write cannot be created in a read-only directory.
+    await chmod(dir, 0o555);
+
+    try {
+      await change([ join(dir, "greet.js") ], 2);
+    }
+    finally {
+      await chmod(dir, 0o755);
+    }
+
+    assert.equal(passes()[1]!.documents[0]!.written, false);
+    assert.equal(passes()[1]!.documents[0]!.errors.length, 1);
+
+    // Someone else writes exactly what the failed write would have.
+    await writeFile(doc, STALE.replace("'old'", "'new'"), "utf-8");
+    await change([ doc ], 3);
+  });
+
   test("starts watching a file= that a later edit adds", async () => {
     const { dir, doc, watching, change } = await setup();
     await writeFile(doc, STALE + "\n```js file=other.js\nx\n```\n", "utf-8");
@@ -155,7 +176,7 @@ describe("watch", () => {
     const handle = await watch({
       resolve: async () => ({ documents: [{ file: join(dir, "gone.md"), label: "gone.md", basePath: dir }] }),
       onEvent: event => events.push(event),
-      watchFiles: () => ({ close: () => {} }),
+      watchFiles: async () => ({ close: () => {} }),
     });
     handles.push(handle);
 
@@ -170,7 +191,28 @@ describe("watch", () => {
         throw new Error("no configuration");
       },
       onEvent: () => {},
-      watchFiles: () => ({ close: () => {} }),
+      watchFiles: async () => ({ close: () => {} }),
     }), /no configuration/);
+  });
+
+  test("reports ready only once every file is being watched", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "mdcode-watch-"));
+    dirs.push(dir);
+    await writeFile(join(dir, "doc.md"), "x\n", "utf-8");
+
+    const order: Array<string> = [];
+    const handle = await watch({
+      resolve: async () => ({ documents: [{ file: join(dir, "doc.md"), label: "doc.md", basePath: dir }] }),
+      onEvent: event => order.push(event.type),
+      watchFiles: async () => {
+        // Installing a real watcher takes a while; ready must wait for it.
+        await sleep(30);
+        order.push("watching");
+        return { close: () => {} };
+      },
+    });
+    handles.push(handle);
+
+    assert.deepEqual(order, [ "watching", "ready", "pass" ]);
   });
 });

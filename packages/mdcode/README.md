@@ -1494,7 +1494,7 @@ Each error has a `code` and a `message`. These fields are added when they apply:
 | `extract_skipped` | `extract` left a target file untouched |
 | `read_failed` | `update` could not read a block's `file=` or region |
 | `transform_failed` | `update`'s transformer threw for a block |
-| `unsafe_path` | A block's `file=` is absolute or leads outside the allowed base, directly or through a symlink; or a configuration path leaves the configuration's directory |
+| `unsafe_path` | A block's `file=` is empty, absolute or leads outside the allowed base, directly or through a symlink; or a configuration path leaves the configuration's directory |
 | `ambiguous_target` | Several selected blocks write one `extract` target, but not each with its own `region=` in one language |
 | `missing_region` | `update`: a block's `region=` is not in its `file=`, or `outline=true` finds no region markers |
 | `duplicate_region` | A block's `region=` is opened more than once in its file |

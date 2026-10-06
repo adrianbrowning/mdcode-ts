@@ -5,6 +5,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prepare": "husky",
+    "check": "pnpm lint:ts && pnpm lint:esl && pnpm lint:s && pnpm build && pnpm test",
     "build": "pnpm --filter mdcode-ts build",
     "dev": "pnpm --filter mdcode-ts dev",
     "test": "pnpm -r test",
