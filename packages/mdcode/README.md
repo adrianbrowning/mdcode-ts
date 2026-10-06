@@ -2008,8 +2008,6 @@ import {
   extract,
   run,
   dump,
-  transform,
-  transformWithFunction,
   defineTransform,
   type Block,
   type TransformerFunction,
@@ -2177,6 +2175,9 @@ what to do with the result.
   error.
 - **options.continueOnError** - Collect every failure in `errors` and keep going, instead of throwing
   at the first
+- **options.onBlock** - Optional `(block, errors) => void`, called as each selected block finishes,
+  before the next one starts, with the `UpdatedBlock` and the errors it added (only with
+  `continueOnError`). It is not called for a block whose failure throws.
 - **Returns** - Promise of `{ source, blocks, errors }`: the updated markdown and one `UpdatedBlock`
   per selected block with its resulting `code` and whether it `changed`. `errors` is only filled with
   `continueOnError`: for each failed block, a `read_failed`, `unsafe_path` or `transform_failed`
@@ -2213,7 +2214,8 @@ Write code blocks to files based on their `file` metadata.
 - **Throws** - `MetadataError` when the document's metadata is invalid. When any block breaks a
   mapping rule checked by `validate()` for extract, it throws an `Error` whose `errors` array holds
   one `ResultError` per block (`unsafe_path`, `ambiguous_target`, `malformed_region`,
-  `duplicate_region` or `region_language_mismatch`), and nothing is written.
+  `duplicate_region` or `region_language_mismatch`), and nothing is written. `updateSource` with
+  `ignoreAnonymous` throws an `Error` whose `code` is `invalid_usage`.
 
 #### `validate(options: ValidateOptions): Promise<ValidateResult>`
 
@@ -2272,15 +2274,6 @@ Create a tar archive of code blocks.
 - **Throws** - `MetadataError` when the document's metadata is invalid. When any `file=` would
   unpack outside the archive's directory, it throws an `Error` whose `errors` array holds one
   `unsafe_path` `ResultError` per refused entry, and no archive is built.
-
-#### `transformWithFunction(source: string, transformer: TransformerFunction, filter?: FilterOptions): Promise<string>`
-
-Transform code blocks using a transformer function.
-
-- **source** - The markdown source string
-- **transformer** - Transformer function
-- **filter** - Optional filter criteria
-- **Returns** - Promise of transformed markdown string
 
 #### `defineTransform(fn: TransformerFunction): TransformerFunction`
 

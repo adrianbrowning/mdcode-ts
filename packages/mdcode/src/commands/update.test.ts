@@ -202,6 +202,50 @@ describe("update failure policy", () => {
   });
 });
 
+describe("update onBlock", () => {
+  it("reports each block as it finishes, before the next transform starts, with only that block's errors", async () => {
+    const dir = await tempDir();
+    await writeSource(dir, "ok.js", "ok\n");
+    const source = "```js file=missing.js\nA\n```\n\n```js file=ok.js\nB\n```\n\n```py\nC\n```\n";
+    const order: Array<string> = [];
+    const transformer = defineTransform(({ code }) => {
+      order.push(`transform ${code}`);
+      return code;
+    });
+
+    const result = await update({
+      source,
+      basePath: dir,
+      transformer,
+      continueOnError: true,
+      filter: { lang: "js" },
+      onBlock: (block, errors) => order.push(`block ${block.line} ${block.code} [${errors.map(error => error.code).join()}]`),
+    });
+
+    assert.deepStrictEqual(order, [
+      "transform A",
+      "block 1 A [read_failed]",
+      "transform ok\n",
+      "block 5 ok []",
+    ]);
+    assert.deepStrictEqual(result.errors.map(error => error.code), [ "read_failed" ]);
+  });
+
+  it("is not called for the block whose failure stops update", async () => {
+    const dir = await tempDir();
+    const source = "```js\none\n```\n\n```js\ntwo\n```\n";
+    const seen: Array<string> = [];
+    const transformer = defineTransform(({ code }) => {
+      if (code === "two") throw new Error("boom");
+      return code;
+    });
+
+    await failure(update({ source, basePath: dir, transformer, onBlock: block => seen.push(block.code) }));
+
+    assert.deepStrictEqual(seen, [ "one" ]);
+  });
+});
+
 describe("update keeps file= inside basePath", () => {
   it("reads a file= that wanders but stays inside", async () => {
     const dir = await tempDir();

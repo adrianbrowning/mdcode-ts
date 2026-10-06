@@ -8,7 +8,6 @@ import type { Block, TransformerFunction, TransformerMeta } from "mdcode";
 import mdcode, {
   defineTransform,
   parse,
-  transformWithFunction,
   update,
   walk
 } from "mdcode";
@@ -334,47 +333,6 @@ const x = 1;
 
       assert.ok(result.includes("const x = 1;"));
       assert.deepStrictEqual(errors.map(error => error.code), [ "transform_failed" ]);
-    });
-  });
-
-  describe("transformWithFunction() - Direct transformation", () => {
-    it("should transform blocks directly", async () => {
-      const markdown = `
-\`\`\`js
-const x = 1;
-\`\`\`
-      `.trim();
-
-      const transformer = defineTransform(({ code }) => `// Transformed\n${code}`);
-
-      const result = await transformWithFunction(markdown, transformer);
-
-      assert.ok(result.includes("// Transformed"));
-      assert.ok(result.includes("const x = 1;"));
-    });
-
-    it("should work with filters", async () => {
-      const markdown = `
-\`\`\`js
-const x = 1;
-\`\`\`
-
-\`\`\`python
-y = 2
-\`\`\`
-      `.trim();
-
-      const transformer = defineTransform(({ code }) => code.toUpperCase());
-
-      const result = await transformWithFunction(
-        markdown,
-        transformer,
-        { lang: "js" }
-      );
-
-      // Only JS should be transformed
-      assert.ok(result.includes("CONST X = 1;"));
-      assert.ok(result.includes("y = 2")); // Python unchanged
     });
   });
 
