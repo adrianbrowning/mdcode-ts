@@ -17,13 +17,15 @@ import type { UpdateResult } from "./commands/update.ts";
 import { describeChange, formatUpdate, update } from "./commands/update.ts";
 import type { ValidatedBlock, ValidateOperation } from "./commands/validate.ts";
 import { validate } from "./commands/validate.ts";
+import type { WatchEvent, WatchTarget } from "./commands/watch.ts";
+import { formatWatch, watch } from "./commands/watch.ts";
 import type { ProjectConfig } from "./config.ts";
 import { CONFIG_FILE, loadConfig } from "./config.ts";
 import type { CommandName, Envelope, ResultError } from "./result.ts";
 import { BlockFailure, CommandError, CONTRACT_VERSION, describeError, errorsFrom } from "./result.ts";
 import type { FilterOptions, TransformerFunction } from "./types.ts";
 
-const COMMANDS: ReadonlyArray<CommandName> = [ "list", "extract", "update", "validate", "run", "dump" ];
+const COMMANDS: ReadonlyArray<CommandName> = [ "list", "extract", "update", "validate", "watch", "run", "dump" ];
 
 /**
  * Read input from file or stdin
@@ -803,6 +805,62 @@ export async function Execute(
               : styleText("yellow", `${errors.length} problem(s) found; ${operation} would refuse them.`) + "\n");
           },
         };
+      });
+    });
+
+  // Watch command
+  program
+    .command("watch")
+    .description("Watch markdown and the files its blocks read, and report drift after each change. Only --apply writes")
+    .argument("[files...]", "Markdown files to watch (default: the configuration's documents with --project or --config)")
+    .option("-l, --lang <lang>", "Filter by language")
+    .option("-f, --file <file>", "Filter by file metadata")
+    .option("-m, --meta <key=value...>", "Filter by custom metadata")
+    .option("-n, --name <name>", NAME_FLAG_HELP, collect)
+    .option("--base <dir>", "Directory file= paths resolve against and must stay inside, as for update")
+    .option("--apply", "Write drifted blocks into the markdown after each change, as update --apply does")
+    .option("--debounce <ms>", "Wait this long after the last change before checking", "100")
+    .option("--project", PROJECT_HELP)
+    .option("--config <path>", CONFIG_HELP)
+    .action(async (files: Array<string>, options: FilterCliOptions & ProjectCliOptions & { base?: string; apply?: boolean; debounce: string; }) => {
+      await perform("watch", false, async () => {
+        const debounceMs = Number(options.debounce);
+
+        if (!Number.isInteger(debounceMs) || debounceMs < 0) {
+          throw new CommandError("invalid_usage", `--debounce takes a whole number of milliseconds, not ${JSON.stringify(options.debounce)}`);
+        }
+
+        if (files.length === 0 && options.project === undefined && options.config === undefined) {
+          throw new CommandError("invalid_usage", "watch needs Markdown files to watch, or --project or --config to read them from mdcode.config.json");
+        }
+
+        const flags = parseFilterOptions(options);
+        // Read again before every pass, so editing the configuration takes effect without a restart.
+        const resolveTarget = async (): Promise<WatchTarget> => {
+          const config = await loadProject(options);
+          const documents = selectDocuments(files, config);
+
+          return {
+            documents: documents.map(document => ({ file: resolve(document.file!), label: document.label!, basePath: updateBase(options.base, config, document) })),
+            filter: mergeFilters(config?.filter, flags),
+            extra: config === undefined ? [] : [ config.path ],
+          };
+        };
+
+        const time = (): string => styleText("gray", `[${new Date().toTimeString()
+          .slice(0, 8)}]`);
+        const report = (event: WatchEvent): void => writeLines(stdout, formatWatch(event, options.apply === true).map(line => `${time()} ${line}`));
+        const handle = await watch({ resolve: resolveTarget, apply: options.apply, debounceMs, onEvent: report });
+
+        // Runs until interrupted; Ctrl+C is the normal way to stop, so it exits 0.
+        await new Promise<void>(resolve => {
+          process.once("SIGINT", resolve);
+          process.once("SIGTERM", resolve);
+        });
+        await handle.close();
+        stdout.write(`${time()} Stopped watching.\n`);
+
+        return { result: null, errors: [], human: () => {} };
       });
     });
 

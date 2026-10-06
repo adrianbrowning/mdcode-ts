@@ -37,6 +37,8 @@ Two packages, `packages/mdcode` (published as `mdcode-ts`) and `packages/usage`.
   - `commands/extract.test.ts` — in-place splicing, `--force`, and every refusal path
   - `commands/update.test.ts` — filling blocks from source regions
   - `commands/validate.test.ts` — every mapping rule for extract and update, and `--strict`
+  - `commands/watch.test.ts` — debounce, apply, ignoring its own writes and recovery, through a fake
+    watcher
   - `config.test.ts` — `mdcode.config.json` validation, glob expansion and path containment
 - **Fixture-driven tests** — `packages/mdcode/tests/examples/integration.test.ts`, against the
   worked examples under `packages/mdcode/tests/examples/`
@@ -46,6 +48,7 @@ Two packages, `packages/mdcode` (published as `mdcode-ts`) and `packages/usage`.
     `--project`/`--config` discovery, precedence and multi-document runs
   - `validate.test.ts` spawns it for `mdcode validate`'s text and JSON reports, and for `extract`
     refusing before it writes
+  - `watch.test.ts` spawns `mdcode watch` with the real file watcher and stops it with `SIGINT`
   - `check-docs-sync.test.ts` and `validate-snippets.test.ts` run the `examples/ci/` scripts against
     the built CLI, through an `mdcode` shim on `PATH`
   - the rest exercise the public library API as an external consumer would

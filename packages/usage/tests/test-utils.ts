@@ -10,9 +10,9 @@ import { extract, parse, update } from "mdcode";
 
 const execAsync = promisify(exec);
 
-// Get path to the mdcode CLI binary
+/** Path to the built mdcode CLI. */
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const CLI_PATH = join(__dirname, "../../mdcode/dist/main.js");
+export const CLI_PATH = join(__dirname, "../../mdcode/dist/main.js");
 
 /**
  * Create a temporary test directory
