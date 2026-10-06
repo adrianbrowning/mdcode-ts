@@ -268,6 +268,13 @@ describe("extract: block names", () => {
     await assert.rejects(extract({ source, outputDir: dir }), { name: "MetadataError" });
     assert.deepEqual(await readdir(dir), []);
   });
+
+  test("refuses updateSource with ignoreAnonymous as invalid_usage, and writes nothing", async () => {
+    const dir = await tempDir();
+
+    await assert.rejects(extract({ source: "```js\n1\n```\n", outputDir: dir, updateSource: true, ignoreAnonymous: true }), { code: "invalid_usage" });
+    assert.deepEqual(await readdir(dir), []);
+  });
 });
 
 /** The contract errors a rejected extract() call threw. */

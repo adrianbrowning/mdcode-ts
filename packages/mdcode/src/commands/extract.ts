@@ -7,7 +7,7 @@ import { isMissing } from "../paths.ts";
 import type { RegionEdit } from "../region.ts";
 import { spliceRegions, wrapRegion } from "../region.ts";
 import type { BlockRef, ResultError } from "../result.ts";
-import { BlockFailure, blockRef } from "../result.ts";
+import { BlockFailure, blockRef, CommandError } from "../result.ts";
 import type { FilterOptions } from "../types.ts";
 import { writeAtomic } from "../write.ts";
 import type { ExtractItem } from "./validate.ts";
@@ -66,7 +66,7 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
 
   // Validate mutual exclusivity
   if (updateSource && ignoreAnonymous) {
-    throw new Error("Cannot use --update-source and --ignore-anonymous together");
+    throw new CommandError("invalid_usage", "Cannot use --update-source and --ignore-anonymous together");
   }
 
   let blocks = parse({ source, filter });

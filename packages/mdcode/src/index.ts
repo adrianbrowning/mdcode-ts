@@ -30,7 +30,6 @@ export type { RunBlockResult, RunOptions, RunResult } from "./commands/run.ts";
 export { run } from "./commands/run.ts";
 export type { DumpedFile, DumpOptions, DumpResult } from "./commands/dump.ts";
 export { dump } from "./commands/dump.ts";
-export { transform, transformWithFunction } from "./commands/transform.ts";
 
 /**
  * Default export - Simple API for transforming markdown files

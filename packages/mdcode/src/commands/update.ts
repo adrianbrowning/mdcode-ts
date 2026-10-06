@@ -18,6 +18,12 @@ export interface UpdateOptions {
    * keep going. Without it, the first failure throws a BlockFailure.
    */
   continueOnError?: boolean;
+  /**
+   * Called as each selected block finishes, before the next one starts, with
+   * the errors it added to `errors` (always empty without continueOnError).
+   * Not called for a block whose failure throws.
+   */
+  onBlock?: (block: UpdatedBlock, errors: Array<ResultError>) => void;
 }
 
 export interface UpdatedBlock extends BlockRef {
@@ -55,7 +61,7 @@ export interface UpdateResult {
  * @throws {BlockFailure} on the first failed read, broken rule or failed transform, unless continueOnError
  */
 export async function update(options: UpdateOptions): Promise<UpdateResult> {
-  const { source, filter, transformer, basePath = ".", continueOnError = false } = options;
+  const { source, filter, transformer, basePath = ".", continueOnError = false, onBlock } = options;
   const blocks: Array<UpdatedBlock> = [];
   const errors: Array<ResultError> = [];
   const fail = (error: ResultError): void => {
@@ -70,6 +76,7 @@ export async function update(options: UpdateOptions): Promise<UpdateResult> {
     filter,
     walker: async (block: Block) => {
       const entry: UpdatedBlock = { ...blockRef(block), lang: block.lang, changed: false, code: block.code, transformed: false };
+      const firstError = errors.length;
       let currentCode = block.code;
 
       blocks.push(entry);
@@ -124,10 +131,10 @@ export async function update(options: UpdateOptions): Promise<UpdateResult> {
       if (code !== block.code) {
         entry.changed = true;
         entry.code = code;
-        return { ...block, code };
       }
 
-      return block;
+      onBlock?.(entry, errors.slice(firstError));
+      return entry.changed ? { ...block, code } : block;
     },
   });
 
