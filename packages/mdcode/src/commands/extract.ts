@@ -189,6 +189,8 @@ type PlannedTarget =
     content: string;
     /** The target's text before extract, or undefined when it does not exist yet. */
     before: string | undefined;
+    /** Whether the target already holds exactly these bytes, so extract would change nothing. */
+    unchanged: boolean;
     /** The existing file's mode, kept when it is replaced. */
     mode: number | undefined;
   };
@@ -214,12 +216,15 @@ async function planTarget({ display, items }: ExtractGroup, overwrite: boolean):
     return { refusal: "target is a symlink; refusing to overwrite it" };
   }
 
-  const before = existing === undefined ? undefined : await readFile(display, "utf-8");
+  const raw = existing === undefined ? undefined : await readFile(display);
+  // Lossy, for messages only: bytes that are not UTF-8 are compared as bytes below.
+  const before = raw?.toString("utf-8");
   const content = regions
     ? items.map(({ block }) => wrapRegion(block.lang, block.meta.region!, block.code)).join("\n")
     : keepFinalNewline(items[0]!.block.code, before);
+  const unchanged = raw !== undefined && raw.equals(Buffer.from(content, "utf-8"));
 
-  return { action: "written", content, before, mode: existing?.mode };
+  return { action: "written", content, before, unchanged, mode: existing?.mode };
 }
 
 /**
@@ -240,7 +245,7 @@ function keepFinalNewline(code: string, before: string | undefined): string {
 function driftErrors({ display, items }: ExtractGroup, planned: Exclude<PlannedTarget, { refusal: string; }>): Array<ResultError> {
   const { before, content } = planned;
 
-  if (before === content) {
+  if (planned.unchanged) {
     return [];
   }
 
@@ -319,7 +324,8 @@ async function planSplice(target: string, items: Array<ExtractItem>, mode: numbe
     content = `${content.replace(/\n*$/, content.trim() === "" ? "" : "\n")}${separator}${wrapRegion(block.lang, name, block.code)}`;
   }
 
-  return { action: "spliced", content, before: existing, mode };
+  // existing was decoded strictly, so equal text is equal bytes.
+  return { action: "spliced", content, before: existing, unchanged: existing === content, mode };
 }
 
 /** Explain, in one clause, why a splice was refused: the file changed after validation. */

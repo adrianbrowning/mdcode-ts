@@ -3,7 +3,7 @@
   "baseline": "5254174a2a13060d110f34dbc0a4421b5302f5cb",
   "items": {
     "skill:packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": {
-      "fingerprint": "223edffff3a853522d2ed1ee48f2557097e46f3e5acce072c242648916b7bfe7",
+      "fingerprint": "365cb13f4a75671497c7323e0f14077d6366a576298356f28d2ee074f509ee7a",
       "snapshot": {
         "examples/ci/check-docs-sync.mjs": "7a1dc943571637883dfc28de98825c3c595d6c5a5561239373bacf1dfbf1dc72",
         "examples/ci/validate-snippets.mjs": "d177fba60f830179c285a25ea0a878d98dc044684114447f687366907e9e722d",
@@ -13,7 +13,7 @@
         "packages/mdcode/skills/sync-markdown-code-blocks/references/transformers.md": "b35f5caf45b6334d21e534facb2d22a76c52f576d1640e3a5732fd1d6119cf13",
         "packages/mdcode/src/cli.ts": "635c980c65e34a5cc9061e1a423909fc18bcbc85f10ae2ff3e13fdddc021aedf",
         "packages/mdcode/src/commands/dump.ts": "c51ca44f0159c59b849c5cb725e2de36ca5ef0578356bc9f921330ce8677d346",
-        "packages/mdcode/src/commands/extract.ts": "f31ad3f8bb66ea83cd189415446167c4905adf7e299a8b0f3821bc8e9115efce",
+        "packages/mdcode/src/commands/extract.ts": "8189da3fefdb3a9b865bc82eb7f667b3d5f8230f2be16c1780b88be30d4c72bd",
         "packages/mdcode/src/commands/list.ts": "d919894dd08249bb1eb0d12bcd5c21016cb87c0a6cba484de7da492bbe3c5c75",
         "packages/mdcode/src/commands/run.ts": "2c35da6b7ee31feb34df303d532715299f6e6eb87f24d914637bb299f875b77c",
         "packages/mdcode/src/commands/update.ts": "0e3c7d632ca3a424e8c01d64b3bd5872fe8ec9c0856610e3e95ce28e5dfe67c8",
@@ -32,15 +32,15 @@
         "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/src/greet.ts": "a2938e7cf0fa1f29393bd2ac1cb3e1f7c8a6fe0ff4c9ea8b1c47becffd4fa168",
         "packages/usage/tests/skills/sync-markdown-code-blocks/task.md": "69f373db5a34c8165e1abe370e63230a6652c1412f2fa44a413dfd8534d84dbc"
       },
-      "head": "4fc4ec83eccda6aeb542cc6b552262701c8bdc16",
+      "head": "b5da2ad7f9c3c7c4a1fba0bcca9a893d517d888e",
       "outcome": "no-change",
-      "reason": "Formatting-only lint fixes (chained-call line breaks, import order); no guidance affected.",
+      "reason": "extract compares whole-file targets byte for byte in check mode; no guidance affected (the skill already describes extract --check as exact).",
       "evidence": [
-        "Changed: packages/mdcode/src/cli.ts, packages/mdcode/src/commands/extract.ts at 4fc4ec83eccda6aeb542cc6b552262701c8bdc16"
+        "Changed: packages/mdcode/src/commands/extract.ts at b5da2ad7f9c3c7c4a1fba0bcca9a893d517d888e"
       ]
     },
     "planning:_artifacts": {
-      "fingerprint": "49d28691c65a5df54a9e0642d509a810240fd1f23832060997ce9e887d8306a2",
+      "fingerprint": "0eb9de46f1083f69e3e48188d50aa796ef83a88e0daeecf35629a45c6b32d1a0",
       "snapshot": {
         "_artifacts/domain_map.yaml": "ceb4094bf4fa2cd63354e1c76cce3fec97d19c4a807a40b974646e1dbb00152b",
         "_artifacts/skill_spec.md": "d0af268c94e3fefde165ce14f470c88ce52e7f8162c4c8632718fe0f959f5a23",
@@ -53,7 +53,7 @@
         "packages/mdcode/skills/sync-markdown-code-blocks/references/transformers.md": "b35f5caf45b6334d21e534facb2d22a76c52f576d1640e3a5732fd1d6119cf13",
         "packages/mdcode/src/cli.ts": "635c980c65e34a5cc9061e1a423909fc18bcbc85f10ae2ff3e13fdddc021aedf",
         "packages/mdcode/src/commands/dump.ts": "c51ca44f0159c59b849c5cb725e2de36ca5ef0578356bc9f921330ce8677d346",
-        "packages/mdcode/src/commands/extract.ts": "f31ad3f8bb66ea83cd189415446167c4905adf7e299a8b0f3821bc8e9115efce",
+        "packages/mdcode/src/commands/extract.ts": "8189da3fefdb3a9b865bc82eb7f667b3d5f8230f2be16c1780b88be30d4c72bd",
         "packages/mdcode/src/commands/list.ts": "d919894dd08249bb1eb0d12bcd5c21016cb87c0a6cba484de7da492bbe3c5c75",
         "packages/mdcode/src/commands/run.ts": "2c35da6b7ee31feb34df303d532715299f6e6eb87f24d914637bb299f875b77c",
         "packages/mdcode/src/commands/update.ts": "0e3c7d632ca3a424e8c01d64b3bd5872fe8ec9c0856610e3e95ce28e5dfe67c8",
@@ -72,11 +72,11 @@
         "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/src/greet.ts": "a2938e7cf0fa1f29393bd2ac1cb3e1f7c8a6fe0ff4c9ea8b1c47becffd4fa168",
         "packages/usage/tests/skills/sync-markdown-code-blocks/task.md": "69f373db5a34c8165e1abe370e63230a6652c1412f2fa44a413dfd8534d84dbc"
       },
-      "head": "4fc4ec83eccda6aeb542cc6b552262701c8bdc16",
+      "head": "b5da2ad7f9c3c7c4a1fba0bcca9a893d517d888e",
       "outcome": "no-change",
-      "reason": "Formatting-only lint fixes (chained-call line breaks, import order); no guidance affected.",
+      "reason": "extract compares whole-file targets byte for byte in check mode; no guidance affected (the skill already describes extract --check as exact).",
       "evidence": [
-        "Changed: packages/mdcode/src/cli.ts, packages/mdcode/src/commands/extract.ts at 4fc4ec83eccda6aeb542cc6b552262701c8bdc16"
+        "Changed: packages/mdcode/src/commands/extract.ts at b5da2ad7f9c3c7c4a1fba0bcca9a893d517d888e"
       ]
     },
     "source:.bumpy/agent-skill.md": {
@@ -200,15 +200,15 @@
       ]
     },
     "source:packages/mdcode/src/commands/extract.test.ts": {
-      "fingerprint": "c59bde2eb1ca55a7adbe162b2adfe85ba7379365560c1b419116467613028a7b",
+      "fingerprint": "cc671b28516a3e4626a3eaf32222e32d493887003e32c119e056fac56e95b788",
       "snapshot": {
-        "packages/mdcode/src/commands/extract.test.ts": "1ea729856591a1ea78a44c834d250ab6af98455985434426ad60c174b30f34ea"
+        "packages/mdcode/src/commands/extract.test.ts": "d80becf6c377bf7277baa39a88e64eeb1dcf02d87fbe8f527a3e205aa9f7fdd8"
       },
-      "head": "4fc4ec83eccda6aeb542cc6b552262701c8bdc16",
+      "head": "b5da2ad7f9c3c7c4a1fba0bcca9a893d517d888e",
       "outcome": "no-change",
-      "reason": "Formatting-only lint fixes (chained-call line breaks, import order); no guidance affected.",
+      "reason": "extract compares whole-file targets byte for byte in check mode; no guidance affected (the skill already describes extract --check as exact).",
       "evidence": [
-        "Changed: packages/mdcode/src/commands/extract.test.ts at 4fc4ec83eccda6aeb542cc6b552262701c8bdc16"
+        "Changed: packages/mdcode/src/commands/extract.test.ts at b5da2ad7f9c3c7c4a1fba0bcca9a893d517d888e"
       ]
     },
     "source:packages/mdcode/src/region.test.ts": {
