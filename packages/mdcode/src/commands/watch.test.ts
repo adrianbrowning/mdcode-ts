@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, describe, test } from "node:test";
@@ -114,6 +114,27 @@ describe("watch", () => {
     assert.deepEqual(document!.errors.map(error => error.code), [ "read_failed" ]);
     assert.equal(document!.written, false);
     assert.equal(await readFile(doc, "utf-8"), broken);
+  });
+
+  test("with apply, a failed write does not hide a later edit that matches it", { skip: process.getuid?.() === 0 && "root ignores directory permissions" }, async () => {
+    const { dir, doc, passes, change } = await setup({ apply: true });
+    await writeFile(join(dir, "greet.js"), "console.log('new');\n", "utf-8");
+    // The temp file for the atomic write cannot be created in a read-only directory.
+    await chmod(dir, 0o555);
+
+    try {
+      await change([ join(dir, "greet.js") ], 2);
+    }
+    finally {
+      await chmod(dir, 0o755);
+    }
+
+    assert.equal(passes()[1]!.documents[0]!.written, false);
+    assert.equal(passes()[1]!.documents[0]!.errors.length, 1);
+
+    // Someone else writes exactly what the failed write would have.
+    await writeFile(doc, STALE.replace("'old'", "'new'"), "utf-8");
+    await change([ doc ], 3);
   });
 
   test("starts watching a file= that a later edit adds", async () => {

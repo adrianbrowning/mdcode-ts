@@ -240,8 +240,15 @@ async function reconcile(target: WatchTarget, apply: boolean, ownWrites: Map<str
       // As update --apply --continue-on-error: a failed file= or region= leaves the document alone.
       if (apply && result.changed.length > 0 && !outcome.errors.some(error => error.code !== "transform_failed")) {
         ownWrites.set(document.file, outcome.source);
-        // Atomic, so the watcher's own change event never reads a half-written file and mistakes it for an edit.
-        await writeAtomic(document.file, outcome.source, (await stat(document.file)).mode);
+        try {
+          // Atomic, so the watcher's own change event never reads a half-written file and mistakes it for an edit.
+          await writeAtomic(document.file, outcome.source, (await stat(document.file)).mode);
+        }
+        catch (error: unknown) {
+          // Nothing was written, so an edit that happens to match must still start a pass.
+          ownWrites.delete(document.file);
+          throw error;
+        }
         result.written = true;
       }
     }
