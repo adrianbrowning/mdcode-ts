@@ -475,6 +475,16 @@ describe("region.replace refuses to destroy", () => {
     assert.equal(result.content, "def f():\n    # #region body\n    return 2\n    # #endregion body\n");
   });
 
+  it("splices a body that already carries the marker's indent as it stands, so read and splice round-trip", () => {
+    const source = "function f(n) {\n    // #region zero\n    if (n < 1) {\n        return 0\n    }\n    // #endregion\n    // #region rest\n    return n\n}\n// #endregion\n";
+
+    for (const name of [ "zero", "rest" ]) {
+      const result = replace(source, name, read(source, name, "js").content, "js");
+
+      assert.equal(result.content, source, `${name}: the indent read() kept must not be added a second time`);
+    }
+  });
+
   it("keeps a CRLF file free of mixed line endings", () => {
     const source = "const keep = 1;\r\n// #region a\r\nold\r\n// #endregion a\r\nconst tail = 2;\r\n";
 

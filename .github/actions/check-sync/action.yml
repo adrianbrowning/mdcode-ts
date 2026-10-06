@@ -1,0 +1,77 @@
+name: mdcode check sync
+description: Fail when Markdown code blocks and the files they link to disagree, in either direction, without changing the checkout.
+
+inputs:
+  documents:
+    description: >
+      Markdown files to check, one path or glob per line (paths may contain
+      spaces). Leave empty with project or config to check the configuration's
+      documents.
+    default: ''
+  directions:
+    description: >
+      Which directions to check, space- or comma-separated: `update` (do the
+      blocks show their files?) and `extract` (would extracting the blocks
+      change a file?).
+    default: update extract
+  base:
+    description: >
+      For update, the directory file= paths resolve against (--base). Default:
+      each document's own directory, or the configuration's sourceRoot.
+    default: ''
+  dir:
+    description: >
+      For extract, the directory file= targets resolve against (--dir).
+      Default: base when set, else each document's own directory, matching
+      update; with project or config, the configuration's outputRoot.
+    default: ''
+  ignore-anonymous:
+    description: For extract, skip blocks without file= (they have no linked file).
+    default: 'true'
+  project:
+    description: Load mdcode.config.json from the working directory (--project).
+    default: 'false'
+  config:
+    description: Load this configuration file instead (--config).
+    default: ''
+  working-directory:
+    description: Directory to run in, relative to the workspace.
+    default: '.'
+  node-version:
+    description: Node.js version to set up (22.17 or later). Empty to use the runner's Node.js.
+    default: '22'
+  mdcode-command:
+    description: >
+      Command that runs mdcode. Default: `npx --yes mdcode-ts@<version>`, the
+      release this action's ref belongs to.
+    default: ''
+
+outputs:
+  problems:
+    description: Number of problems found; 0 when everything is in sync.
+    value: ${{ steps.check.outputs.problems }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      if: inputs.node-version != ''
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Check Markdown and linked files are in sync
+      id: check
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        DOCUMENTS: ${{ inputs.documents }}
+        DIRECTIONS: ${{ inputs.directions }}
+        BASE: ${{ inputs.base }}
+        DIR: ${{ inputs.dir }}
+        IGNORE_ANONYMOUS: ${{ inputs.ignore-anonymous }}
+        PROJECT: ${{ inputs.project }}
+        CONFIG: ${{ inputs.config }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        MDCODE_COMMAND: ${{ inputs.mdcode-command }}
+      run: node "$GITHUB_ACTION_PATH/check-sync.mjs"

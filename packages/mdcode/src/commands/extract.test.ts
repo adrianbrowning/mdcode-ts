@@ -239,7 +239,7 @@ describe("extract: --force for non-region overwrites", () => {
 
     await extract({ source, outputDir: dir, force: true });
 
-    assert.equal(await readFile(target, "utf-8"), "const replaced = true;", "force must overwrite");
+    assert.equal(await readFile(target, "utf-8"), "const replaced = true;\n", "force must overwrite, keeping the file's final newline");
   });
 
   test("still creates a missing file without force", async () => {
@@ -643,5 +643,110 @@ describe("extract: reporting", () => {
 
     assert.deepEqual(skipped(result), [ join(dir, "block-1.sh") ]);
     assert.equal(result.updatedSource, "```sh\nls\n```\n\n```sh file=block-2.sh\npwd\n```\n");
+  });
+});
+
+describe("extract: check", () => {
+  const fence = (info: string, code: string): string => `\`\`\`${info}\n${code}\n\`\`\`\n\n`;
+
+  /** Every file under dir with its content, to prove a check wrote nothing. */
+  async function snapshot(dir: string): Promise<Record<string, string>> {
+    const entries = await readdir(dir, { recursive: true, withFileTypes: true });
+    const files = entries.filter(entry => entry.isFile()).map(entry => join(entry.parentPath, entry.name)).sort();
+    return Object.fromEntries(await Promise.all(files.map(async file => [ file, await readFile(file, "utf-8") ])));
+  }
+
+  const drift = (result: ExtractResult): Array<{ line?: number; path?: string; message: string; }> =>
+    result.errors.filter(({ code }) => code === "out_of_sync").map(({ line, path, message }) => ({ line, path, message }));
+
+  test("passes, writing nothing, when every target already holds what extract would write", async () => {
+    const dir = await tempDir();
+    await writeSource(dir, "whole.ts", "export const whole = 1;\n");
+    await writeSource(dir, "crlf.ts", "export const crlf = 1;\r\n");
+    await writeSource(dir, "regions.ts", "keep();\n// #region one\none();\n// #endregion\n// #region two\ntwo();\n// #endregion\n");
+    const source = fence("ts file=whole.ts", "export const whole = 1;")
+      + fence("ts file=crlf.ts", "export const crlf = 1;")
+      + fence("ts file=regions.ts region=one", "one();")
+      + fence("ts file=regions.ts region=two", "two();");
+    const before = await snapshot(dir);
+
+    const result = await extract({ source, outputDir: dir, force: true, check: true });
+
+    assert.deepEqual(result.errors, []);
+    assert.deepEqual(result.targets.map(({ action }) => action), [ "unchanged", "unchanged", "unchanged" ]);
+    assert.deepEqual(await snapshot(dir), before);
+  });
+
+  test("reports each block whose part of a target would change, and writes nothing", async () => {
+    const dir = await tempDir();
+    await writeSource(dir, "whole.ts", "export const whole = 2;\n");
+    await writeSource(dir, "regions.ts", "// #region one\none();\n// #endregion\n// #region two\nTWO();\n// #endregion\n");
+    const source = fence("ts file=whole.ts", "export const whole = 1;")
+      + fence("ts file=regions.ts region=one", "one();")
+      + fence("ts file=regions.ts region=two", "two();")
+      + fence("ts file=regions.ts region=three", "three();")
+      + fence("ts file=new.ts", "export const fresh = 1;");
+    const before = await snapshot(dir);
+
+    const result = await extract({ source, outputDir: dir, force: true, check: true });
+
+    assert.deepEqual(drift(result), [
+      { line: 1, path: join(dir, "whole.ts"), message: `${join(dir, "whole.ts")} differs from this block; extract would overwrite it` },
+      { line: 9, path: join(dir, "regions.ts"), message: `region two in ${join(dir, "regions.ts")} differs from this block; extract would replace it` },
+      { line: 13, path: join(dir, "regions.ts"), message: `region three is not in ${join(dir, "regions.ts")}; extract would append it` },
+      { line: 17, path: join(dir, "new.ts"), message: `${join(dir, "new.ts")} does not exist; extract would create it` },
+    ], "region one is unchanged, so it is not reported");
+    assert.deepEqual(result.targets.map(({ action }) => action), [ "written", "spliced", "written" ]);
+    assert.deepEqual(await snapshot(dir), before);
+  });
+
+  test("names a difference in trailing newlines, which extract would remove", async () => {
+    const dir = await tempDir();
+    await writeSource(dir, "a.ts", "export const a = 1;\n\n\n");
+
+    const result = await extract({ source: fence("ts file=a.ts", "export const a = 1;"), outputDir: dir, force: true, check: true });
+
+    assert.match(drift(result)[0]!.message, /differs from this block \(only trailing newlines differ\)/);
+  });
+
+  test("without force, reports an existing whole-file target as skipped, as extract would", async () => {
+    const dir = await tempDir();
+    await writeSource(dir, "a.ts", "export const a = 1;\n");
+
+    const result = await extract({ source: fence("ts file=a.ts", "export const a = 1;"), outputDir: dir, check: true });
+
+    assert.deepEqual(result.targets.map(({ action }) => action), [ "skipped" ]);
+    assert.deepEqual(result.errors.map(({ code }) => code), [ "extract_skipped" ]);
+  });
+
+  test("agrees with what extract then writes, keeping an LF or CRLF final newline", async () => {
+    const dir = await tempDir();
+    await writeSource(dir, "lf.ts", "old();\n");
+    await writeSource(dir, "crlf.ts", "old();\r\n");
+    const source = fence("ts file=lf.ts", "fresh();") + fence("ts file=crlf.ts", "fresh();");
+
+    assert.equal(drift(await extract({ source, outputDir: dir, force: true, check: true })).length, 2);
+
+    await extract({ source, outputDir: dir, force: true });
+
+    assert.equal(await readFile(join(dir, "lf.ts"), "utf-8"), "fresh();\n");
+    assert.equal(await readFile(join(dir, "crlf.ts"), "utf-8"), "fresh();\r\n");
+    assert.deepEqual((await extract({ source, outputDir: dir, force: true, check: true })).errors, [], "after extract, the check passes");
+  });
+
+  test("refuses a forced whole-file overwrite through a symlink, and check reports it the same way", async () => {
+    const dir = await tempDir();
+    await writeSource(dir, "real.ts", "export const a = 1;\n");
+    await symlink("real.ts", join(dir, "link.ts"));
+    const source = fence("ts file=link.ts", "export const a = 2;");
+
+    const checked = await extract({ source, outputDir: dir, force: true, check: true });
+    const written = await extract({ source, outputDir: dir, force: true });
+
+    for (const result of [ checked, written ]) {
+      assert.deepEqual(result.targets.map(({ action, reason }) => ({ action, reason })), [{ action: "skipped", reason: "target is a symlink; refusing to overwrite it" }]);
+    }
+    assert.equal(await readlink(join(dir, "link.ts")), "real.ts", "the link must stay a link");
+    assert.equal(await readFile(join(dir, "real.ts"), "utf-8"), "export const a = 1;\n");
   });
 });

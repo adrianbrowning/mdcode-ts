@@ -53,6 +53,9 @@ Two packages, `packages/mdcode` (published as `mdcode-ts`) and `packages/usage`.
   - `watch.test.ts` spawns `mdcode watch` with the real file watcher and stops it with `SIGINT`
   - `check-docs-sync.test.ts` and `validate-snippets.test.ts` run the `examples/ci/` scripts against
     the built CLI, through an `mdcode` shim on `PATH`
+  - `check-sync-action.test.ts` runs the check-sync GitHub Action's script
+    (`.github/actions/check-sync/check-sync.mjs`) the way `action.yml` does, with inputs as
+    environment variables and `mdcode-command` pointing at the built CLI
   - `skill-sync-markdown-code-blocks.test.ts` grades the task in `tests/skills/sync-markdown-code-blocks/`
     for the shipped skill: it accepts the skill's solution and rejects the mistakes the skill warns
     about. Set `SKILL_TASK_DIR` to grade an agent's attempt in another directory instead

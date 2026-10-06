@@ -267,6 +267,9 @@ mdcode extract README.md
 
 # Overwrite whole-file targets
 mdcode extract --force README.md
+
+# Would extracting change anything? Writes nothing; exit 1 lists each block that differs
+mdcode extract --check --force --ignore-anonymous README.md
 ```
 
 ### Basic Usage

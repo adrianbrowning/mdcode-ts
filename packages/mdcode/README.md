@@ -366,7 +366,8 @@ When the target file already exists:
   `<!-- -->`). Existing markers are matched in any of that language's comment styles, so `/* #region
   name */` in a JS file is spliced rather than duplicated.
 - **The block has no `region=`** → the file is skipped with a warning, since writing it would replace
-  the whole file. Use `--force` to overwrite.
+  the whole file. Use `--force` to overwrite. An overwritten file keeps its final newline, LF or
+  CRLF; a symlinked target is refused rather than replaced with a regular file.
 
 Otherwise, files that don't exist yet are created.
 
@@ -510,6 +511,36 @@ mdcode extract --force README.md
 ```
 
 `--force` has no effect on region blocks — those always splice in place.
+
+### Check Without Writing
+
+`--check` works out every target exactly as `extract` would, then compares it with the file on disk
+instead of writing it. It exits 0 when every file already holds what `extract` would write, and 1
+with an `out_of_sync` error for each block whose part of a file would change. Nothing is written,
+including with `--force`.
+
+```bash
+# Would extracting change any file? Pass --force so existing whole files are compared, not skipped
+mdcode extract --check --force --ignore-anonymous README.md
+```
+
+```text
+✗ Out of sync: line 9: region two in src/b.ts differs from this block; extract would replace it
+✗ Out of sync: line 13: src/new.ts does not exist; extract would create it
+2 block(s) out of sync with their files. Run mdcode extract to write them, or mdcode update to bring the blocks up to date instead.
+```
+
+- A region target reports each region that differs, or that the file lacks and `extract` would
+  append. Regions the block matches are not reported.
+- The comparison is exact. A file that differs from its block only in trailing newlines is out of
+  sync for `extract`, although `update --check` accepts it, because `extract` would rewrite them; the
+  message says `only trailing newlines differ`.
+- Without `--force`, an existing whole-file target is reported as skipped, as `extract` would skip it,
+  and the command exits 2.
+- `--check` cannot be combined with `--update-source`.
+
+`update --check` asks the other question: does each block show its file? CI that wants both
+directions runs both, or uses the [check-sync GitHub Action](#github-action-check-sync).
 
 ### Stdin Behavior with Update Source
 
@@ -1474,6 +1505,76 @@ own step before publishing.
 mdcode-ts gates its own releases the same way; see its
 [RELEASING.md](https://github.com/adrianbrowning/mdcode-ts/blob/main/RELEASING.md).
 
+### GitHub Action: check-sync
+
+The `check-sync` action fails a job when Markdown code blocks and the files they link to disagree,
+in either direction, and writes nothing:
+
+- **files → Markdown** runs `mdcode update --check`: does each block show its file?
+- **Markdown → files** runs `mdcode extract --check --force`: would extracting the blocks change a
+  file? See [Check Without Writing](#check-without-writing).
+
+The same drift seen from both sides is reported once, as `both`. Each problem becomes an error
+annotation on the document and line, naming the direction, the block's `name=`, the file and the
+region, and the job summary lists them all in a table.
+
+```yaml
+name: Docs
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: adrianbrowning/mdcode-ts/.github/actions/check-sync@<commit-sha> # mdcode-ts@<version>
+        with:
+          documents: |
+            README.md
+            docs/*.md
+```
+
+Pin the action to a full commit SHA, and note the release it belongs to in a comment. The repository
+publishes no moving `v1`-style tags: each release is tagged `mdcode-ts@<version>`, and the commit that
+tag points at is the one to pin. To find it:
+
+```bash
+git ls-remote https://github.com/adrianbrowning/mdcode-ts 'refs/tags/mdcode-ts@*'
+```
+
+The action runs the mdcode-ts release that its commit belongs to, from npm (`npx --yes
+mdcode-ts@<version>`), so pinning the action pins the CLI too. A commit between releases runs the
+last release, which may lack a flag the action needs; pin a release commit.
+
+| Input | Default | Meaning |
+|-------|---------|---------|
+| `documents` | | Markdown files to check, one path or glob per line, so paths may contain spaces |
+| `directions` | `update extract` | Which directions to check |
+| `base` | | For update, the directory `file=` resolves against (`--base`); default each document's own directory |
+| `dir` | | For extract, the same (`--dir`); default `base`, else each document's own directory, so both directions read the same files |
+| `ignore-anonymous` | `true` | For extract, skip blocks without `file=`, which link to no file |
+| `project` | `false` | Use `mdcode.config.json` (`--project`): its documents when `documents` is empty, its `sourceRoot` and `outputRoot`, its filters |
+| `config` | | Use this configuration file instead (`--config`) |
+| `working-directory` | `.` | Where to run |
+| `node-version` | `22` | Node.js to set up with `actions/setup-node`; empty uses the runner's |
+| `mdcode-command` | | Run mdcode with this command instead, such as `npx mdcode` for the version in your lockfile |
+
+Its `problems` output is the number of problems found. The step exits 1 when there is any, and 2
+when the inputs are wrong, such as a document that does not exist or a pattern that matches nothing.
+
+The action needs only `contents: read`, and it is safe on pull requests from forks: it runs no code
+from the Markdown, writes no file, and reads only files inside each document's directory or `base`,
+under the [containment rules](#containment). Run it on `pull_request`, never `pull_request_target`,
+so a fork's change runs without your repository's secrets.
+
+
 ---
 
 ## CLI Flags Reference
@@ -1498,6 +1599,8 @@ Additional flags by command:
 - `--update-source` - Add file metadata to anonymous code blocks and update source
 - `--ignore-anonymous` - Skip blocks without file metadata (mutually exclusive with --update-source)
 - `--force` - Overwrite existing files whose blocks have no `region=` (skipped by default)
+- `--check` - Write nothing; exit 1 when a target differs from what `extract` would write. See
+  [Check Without Writing](#check-without-writing)
 - `--project` - Load `mdcode.config.json` from the current directory; see
   [Project Configuration](#project-configuration)
 - `--config <path>` - Load this configuration file instead
@@ -1654,7 +1757,7 @@ Each error has a `code` and a `message`. These fields are added when they apply:
 | `malformed_region` | A block's `region=` is not a valid name, or its markers are never closed, overlap, or do not nest |
 | `region_language_mismatch` | A block's `region=` is marked only in another language's comment syntax |
 | `missing_file_metadata` | `validate --strict`: a selected block has no `file=` |
-| `out_of_sync` | `update --check` found a selected block that differs from its source |
+| `out_of_sync` | `update --check` found a selected block that differs from its source, or `extract --check` found a target that differs from what it would write |
 | `command_failed` | `run`'s command exited non-zero for a block |
 | `unexpected_error` | Anything else |
 
@@ -1747,7 +1850,8 @@ type ExtractEnvelope = Envelope<{
     document: string | null;
     targets: Array<{
       path: string;
-      action: "written" | "spliced" | "skipped";
+      /** "unchanged" appears only with --check, which writes nothing: the other actions say what extract would do */
+      action: "written" | "spliced" | "skipped" | "unchanged";
       /** The blocks that target this file, in document order */
       blocks: Array<BlockRef>;
       /** The region= names written */
@@ -1847,7 +1951,10 @@ type DumpEnvelope = Envelope<{
   untouched; `reason` says why, and each skipped target also adds an `extract_skipped` error. With
   `--update-source`, when a block gained `file=`: from stdin, `updatedSource` holds the updated
   markdown; from a file, the file is rewritten and `written` holds its path. A document that fails
-  stops the command; the documents before it have their entries.
+  stops the command; the documents before it have their entries. With `--check` nothing is written:
+  `unchanged` means the file already holds what `extract` would write, the other actions say what
+  `extract` would do, and each block whose part of a target would change adds an `out_of_sync` error
+  with `path` set to the target. A document that fails under `--check` does not stop the others.
 - `update` - One entry in `documents` per document, each with one entry per selected block, in
   document order. `changed` and `code` are the plan: which blocks would change, and the exact code
   each would get. Only `--apply` writes the markdown; `written` holds its path, or `null` when nothing
@@ -2038,8 +2145,8 @@ Exit codes are the same with and without `--json`:
 
 | Code | Meaning |
 |------|---------|
-| `0` | Success; for `update --check`, every selected block is in sync |
-| `1` | Any error, including `update --check` finding a block out of sync, `validate` finding a problem, and `extract` refusing a target before writing |
+| `0` | Success; for `update --check` and `extract --check`, everything is in sync |
+| `1` | Any error, including `update --check` or `extract --check` finding drift, `validate` finding a problem, and `extract` refusing a target before writing |
 | `2` | `extract` skipped one or more targets |
 
 ### Changes from Earlier Versions
@@ -2104,6 +2211,14 @@ Exit codes are the same with and without `--json`:
   argument, so `mdcode list --meta type=example README.md` read `README.md` as a second pair, read
   stdin instead, and found nothing. A value containing `=`, as in `--meta expr=a=b`, is now kept
   whole.
+- `extract` splicing a region whose marker is indented no longer indents the body a second time.
+  `update` copies a region with its indentation, so extracting that block used to push every line
+  right by the marker's indent. A body whose first line already starts with the marker's indent is
+  now written as it stands; a dedented body is still indented to the marker.
+- `extract --force` keeps an overwritten file's final newline (LF or CRLF). It used to drop it. A new
+  file is still written as the block's code stands.
+- `extract --force` refuses a target that is a symlink, as region splices already did, instead of
+  replacing the link with a regular file. The target is skipped and `extract` exits 2.
 
 ---
 
@@ -2370,14 +2485,17 @@ Write code blocks to files based on their `file` metadata.
 - **options.updateSource** - Add `file=` to anonymous blocks
 - **options.ignoreAnonymous** - Skip blocks without `file=`
 - **options.force** - Overwrite existing files whose blocks have no `region=`
+- **options.check** - Write nothing; compare each target with what `extract` would write instead. See
+  [Check Without Writing](#check-without-writing)
 - **Returns** - Promise of `{ targets, updatedSource?, errors }`: one `ExtractTarget` per target file,
-  the markdown with `file=` added when `updateSource` added any, and one `extract_skipped` error per
-  skipped target. `extract` writes the target files but not the markdown.
+  the markdown with `file=` added when `updateSource` added any, one `extract_skipped` error per
+  skipped target and, with `check`, one `out_of_sync` error per block whose target would change.
+  `extract` writes the target files but not the markdown.
 - **Throws** - `MetadataError` when the document's metadata is invalid. When any block breaks a
   mapping rule checked by `validate()` for extract, it throws an `Error` whose `errors` array holds
   one `ResultError` per block (`unsafe_path`, `ambiguous_target`, `malformed_region`,
   `duplicate_region` or `region_language_mismatch`), and nothing is written. `updateSource` with
-  `ignoreAnonymous` throws an `Error` whose `code` is `invalid_usage`.
+  `ignoreAnonymous` or with `check` throws an `Error` whose `code` is `invalid_usage`.
 
 #### `validate(options: ValidateOptions): Promise<ValidateResult>`
 

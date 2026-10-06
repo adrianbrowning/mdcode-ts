@@ -178,6 +178,7 @@ When writing scripts or CI that read mdcode's results, read
 mdcode extract --ignore-anonymous README.md         # only blocks that have file=
 mdcode extract --dir out --ignore-anonymous README.md
 mdcode validate --for extract --dir out README.md   # preview refusals, writes nothing
+mdcode extract --check --force --ignore-anonymous README.md   # would extract change a file? writes nothing
 ```
 
 - A block with `region=` is spliced into an existing file. Code outside the region, and regions the
@@ -190,6 +191,8 @@ mdcode validate --for extract --dir out README.md   # preview refusals, writes n
   blocks in different documents of one run. Otherwise `extract` refuses with `ambiguous_target`
   and writes nothing.
 - Every target is checked before anything is written. A refusal exits 1 with no partial writes.
+- `extract --check` exits 1 with an `out_of_sync` error per block whose file would change. Pass
+  `--force` with it, or existing whole files are reported as skipped (exit 2) instead of compared.
 
 ### Run or archive snippets
 
@@ -215,7 +218,7 @@ on the command line is trusted. mdcode applies that split as follows:
 
 | Writes nothing and runs no commands | Needs explicit approval first |
 | --- | --- |
-| `list`, `validate`, `update` (plan), `update --diff`, `update --check`, `update --stdout` | `update --apply`: rewrites the Markdown |
+| `list`, `validate`, `update` (plan), `update --diff`, `update --check`, `update --stdout`, `extract --check` | `update --apply`: rewrites the Markdown |
 | | `extract`: writes files inside `--dir` (or the current directory) |
 | | `dump -o <file>`: writes the archive |
 | | `run --allow-shell`: runs a shell command per block, often executing block code |

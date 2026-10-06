@@ -473,9 +473,17 @@ export function spliceRegions(source: string, edits: ReadonlyMap<string, RegionE
     if (span === undefined) continue;
 
     const eol = line.eol || "\n";
-    const indent = /^[ \t]*/.exec(line.text)?.[0] ?? "";
+    const marker = /^[ \t]*/.exec(line.text)?.[0] ?? "";
+    const body = span.code.replace(/\r?\n$/, "").split(/\r?\n/);
+    // read() returns a region's lines as they stand, indentation included, so a
+    // body update read from this file already carries the marker's indent on its
+    // first line, though a later line may close a scope further left. Only a body
+    // written without it, such as dedented code from Markdown, is indented to
+    // match the marker.
+    const first = body.find(bodyLine => bodyLine !== "") ?? "";
+    const indent = first.startsWith(marker) ? "" : marker;
 
-    for (const bodyLine of span.code.replace(/\r?\n$/, "").split(/\r?\n/)) {
+    for (const bodyLine of body) {
       if (bodyLine === "" && span.code === "") continue;
       out.push((bodyLine === "" ? "" : indent + bodyLine) + eol);
     }
