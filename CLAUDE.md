@@ -28,6 +28,7 @@ TypeScript port of [szkiba/mdcode](https://github.com/szkiba/mdcode): keeps Mark
 - Adding or changing a command, flag or error code: `docs/agents/adding-a-command.md`
 - Test layout: `TESTING.md`
 - Releasing and the release gates: `RELEASING.md`
+- Agent Skills shipped in the package (`packages/mdcode/skills/`, managed with TanStack Intent): the `intent-maintainer` block in `AGENTS.md`. Changing a command, flag or behaviour the skill describes means updating the skill too.
 - Issues (GitHub, `gh` CLI): `docs/agents/issue-tracker.md`
 - Triage labels: `docs/agents/triage-labels.md`
 - Domain language: `CONTEXT.md` and `docs/adr/`, see `docs/agents/domain.md`

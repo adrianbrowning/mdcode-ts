@@ -1,0 +1,51 @@
+library:
+  name: mdcode-ts
+  version: 0.0.4
+generated_from:
+  domain_map: _artifacts/domain_map.yaml
+  skill_spec: _artifacts/skill_spec.md
+skills:
+  - name: sync-markdown-code-blocks
+    slug: sync-markdown-code-blocks
+    domain: markdown-code-blocks
+    package: packages/mdcode
+    path: skills/sync-markdown-code-blocks/SKILL.md
+    description: >
+      Use when keeping fenced code blocks in Markdown (README, docs) in sync
+      with real source files using the mdcode CLI or the mdcode-ts library:
+      pointing a block at a file or #region, updating blocks after code changes,
+      checking docs for drift in CI, extracting blocks out to files, selecting
+      blocks by name, language or metadata, running or archiving snippets, and
+      applying transformers. Not for type-checking snippets that live only in
+      the Markdown.
+    sources:
+      - src/cli.ts
+      - src/parser.ts
+      - src/region.ts
+      - src/outline.ts
+      - src/commands/update.ts
+      - src/commands/extract.ts
+      - src/commands/validate.ts
+      - src/commands/list.ts
+      - src/commands/run.ts
+      - src/commands/dump.ts
+      - src/result.ts
+      - README.md
+      - tests/examples/fibonacci/README.md
+      - tests/examples/fibonacci/fibonacci.js
+      - tests/examples/factorial/README.md
+      - adrianbrowning/mdcode-ts:examples/ci/check-docs-sync.mjs
+      - adrianbrowning/mdcode-ts:examples/ci/validate-snippets.mjs
+      - adrianbrowning/mdcode-ts:packages/usage/tests/skill-sync-markdown-code-blocks.test.ts
+      - adrianbrowning/mdcode-ts:packages/usage/tests/skills/sync-markdown-code-blocks/**
+    references:
+      - references/json-results.md
+      - references/transformers.md
+    requires: []
+    purpose: >
+      Teach an agent the mdcode-ts workflow for Markdown code blocks: link a
+      block to a file or region, inspect and plan before writing, apply
+      explicitly, verify with --check, and handle extract, run, dump and
+      transformers within mdcode's safety rules for untrusted Markdown.
+distribution:
+  mode: none

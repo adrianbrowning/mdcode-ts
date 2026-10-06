@@ -1,0 +1,4 @@
+{
+  "documents": [ "README.md", "docs/*.md" ],
+  "sourceRoot": "."
+}

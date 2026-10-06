@@ -181,6 +181,21 @@ pnpm readme:update
 pnpm readme:extract
 ```
 
+### Agent Skills
+
+The package ships an [Agent Skill](https://agentskills.io) for coding agents,
+`sync-markdown-code-blocks`, in `skills/`. It covers the inspect, plan, apply, check workflow,
+regions, `extract`, `run`, `dump`, transformers, and which commands need approval on untrusted
+Markdown. The skill's version matches the installed package. To let your agent find it, run
+[TanStack Intent](https://tanstack.com/intent/latest) in your project:
+
+```bash
+npx @tanstack/intent@latest install   # adds a skill-loading block to AGENTS.md
+npx @tanstack/intent@latest list      # shows mdcode-ts#sync-markdown-code-blocks
+```
+
+Or point your agent at `node_modules/mdcode-ts/skills/sync-markdown-code-blocks/SKILL.md`.
+
 ### Local Development
 
 ```bash

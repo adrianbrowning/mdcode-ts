@@ -21,6 +21,9 @@ importers:
       '@stylistic/eslint-plugin':
         specifier: ^1.5.4
         version: 1.8.1(eslint@8.57.1)(typescript@5.9.3)
+      '@tanstack/intent':
+        specifier: 0.5.4
+        version: 0.5.4
       '@total-typescript/ts-reset':
         specifier: ^0.5.1
         version: 0.5.1
@@ -372,6 +375,11 @@ packages:
     engines: {node: ^16.0.0 || >=18.0.0}
     peerDependencies:
       eslint: '>=8.40.0'
+
+  '@tanstack/intent@0.5.4':
+    resolution: {integrity: sha512-veyJDHwIHrylKucn8UgLlMYZbhLZ3gO1OlYiXLcmIKazCd8bTDXRfcWvmwNK3q63jS8K40pYudZV3HQPbHsBWg==}
+    engines: {node: '>=20.12.0'}
+    hasBin: true
 
   '@total-typescript/ts-reset@0.5.1':
     resolution: {integrity: sha512-AqlrT8YA1o7Ff5wPfMOL0pvL+1X+sw60NN6CcOCqs658emD6RfiXhF7Gu9QcfKBH7ELY2nInLhKSCWVoNL70MQ==}
@@ -1980,6 +1988,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
       - typescript
+
+  '@tanstack/intent@0.5.4': {}
 
   '@total-typescript/ts-reset@0.5.1': {}
 
