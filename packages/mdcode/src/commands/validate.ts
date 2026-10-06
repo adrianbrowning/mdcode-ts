@@ -368,7 +368,7 @@ export async function sharedTargetErrors(documents: Array<ValidatedDocument>): P
 
       const key = await resolveTarget(block.path);
       keys.set(block, key);
-      writers.set(key, [ ...writers.get(key) ?? [], { document, block } ]);
+      writers.set(key, [ ...writers.get(key) ?? [], { document, block }]);
     }
   }
 
