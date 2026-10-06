@@ -7,5 +7,39 @@
     "node": {
       "version": ">=20.*"
     }
-  }
+  },
+  // Library code returns results; only the CLI adapter (cli.ts, main.ts) prints, reads stdin or exits.
+  "rules": {
+    "no-console": "error",
+    "no-restricted-properties": [
+      "error",
+      { "object": "process", "property": "stdin", "message": "Library code takes its input as an argument; only cli.ts reads stdin." },
+      { "object": "process", "property": "stdout", "message": "Library code returns results; only cli.ts and main.ts write output." },
+      { "object": "process", "property": "stderr", "message": "Library code returns results; only cli.ts and main.ts write output." },
+      { "object": "process", "property": "exit", "message": "Only main.ts ends the process, through exitCode." },
+      { "object": "process", "property": "exitCode", "message": "Only main.ts sets the exit code." }
+    ],
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "node:process",
+            "importNames": [ "stdin", "stdout", "stderr", "exit", "exitCode" ],
+            "message": "Library code returns results; only cli.ts and main.ts touch process I/O."
+          }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [ "src/cli.ts", "src/main.ts", "src/**/*.test.ts" ],
+      "rules": {
+        "no-console": "off",
+        "no-restricted-properties": "off",
+        "no-restricted-imports": "off"
+      }
+    }
+  ]
 }

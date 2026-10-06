@@ -10,6 +10,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Comment on an issue**: `gh issue comment <number> --body "..."`
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
+- **After closing an issue**: list the open issues it blocked with `gh api 'repos/{owner}/{repo}/issues/<n>/dependencies/blocking' --jq '.[] | select(.state=="open") | .number'`, plus any open issue whose body says `Blocked by` it (`gh search issues --repo <owner>/<repo> --state open '"#<n>" in:body'`). Check each one's Agent Brief against `main` and comment with whatever the close made outdated: criteria now met, a stale "Verification status", names that have changed.
 
 Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
 

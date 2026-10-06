@@ -1,107 +1,21 @@
 {
   "version": 1,
-  "compiledAt": "2026-09-26T00:00:00.000Z",
+  "compiledAt": "2026-10-06T12:30:00.000Z",
   "compiledBy": "claude",
   "sources": [
     {
       "path": "CLAUDE.md",
-      "sha": "555a20d66f1b750123f05622c861eca3704c4246e29622ff32a81a3abbd34027",
-      "scope": "**/*"
+      "scope": "**/*",
+      "sha": "afb77c5e8ffc502330baa870089e75bc042b19b79dca1bd839176051baf1076d"
     }
   ],
   "rules": [
     {
-      "id": "run-both-test-packages",
-      "text": "Testing (ALWAYS RUN BOTH)",
-      "source": {
-        "path": "CLAUDE.md",
-        "line": 16
-      },
-      "check": {
-        "type": "unenforceable",
-        "reason": "about which commands the agent runs, not the code"
-      },
-      "status": "active"
-    },
-    {
-      "id": "no-unified-remark",
-      "text": "Custom line-by-line state machine for parsing markdown (no unified/remark)",
-      "source": {
-        "path": "CLAUDE.md",
-        "line": 54
-      },
-      "scope": [
-        "packages/mdcode/**/*.ts",
-        "packages/mdcode/package.json"
-      ],
-      "check": {
-        "type": "lint",
-        "how": "no-restricted-imports for unified, remark, remark-* and mdast packages; grep package.json dependencies",
-        "pattern": "(from\\s+['\"](unified|remark[\\w-]*|mdast[\\w-]*)['\"]|\"(unified|remark[\\w-]*)\"\\s*:)"
-      },
-      "status": "active"
-    },
-    {
-      "id": "use-define-transform",
-      "text": "Use `defineTransform()` helper for type safety.",
-      "source": {
-        "path": "CLAUDE.md",
-        "line": 92
-      },
-      "scope": [
-        "packages/usage/**/*.ts",
-        "packages/example/**/*.ts",
-        "packages/mdcode/src/**/*.test.ts",
-        "**/*transform*.ts",
-        "**/*transform*.mts"
-      ],
-      "when": "edit",
-      "check": {
-        "type": "model",
-        "question": {
-          "type": "boolean",
-          "instructions": "Among the added lines, is there `export default`, `const transformer =` or `transformer:` followed directly by an arrow function or `function` taking `{ tag, meta, code }`, with no `defineTransform(` around it? Answer false if no transformer is added.",
-          "criteria": {
-            "true": "export default ({ tag, code }) => tag === 'sql' ? code.toUpperCase() : code;",
-            "false": "export default defineTransform(({tag, code}) => {\n  if (tag === 'sql') return code.toUpperCase();\n  return code;\n});"
-          }
-        }
-      },
-      "status": "active",
-      "calibration": {
-        "at": "2026-09-26T15:12:04.977Z",
-        "hunks": 3,
-        "median": 0.8683,
-        "min": 0.8596,
-        "max": 0.9016,
-        "fired": 3,
-        "verdict": "skipped"
-      }
-    },
-    {
-      "id": "zshy-bundler-only",
-      "text": "zshy - TypeScript bundler (not tsc, not rollup)",
-      "source": {
-        "path": "CLAUDE.md",
-        "line": 111
-      },
-      "scope": [
-        "**/package.json",
-        "**/rollup.config.*"
-      ],
-      "check": {
-        "type": "lint",
-        "how": "grep package.json build scripts and dependencies for rollup or a tsc emit build; path check for rollup.config.*",
-        "pattern": "\"(build|dev)\"\\s*:\\s*\"[^\"]*\\b(tsc(?![^\"]*--noEmit)|rollup)\\b|\"rollup\"\\s*:"
-      },
-      "status": "active"
-    },
-    {
       "id": "node-test-runner-only",
-      "text": "node:test - Native test runner (NOT vitest, jest, or mocha)",
+      "text": "Tests use `node:test`.",
       "source": {
         "path": "CLAUDE.md",
-        "line": 112
+        "line": 14
       },
       "scope": [
         "**/*.ts",
@@ -116,27 +30,28 @@
       "status": "active"
     },
     {
-      "id": "tsconfig-strict-verbatim",
-      "text": "TypeScript: strict mode, `verbatimModuleSyntax: true`, ES2022 target",
+      "id": "zshy-bundler-only",
+      "text": "The build uses `zshy`, not tsc.",
       "source": {
         "path": "CLAUDE.md",
-        "line": 115
+        "line": 14
       },
       "scope": [
-        "**/tsconfig*.json"
+        "**/package.json"
       ],
       "check": {
-        "type": "deferred",
-        "reason": "asserts options are present, which needs the resolved config including extends, not a diff"
+        "type": "lint",
+        "how": "grep package.json build scripts for a tsc emit build or rollup",
+        "pattern": "\"(build|dev)\"\\s*:\\s*\"[^\"]*\\b(tsc(?![^\"]*--noEmit)|rollup)\\b"
       },
       "status": "active"
     },
     {
       "id": "ts-extension-imports",
-      "text": "File Imports Must Use .ts Extension",
+      "text": "Relative imports keep their `.ts` extension: `import { parse } from \"./parser.ts\"`.",
       "source": {
         "path": "CLAUDE.md",
-        "line": 131
+        "line": 15
       },
       "scope": [
         "**/*.ts",
@@ -144,48 +59,148 @@
       ],
       "check": {
         "type": "lint",
-        "how": "node/file-extension-in-import (already set to always in shared/.eslintrc.json)",
+        "how": "node/file-extension-in-import (set to always in shared/.eslintrc.json)",
         "pattern": "from\\s+['\"]\\.{1,2}/[^'\"]*(?<!\\.ts)(?<!\\.json)['\"]",
         "overlaps": "node/file-extension-in-import"
       },
       "status": "active"
     },
     {
-      "id": "before-commit-tests",
-      "text": "Before Committing: `pnpm test` - Ensure ALL 138 tests pass",
+      "id": "run-cli-from-source",
+      "text": "Run the CLI from source with `node --experimental-strip-types packages/mdcode/src/main.ts list README.md`.",
       "source": {
         "path": "CLAUDE.md",
-        "line": 142
+        "line": 16
       },
       "check": {
         "type": "unenforceable",
-        "reason": "about running commands before a commit, not the code"
+        "reason": "about how the agent runs the CLI, not the code"
       },
       "status": "active"
     },
     {
-      "id": "before-commit-build",
-      "text": "Before Committing: `pnpm build` - Ensure build succeeds",
+      "id": "no-unified-remark",
+      "text": "Parser (`src/parser.ts`): a custom line-by-line state machine instead of remark, so in-place updates keep exact character offsets.",
       "source": {
         "path": "CLAUDE.md",
-        "line": 143
+        "line": 20
       },
+      "scope": [
+        "packages/mdcode/**/*.ts",
+        "packages/mdcode/package.json"
+      ],
       "check": {
-        "type": "unenforceable",
-        "reason": "about running commands before a commit, not the code"
+        "type": "lint",
+        "how": "no-restricted-imports for unified, remark, remark-* and mdast packages; grep package.json dependencies",
+        "pattern": "(from\\s+['\"](unified|remark[\\w-]*|mdast[\\w-]*)['\"]|\"(unified|remark[\\w-]*)\"\\s*:)"
       },
       "status": "active"
     },
     {
-      "id": "before-commit-typecheck",
-      "text": "Before Committing: `pnpm -r lint:ts` - Type check all packages",
+      "id": "shared-scan-fences",
+      "text": "`scanFences()` is shared by `parse()` and `updateInfoStrings()` so block indices always agree.",
       "source": {
         "path": "CLAUDE.md",
-        "line": 144
+        "line": 20
+      },
+      "check": {
+        "type": "deferred",
+        "reason": "needs both callers in parser.ts, not one hunk"
+      },
+      "status": "active"
+    },
+    {
+      "id": "extract-plans-before-writing",
+      "text": "`extract()` runs `planExtract()` before writing anything.",
+      "source": {
+        "path": "CLAUDE.md",
+        "line": 21
+      },
+      "check": {
+        "type": "deferred",
+        "reason": "needs extract()'s whole control flow"
+      },
+      "status": "active"
+    },
+    {
+      "id": "update-reads-through-read-source",
+      "text": "`update()` reads every `file=` through `readSource()`.",
+      "source": {
+        "path": "CLAUDE.md",
+        "line": 21
+      },
+      "check": {
+        "type": "deferred",
+        "reason": "needs update()'s whole control flow"
+      },
+      "status": "active"
+    },
+    {
+      "id": "update-never-writes",
+      "text": "`update()` never writes; the CLI decides, and only `--apply` writes the markdown.",
+      "source": {
+        "path": "CLAUDE.md",
+        "line": 22
+      },
+      "scope": [
+        "packages/mdcode/src/commands/update.ts"
+      ],
+      "check": {
+        "type": "lint",
+        "how": "no-restricted-imports of node:fs write APIs and ../write.ts in update.ts",
+        "pattern": "\\b(writeFile|writeAtomic|appendFile|createWriteStream)\\s*\\("
+      },
+      "status": "active"
+    },
+    {
+      "id": "watch-writes-only-with-apply",
+      "text": "`watch()` writes only with `apply`.",
+      "source": {
+        "path": "CLAUDE.md",
+        "line": 22
+      },
+      "check": {
+        "type": "deferred",
+        "reason": "needs watch()'s control flow around each write"
+      },
+      "status": "active"
+    },
+    {
+      "id": "config-only-with-flags",
+      "text": "`mdcode.config.json` is loaded only with `--project` or `--config`. Without either, input defaults to stdin.",
+      "source": {
+        "path": "CLAUDE.md",
+        "line": 23
+      },
+      "check": {
+        "type": "deferred",
+        "reason": "needs every config load site in cli.ts"
+      },
+      "status": "active"
+    },
+    {
+      "id": "contract-source-of-truth",
+      "text": "`COMMAND_NAMES` and `ERROR_CODES` are the source of truth for commands and error codes.",
+      "source": {
+        "path": "CLAUDE.md",
+        "line": 24
+      },
+      "check": {
+        "type": "deferred",
+        "reason": "needs the existing lists in result.ts; docs.test.ts checks the READMEs against them"
+      },
+      "status": "active"
+    },
+    {
+      "id": "read-command-doc-first",
+      "text": "Adding or changing a command, flag or error code: `docs/agents/adding-a-command.md`",
+      "source": {
+        "path": "CLAUDE.md",
+        "line": 28
       },
       "check": {
         "type": "unenforceable",
-        "reason": "about running commands before a commit, not the code"
+        "reason": "about what the agent reads, not the code"
       },
       "status": "active"
     }
