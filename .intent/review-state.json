@@ -140,15 +140,15 @@
       ]
     },
     "source:packages/usage/tests/cli-integration.test.ts": {
-      "fingerprint": "b25382b7ae8989834f89d3ab788edc35da848362fa32b6105ddf5e234103b399",
+      "fingerprint": "66381fd8482be689bdb8f5b47081edc43d913907e75825d6becb7bc9cdd0ad51",
       "snapshot": {
-        "packages/usage/tests/cli-integration.test.ts": "ccc6b9b7a0f4c9a41c3fb6c7563e7f55ce1f38d8c04e79dcaf9c76000a3b2d0f"
+        "packages/usage/tests/cli-integration.test.ts": "b6d519515c11fbca0632b50925c02a9af55f11a4928e0e0f10d462a9856cda38"
       },
-      "head": "e880bfe898c0c2ff605662bbf74d71ab3497c97d",
+      "head": "47705d8f2d87d0c8d1ecddbe4f5571b91cae5bd8",
       "outcome": "no-change",
-      "reason": "Adds a table test that each of list, update, validate, extract, run and dump reads the document after --meta; it pins the CLI behaviour the skill describes and changes no guidance.",
+      "reason": "Whitespace-only lint fix to the --meta table test (array bracket spacing); no guidance affected.",
       "evidence": [
-        "The test fails on origin/main's cli.ts ('list must read doc.md after --meta') and passes on this branch."
+        "Changed: packages/usage/tests/cli-integration.test.ts at 47705d8f2d87d0c8d1ecddbe4f5571b91cae5bd8"
       ]
     }
   }
