@@ -40,10 +40,10 @@
       ]
     },
     "planning:_artifacts": {
-      "fingerprint": "86a8c63931e392d46de957953e4351d5ecb89e7ae457082319fbfbe000a8d2d6",
+      "fingerprint": "0abac9a56351477cb11e01a5951b50ade6c4755250368e8459c126d8b797cfbf",
       "snapshot": {
         "_artifacts/domain_map.yaml": "cb60c619ea31f10641d88e63124e086ffdd74541f84f30dc7395a39eac215aa0",
-        "_artifacts/skill_spec.md": "f84305a081b968cf61ffe079d24732049779044f60643828c35ee9328c29ab44",
+        "_artifacts/skill_spec.md": "5b6317e7ca22eab9413b000a41acbb7ca5061f672a919aecbcf95384c5991c2d",
         "_artifacts/skill_tree.yaml": "2490b6a1d7a2abab698fe1a91e036ddec9dc76de5cfb15dedd8639ebf2875229",
         "examples/ci/check-docs-sync.mjs": "7a1dc943571637883dfc28de98825c3c595d6c5a5561239373bacf1dfbf1dc72",
         "examples/ci/validate-snippets.mjs": "d177fba60f830179c285a25ea0a878d98dc044684114447f687366907e9e722d",
@@ -72,11 +72,11 @@
         "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/src/greet.ts": "a2938e7cf0fa1f29393bd2ac1cb3e1f7c8a6fe0ff4c9ea8b1c47becffd4fa168",
         "packages/usage/tests/skills/sync-markdown-code-blocks/task.md": "69f373db5a34c8165e1abe370e63230a6652c1412f2fa44a413dfd8534d84dbc"
       },
-      "head": "5254174a2a13060d110f34dbc0a4421b5302f5cb",
+      "head": "39d66fe7b8410862fb87ecc0ceacfdde180f1176",
       "outcome": "updated",
-      "reason": "skill_spec.md batch 1 now records the source-mapping decision, including the tests/examples and examples/ci sources; domain_map.yaml and skill_tree.yaml unchanged and accurate.",
+      "reason": "skill_spec.md consumer-session entry corrected: the agent was not given only the task text, and the consumer setup used intent.skills [\"*\"] rather than a least-privilege selection. domain_map.yaml and skill_tree.yaml unchanged and accurate.",
       "evidence": [
-        "skill_spec.md Decisions gains one bullet listing the mapped sources; skill_tree.yaml sources match SKILL.md frontmatter (intent maintainer sync: nothing to synchronize). intent validate packages/mdcode/skills: passed (1 skill). Task check packages/usage/tests/skill-sync-markdown-code-blocks.test.ts: accepts `update --apply --project`; rejects plan-only, applying without the configuration's sourceRoot, and changing the source to match the docs (4/4 pass). CLI claims verified by running packages/mdcode/dist/main.js built from this revision (update modes and exit codes, --check drift, region_language_mismatch, --base and unsafe_path for ../, extract splice/skip exit 2, run without --allow-shell refused, transform, outline, --json envelope, exact-match --file). Packed mdcode-ts-0.0.4.tgz contains skills/sync-markdown-code-blocks/{SKILL.md,references/*} and no _artifacts. Consumer run with intent install + intent load passed the unchanged grader, but was not isolated (it also read this repo's agent instructions); discovery unverified."
+        "One-line edit to skill_spec.md Checks; intent maintainer sync reports nothing to synchronize. Consumer evidence remains marked non-isolated; least-privilege install and discovery unverified."
       ]
     },
     "source:.bumpy/agent-skill.md": {
