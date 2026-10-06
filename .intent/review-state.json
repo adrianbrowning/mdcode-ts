@@ -3,15 +3,15 @@
   "baseline": "5254174a2a13060d110f34dbc0a4421b5302f5cb",
   "items": {
     "skill:packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": {
-      "fingerprint": "beaa8202e375f5130b2c3ef22daf8b69906fffc982b49001a3a9a5985ab0f9b6",
+      "fingerprint": "db81fcd519169f99174098c758528ce372b433bae5574fe7c5f57128118dea2a",
       "snapshot": {
         "examples/ci/check-docs-sync.mjs": "7a1dc943571637883dfc28de98825c3c595d6c5a5561239373bacf1dfbf1dc72",
         "examples/ci/validate-snippets.mjs": "d177fba60f830179c285a25ea0a878d98dc044684114447f687366907e9e722d",
-        "packages/mdcode/README.md": "7e629127cc7300619ae4017572f07670cdb57120f0f150abd9ec9009346e55a2",
+        "packages/mdcode/README.md": "c657f3b7dd7cb7fe5ddd6efd014dea85b592a564d52dd82f59f7b618bbb93df7",
         "packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": "bfbfe9fb88fb1bb1ef18eb55338632d2ac6408d023de7c05c60dc307c8626033",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/json-results.md": "ccbcb240d796eccc02c6f1974573df1f8a9052ea37808b78a15420f9e66f1f63",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/transformers.md": "b35f5caf45b6334d21e534facb2d22a76c52f576d1640e3a5732fd1d6119cf13",
-        "packages/mdcode/src/cli.ts": "ac83b806571195eaf0298f69a2be6de503e676803c656b7dce33a7da8146819a",
+        "packages/mdcode/src/cli.ts": "bbad86849efb1e2818562c4fb1f790d8fbd283ee45eec9b3bcb3e63570442f13",
         "packages/mdcode/src/commands/dump.ts": "c51ca44f0159c59b849c5cb725e2de36ca5ef0578356bc9f921330ce8677d346",
         "packages/mdcode/src/commands/extract.ts": "8a1897da665e95e20a6e645565632cf4aff17c2c5cdc4f4fae3f904bdd3c074d",
         "packages/mdcode/src/commands/list.ts": "d919894dd08249bb1eb0d12bcd5c21016cb87c0a6cba484de7da492bbe3c5c75",
@@ -32,26 +32,26 @@
         "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/src/greet.ts": "a2938e7cf0fa1f29393bd2ac1cb3e1f7c8a6fe0ff4c9ea8b1c47becffd4fa168",
         "packages/usage/tests/skills/sync-markdown-code-blocks/task.md": "69f373db5a34c8165e1abe370e63230a6652c1412f2fa44a413dfd8534d84dbc"
       },
-      "head": "5254174a2a13060d110f34dbc0a4421b5302f5cb",
-      "outcome": "updated",
-      "reason": "Source mappings extended to the examples; SKILL.md frontmatter changed, body guidance verified unchanged against them.",
+      "head": "1d5875a70d51efab8c48ee12071e0d3d68fa66da",
+      "outcome": "no-change",
+      "reason": "The skill already states list/run/dump read one file and --file matches exactly; its `mdcode list --meta runnable=true README.md` example was broken by the variadic --meta and now works as written. README.md source changes fix examples to agree with the skill.",
       "evidence": [
-        "Added source mappings for the worked examples the skill's region, outline and CI guidance rests on: tests/examples/fibonacci (outline=true plus region blocks, fibonacci.js), tests/examples/factorial (region in a test file), examples/ci/check-docs-sync.mjs (named in references/json-results.md for telling drift from breakage) and examples/ci/validate-snippets.mjs (runnable=true snippets, the adjacent task the description excludes). Guidance unchanged: `mdcode update --check` passes on both example READMEs and pnpm docs:check covers them; the skill's statements about check-docs-sync.mjs exit codes (0/1/2) match the script header. intent validate packages/mdcode/skills: passed (1 skill). Task check packages/usage/tests/skill-sync-markdown-code-blocks.test.ts: accepts `update --apply --project`; rejects plan-only, applying without the configuration's sourceRoot, and changing the source to match the docs (4/4 pass). CLI claims verified by running packages/mdcode/dist/main.js built from this revision (update modes and exit codes, --check drift, region_language_mismatch, --base and unsafe_path for ../, extract splice/skip exit 2, run without --allow-shell refused, transform, outline, --json envelope, exact-match --file). Packed mdcode-ts-0.0.4.tgz contains skills/sync-markdown-code-blocks/{SKILL.md,references/*} and no _artifacts. Consumer run with intent install + intent load passed the unchanged grader, but was not isolated (it also read this repo's agent instructions); discovery unverified."
+        "cli-integration.test.ts '--meta takes one key=value, so a file after it is still the file to read' failed on the variadic build and passes after; `mdcode list --json --meta runnable=true README.md` now returns the runnable block (it returned none before); a scan of packages/mdcode/README.md and examples/CLI_EXAMPLES.md finds no list/run/dump with several files or a directory and no glob --file value; skill task check still passes."
       ]
     },
     "planning:_artifacts": {
-      "fingerprint": "0abac9a56351477cb11e01a5951b50ade6c4755250368e8459c126d8b797cfbf",
+      "fingerprint": "a9e25508205d66595ed0beaf9a482047bfcfaec4c44c1bca17a4c8143bd39057",
       "snapshot": {
-        "_artifacts/domain_map.yaml": "cb60c619ea31f10641d88e63124e086ffdd74541f84f30dc7395a39eac215aa0",
-        "_artifacts/skill_spec.md": "5b6317e7ca22eab9413b000a41acbb7ca5061f672a919aecbcf95384c5991c2d",
+        "_artifacts/domain_map.yaml": "47b4f2603fd08462d894e310bc9f49d169af9f27e958a5528ea74f0cad2828cf",
+        "_artifacts/skill_spec.md": "6924a904a1406221d435ee89535804f767bfbaf46dd3394001fa4ad7ebbc3281",
         "_artifacts/skill_tree.yaml": "2490b6a1d7a2abab698fe1a91e036ddec9dc76de5cfb15dedd8639ebf2875229",
         "examples/ci/check-docs-sync.mjs": "7a1dc943571637883dfc28de98825c3c595d6c5a5561239373bacf1dfbf1dc72",
         "examples/ci/validate-snippets.mjs": "d177fba60f830179c285a25ea0a878d98dc044684114447f687366907e9e722d",
-        "packages/mdcode/README.md": "7e629127cc7300619ae4017572f07670cdb57120f0f150abd9ec9009346e55a2",
+        "packages/mdcode/README.md": "c657f3b7dd7cb7fe5ddd6efd014dea85b592a564d52dd82f59f7b618bbb93df7",
         "packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": "bfbfe9fb88fb1bb1ef18eb55338632d2ac6408d023de7c05c60dc307c8626033",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/json-results.md": "ccbcb240d796eccc02c6f1974573df1f8a9052ea37808b78a15420f9e66f1f63",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/transformers.md": "b35f5caf45b6334d21e534facb2d22a76c52f576d1640e3a5732fd1d6119cf13",
-        "packages/mdcode/src/cli.ts": "ac83b806571195eaf0298f69a2be6de503e676803c656b7dce33a7da8146819a",
+        "packages/mdcode/src/cli.ts": "bbad86849efb1e2818562c4fb1f790d8fbd283ee45eec9b3bcb3e63570442f13",
         "packages/mdcode/src/commands/dump.ts": "c51ca44f0159c59b849c5cb725e2de36ca5ef0578356bc9f921330ce8677d346",
         "packages/mdcode/src/commands/extract.ts": "8a1897da665e95e20a6e645565632cf4aff17c2c5cdc4f4fae3f904bdd3c074d",
         "packages/mdcode/src/commands/list.ts": "d919894dd08249bb1eb0d12bcd5c21016cb87c0a6cba484de7da492bbe3c5c75",
@@ -72,11 +72,11 @@
         "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/src/greet.ts": "a2938e7cf0fa1f29393bd2ac1cb3e1f7c8a6fe0ff4c9ea8b1c47becffd4fa168",
         "packages/usage/tests/skills/sync-markdown-code-blocks/task.md": "69f373db5a34c8165e1abe370e63230a6652c1412f2fa44a413dfd8534d84dbc"
       },
-      "head": "39d66fe7b8410862fb87ecc0ceacfdde180f1176",
+      "head": "1d5875a70d51efab8c48ee12071e0d3d68fa66da",
       "outcome": "updated",
-      "reason": "skill_spec.md consumer-session entry corrected: the agent was not given only the task text, and the consumer setup used intent.skills [\"*\"] rather than a least-privilege selection. domain_map.yaml and skill_tree.yaml unchanged and accurate.",
+      "reason": "domain_map.yaml gap for the README/CLI mismatch marked resolved; skill_spec.md gains batch 2 for #54 and the Remaining Gaps row is resolved. skill_tree.yaml unchanged.",
       "evidence": [
-        "One-line edit to skill_spec.md Checks; intent maintainer sync reports nothing to synchronize. Consumer evidence remains marked non-isolated; least-privilege install and discovery unverified."
+        "cli-integration.test.ts '--meta takes one key=value, so a file after it is still the file to read' failed on the variadic build and passes after; `mdcode list --json --meta runnable=true README.md` now returns the runnable block (it returned none before); a scan of packages/mdcode/README.md and examples/CLI_EXAMPLES.md finds no list/run/dump with several files or a directory and no glob --file value; skill task check still passes."
       ]
     },
     "source:.bumpy/agent-skill.md": {
@@ -101,6 +101,54 @@
       "reason": "Contributor test-layout doc; it now lists the skill task check but the skill does not depend on it.",
       "evidence": [
         "Diff adds one bullet describing skill-sync-markdown-code-blocks.test.ts and SKILL_TASK_DIR."
+      ]
+    },
+    "source:.bumpy/meta-flag.md": {
+      "fingerprint": "fe9000fcd07453a546f36af2c96aad7ca268a37f8d3bb8235022b61b0514084d",
+      "snapshot": {
+        ".bumpy/meta-flag.md": "988ae101f024fcce1ca393cf5682499fab1a7e3111e0163aa3fbb68fd5d84dcc"
+      },
+      "head": "1d5875a70d51efab8c48ee12071e0d3d68fa66da",
+      "outcome": "out-of-scope",
+      "reason": "Changelog entry for the --meta fix and the docs corrections.",
+      "evidence": [
+        "Patch bump file describing the user-visible change."
+      ]
+    },
+    "source:examples/CLI_EXAMPLES.md": {
+      "fingerprint": "eb007d8ec6029a55f5007980a18fc545b427467544d62833740034d498a160df",
+      "snapshot": {
+        "examples/CLI_EXAMPLES.md": "2a6329468cc318d2c03fce0daa08e48f5d2d0e11784830416287243209470a08"
+      },
+      "head": "1d5875a70d51efab8c48ee12071e0d3d68fa66da",
+      "outcome": "no-change",
+      "reason": "Examples corrected to the CLI's real arity and exact --file matching; the skill already described that behaviour and does not cite this file.",
+      "evidence": [
+        "cli-integration.test.ts '--meta takes one key=value, so a file after it is still the file to read' failed on the variadic build and passes after; `mdcode list --json --meta runnable=true README.md` now returns the runnable block (it returned none before); a scan of packages/mdcode/README.md and examples/CLI_EXAMPLES.md finds no list/run/dump with several files or a directory and no glob --file value; skill task check still passes."
+      ]
+    },
+    "source:packages/mdcode/src/types.ts": {
+      "fingerprint": "fc145c1d287bec875b7607a84a628b90e0ba152fa9907c5b27202ee7ceca9afb",
+      "snapshot": {
+        "packages/mdcode/src/types.ts": "414b5e0db31b144d8f6d3fcda7cd5d9c2499285be6bc1dabadf7f97843e053f6"
+      },
+      "head": "1d5875a70d51efab8c48ee12071e0d3d68fa66da",
+      "outcome": "no-change",
+      "reason": "JSDoc for TransformerMeta corrected: file and region are the block's metadata and match exactly as filters. The skill's transformer reference already says meta holds only file and region.",
+      "evidence": [
+        "Comment-only change; lint:ts passes."
+      ]
+    },
+    "source:packages/usage/tests/cli-integration.test.ts": {
+      "fingerprint": "0fc685f78cefa4dc0ae3597176c941aeb5cc89f4b7a33b51752566f0027f6305",
+      "snapshot": {
+        "packages/usage/tests/cli-integration.test.ts": "d95b6f11091013d9b21683b124670ebbc5b5c206fe94c3faae5dba847f4a8abd"
+      },
+      "head": "1d5875a70d51efab8c48ee12071e0d3d68fa66da",
+      "outcome": "no-change",
+      "reason": "New regression test for --meta; it pins behaviour the skill relies on but changes no guidance.",
+      "evidence": [
+        "cli-integration.test.ts '--meta takes one key=value, so a file after it is still the file to read' failed on the variadic build and passes after; `mdcode list --json --meta runnable=true README.md` now returns the runnable block (it returned none before); a scan of packages/mdcode/README.md and examples/CLI_EXAMPLES.md finds no list/run/dump with several files or a directory and no glob --file value; skill task check still passes."
       ]
     }
   }

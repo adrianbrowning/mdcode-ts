@@ -216,6 +216,39 @@ const y = 2;
       assert.ok(result2.stdout.includes("env=dev") || result2.stdout.includes("const y"), "Should include dev block");
       assert.ok(!result2.stdout.includes("const x"), "Should not include prod block");
     });
+
+    it("--meta takes one key=value, so a file after it is still the file to read", async () => {
+      const dir = await mkdtemp(join(tmpdir(), "mdcode-meta-"));
+      await writeFile(join(dir, "doc.md"), [
+        "```js env=prod tier=web name=web",
+        "const web = 1;",
+        "```",
+        "",
+        "```js env=prod tier=db name=db",
+        "const db = 1;",
+        "```",
+        "",
+        "```js env=dev expr=a=b name=dev",
+        "const dev = 1;",
+        "```",
+        "",
+      ].join("\n"), "utf-8");
+
+      const names = async (...filters: Array<string>): Promise<Array<string>> => {
+        const { exitCode, stdout } = await execCli([ "list", "--json", ...filters, "doc.md" ], { cwd: dir });
+        assert.equal(exitCode, 0);
+        return JSON.parse(stdout).result.blocks.map(({ name }: { name: string; }) => name);
+      };
+
+      try {
+        assert.deepEqual(await names("--meta", "env=prod"), [ "web", "db" ], "doc.md must be read, not taken as a second key=value");
+        assert.deepEqual(await names("-m", "env=prod", "-m", "tier=db"), [ "db" ], "repeated --meta must all match");
+        assert.deepEqual(await names("--meta", "expr=a=b"), [ "dev" ], "a value may contain =");
+      }
+      finally {
+        await rm(dir, { recursive: true, force: true });
+      }
+    });
   });
 
   describe("block names", () => {
