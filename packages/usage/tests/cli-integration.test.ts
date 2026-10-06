@@ -271,7 +271,7 @@ const y = 2;
       ];
 
       try {
-        for (const [ [ command, ...flags ], selected ] of commands) {
+        for (const [[ command, ...flags ], selected ] of commands) {
           const { exitCode, stdout } = await execCli([ command!, "--json", ...flags, "--meta", "kind=keep", "doc.md" ], { cwd: dir });
 
           assert.equal(exitCode, 0, `${command}: ${stdout}`);
