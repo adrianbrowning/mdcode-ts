@@ -24,3 +24,9 @@ jobs:
       - uses: ./.github/actions/setup-base
 
       - run: pnpm test
+
+      - name: Check docs are in sync
+        run: pnpm docs:check
+
+      - name: Run runnable examples
+        run: pnpm docs:examples

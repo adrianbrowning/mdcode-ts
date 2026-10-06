@@ -68,8 +68,8 @@ Two packages, `packages/mdcode` (published as `mdcode-ts`) and `packages/usage`.
 
 ## Before Pushing
 
-`pnpm check` runs what CI runs: type check, ESLint, `lint:s`, build and both test packages. The
-pre-push hook runs it too.
+`pnpm check` runs what CI runs: type check, ESLint, `lint:s`, build, both test packages, and the
+docs checks (`docs:check` and `docs:examples`). The pre-push hook runs it too.
 
 ## Adding New Tests
 

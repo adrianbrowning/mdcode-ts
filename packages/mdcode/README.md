@@ -76,7 +76,7 @@ mdcode update --check README.md     # exit 1 if a block has drifted from it
 
 mdcode also works the other way. Write a block in the Markdown, then `extract` it to a file and `run` a command on it:
 
-```bash file=block-1.sh
+```bash
 # Extract examples from README
 mdcode extract README.md -d ./examples
 
@@ -111,7 +111,7 @@ For blocks written in the Markdown, the ready-to-copy [`validate-snippets.mjs`](
 
 Install globally to use the `mdcode` command anywhere:
 
-```bash file=block-3.sh
+```bash
 # Using npm
 npm install -g mdcode-ts
 
@@ -121,7 +121,7 @@ pnpm install -g mdcode-ts
 
 After installation, you can run `mdcode` from anywhere:
 
-```bash file=block-4.sh
+```bash
 mdcode --version
 mdcode --help
 mdcode list README.md
@@ -131,7 +131,7 @@ mdcode list README.md
 
 No installation required - run directly:
 
-```bash file=block-5.sh
+```bash
 # Using pnpm dlx
 pnpm dlx mdcode-ts list README.md
 pnpm dlx mdcode-ts extract --lang js docs/*.md
@@ -145,7 +145,7 @@ npx mdcode-ts --help
 
 Install as a project dependency to use in scripts or via `pnpm exec`:
 
-```bash file=block-6.sh
+```bash
 # Using pnpm
 pnpm add -D mdcode-ts
 
@@ -155,14 +155,14 @@ npm install --save-dev mdcode-ts
 
 After installation, run via `pnpm exec`:
 
-```bash file=block-7.sh
+```bash
 pnpm exec mdcode list README.md
 pnpm exec mdcode extract --lang js docs/*.md
 ```
 
 Or add scripts to your `package.json`:
 
-```json file=block-8.json
+```json
 {
   "scripts": {
     "readme:update": "mdcode update --apply README.md",
@@ -176,14 +176,14 @@ Or add scripts to your `package.json`:
 
 Then run with:
 
-```bash file=block-9.sh
+```bash
 pnpm readme:update
 pnpm readme:extract
 ```
 
 ### Local Development
 
-```bash file=block-10.sh
+```bash
 pnpm install
 pnpm build
 ```
@@ -194,7 +194,7 @@ pnpm build
 
 Running `mdcode` without any subcommand defaults to listing code blocks from `README.md`:
 
-```bash file=block-11.sh
+```bash
 # These are equivalent:
 mdcode
 mdcode list README.md
@@ -202,7 +202,7 @@ mdcode list README.md
 
 If you provide a filename without a command, it will list blocks from that file:
 
-```bash file=block-12.sh
+```bash
 # These are equivalent:
 mdcode docs/API.md
 mdcode list docs/API.md
@@ -210,7 +210,7 @@ mdcode list docs/API.md
 
 ### Get Help
 
-```bash file=block-13.sh
+```bash
 # General help
 mdcode --help
 mdcode -h
@@ -225,7 +225,7 @@ mdcode dump --help
 
 ### Check Version
 
-```bash file=block-14.sh
+```bash
 mdcode --version
 mdcode -V
 ```
@@ -238,7 +238,7 @@ Display code blocks with their metadata and a preview of the content.
 
 ### Basic Usage
 
-```bash file=block-15.sh
+```bash
 # List all code blocks from README.md (default)
 mdcode list
 
@@ -254,7 +254,7 @@ cat README.md | mdcode list
 `--json` prints one JSON envelope. Its `result.blocks` lists every selected block with its name,
 fence lines, language, metadata and code:
 
-```bash file=block-16.sh
+```bash
 # JSON output
 mdcode list --json README.md
 
@@ -268,7 +268,7 @@ In the text output, a named block is listed by its name, as in `[1] quick start 
 
 ### Filter by Language
 
-```bash file=block-18.sh
+```bash
 # Long form
 mdcode list --lang js README.md
 mdcode list --lang python docs/*.md
@@ -280,7 +280,7 @@ mdcode list -l sql API.md
 
 ### Filter by File Metadata
 
-```bash file=block-19.sh
+```bash
 # Long form
 mdcode list --file app.js README.md
 mdcode list --file "*.test.js" docs/
@@ -292,7 +292,7 @@ mdcode list -f server.py docs/
 
 ### Filter by Custom Metadata
 
-```bash file=block-20.sh
+```bash
 # Long form
 mdcode list --meta region=main README.md
 mdcode list --meta type=example docs/
@@ -306,7 +306,7 @@ mdcode list -m type=test API.md
 
 Combine filters to narrow results:
 
-```bash file=block-21.sh
+```bash
 # All filters together
 mdcode list --lang js --file app.js --meta region=main README.md
 
@@ -367,7 +367,7 @@ With `--update-source` on stdin, the updated markdown is still written to stdout
 
 ### Basic Usage
 
-```bash file=block-22.sh
+```bash
 # Extract to current directory
 mdcode extract README.md
 
@@ -377,7 +377,7 @@ mdcode extract docs/*.md
 
 ### Custom Output Directory
 
-```bash file=block-23.sh
+```bash
 # Long form
 mdcode extract --dir output README.md
 mdcode extract --dir ./extracted docs/API.md
@@ -391,7 +391,7 @@ mdcode extract -d ./build docs/
 
 Suppress status messages (only show errors):
 
-```bash file=block-24.sh
+```bash
 # Long form
 mdcode extract --quiet README.md
 
@@ -404,7 +404,7 @@ mdcode extract -q -d output README.md
 
 ### Filter What to Extract
 
-```bash file=block-25.sh
+```bash
 # Extract only JavaScript files
 mdcode extract --lang js README.md
 mdcode extract -l js -d ./src docs/*.md
@@ -420,7 +420,7 @@ mdcode extract -m region=main -d ./lib docs/
 
 ### Combined Examples
 
-```bash file=block-26.sh
+```bash
 # Extract JavaScript files to src/ directory, quietly
 mdcode extract -q -l js -d ./src README.md
 
@@ -432,7 +432,7 @@ mdcode extract -l python -m type=example -d ./examples docs/TUTORIAL.md
 
 When extracting anonymous blocks (blocks without `file` metadata), automatically add the generated filename back to the markdown source:
 
-```bash file=block-27.sh
+```bash
 # Extract and update README with file metadata
 mdcode extract --update-source README.md
 
@@ -444,13 +444,13 @@ mdcode extract --update-source -q -d ./src README.md
 ```
 
 **Before:**
-````markdown file=block-28.md
+````markdown
 ```bash
 echo "hello"
 ```
 ````
 **After:**
-````markdown file=block-29.md
+````markdown
 ```bash file=block-1.sh
 echo "hello"
 ```
@@ -481,7 +481,7 @@ mdcode extract --ignore-anonymous -l js -d ./src docs/API.md
 Blocks without `region=` describe a whole file, so extracting one over an existing file replaces it.
 Those files are skipped by default; `--force` overwrites them:
 
-```bash file=block-force.sh
+```bash
 # Skipped with a warning if src/demo.ts already exists
 mdcode extract README.md
 
@@ -495,7 +495,7 @@ mdcode extract --force README.md
 
 When using stdin with `--update-source`, the updated markdown is written to stdout:
 
-```bash file=block-31.sh
+```bash
 # Read from stdin, output updated markdown to stdout
 cat README.md | mdcode extract --update-source > updated.md
 
@@ -524,7 +524,7 @@ Each block with `file=` metadata is read from that file. Pick one mode:
 | `--stdout` | Prints the updated markdown | No |
 | `--apply` | Writes the changes to the markdown file in place | Yes |
 
-```bash file=block-32.sh
+```bash
 # What would change?
 mdcode update README.md
 
@@ -565,7 +565,7 @@ then resolve against that directory instead of the markdown's.
 A `docs/README.md` with `file=../src/app.js` therefore fails by default. Run from the repository
 root with `--base .` and write the path as `file=src/app.js`:
 
-```bash file=block-base.sh
+```bash
 mdcode update --check --base . docs/README.md
 ```
 
@@ -583,7 +583,7 @@ reported and the command still exits 1. `--apply` does not write a document in w
 `file=` or `region=` failed, so the markdown is never left half in sync with its sources; it still
 writes the other blocks of a document where only a transformer threw, and the other documents.
 
-```bash file=block-continue.sh
+```bash
 # Report every broken file= at once instead of stopping at the first
 mdcode update --check --continue-on-error README.md
 ```
@@ -608,7 +608,7 @@ It needs Node 22+ and mdcode-ts 0.1.0 or later, and runs the `mdcode` on `PATH`.
 repository, for example as `scripts/check-docs-sync.mjs`, then add mdcode-ts as a dev dependency and
 a script, so `npm ci` installs `mdcode` and `npm run` puts it on `PATH`:
 
-```json file=block-ci-scripts.json
+```json
 {
   "scripts": {
     "docs:check": "node scripts/check-docs-sync.mjs README.md docs/guide.md"
@@ -621,7 +621,7 @@ a script, so `npm ci` installs `mdcode` and `npm run` puts it on `PATH`:
 
 From a local shell:
 
-```bash file=block-ci-local.sh
+```bash
 # With mdcode-ts in devDependencies
 npm run docs:check
 
@@ -631,7 +631,7 @@ npx --yes -p mdcode-ts@^0.1.0 node scripts/check-docs-sync.mjs README.md docs/gu
 
 From GitHub Actions, the same script also annotates each out-of-sync line in the pull request:
 
-```yaml file=block-ci-workflow.yml
+```yaml
 name: Docs
 
 on: [push, pull_request]
@@ -650,7 +650,7 @@ jobs:
 
 ### Quiet Mode
 
-```bash file=block-33.sh
+```bash
 # Long form
 mdcode update --apply --quiet README.md
 
@@ -667,7 +667,7 @@ mdcode update -q --stdout README.md > UPDATED.md
 
 Transform code blocks using a custom JavaScript/TypeScript function:
 
-```bash file=block-34.sh
+```bash
 # Transform with a custom function
 mdcode update --apply --transform ./transformers/uppercase-sql.js README.md
 
@@ -679,7 +679,7 @@ mdcode update -t ./transformers/format-code.js --stdout README.md > output.md
 ```
 
 **Example Transformer (`uppercase-sql.js`):**
-```javascript file=tests/examples/uppercase-sql.js region=func
+```javascript runnable=true
 export default function({tag, meta, code}) {
   if (tag === 'sql') {
     return code.toUpperCase();
@@ -689,7 +689,7 @@ export default function({tag, meta, code}) {
 ```
 
 **Creating a TypeScript transformer:**
-```typescript file=tests/examples/transformer.js
+```typescript runnable=true
 // my-transform.ts
 import { defineTransform } from 'mdcode-ts';
 
@@ -714,7 +714,7 @@ export default defineTransform(({tag, meta, code}) => {
 
 Combine transformers with filters to target specific blocks:
 
-```bash file=block-37.sh
+```bash
 # Transform only SQL blocks
 mdcode update --apply --transform ./uppercase.js --lang sql README.md
 
@@ -729,7 +729,7 @@ mdcode update --apply -t ./format.js -l js -m type=example docs/API.md
 
 Update specific regions of code:
 
-```bash file=block-38.sh
+```bash
 # Update only 'main' region
 mdcode update --apply --meta region=main README.md
 
@@ -745,7 +745,7 @@ Check how the selected blocks map onto files before `update` or `extract` writes
 reads the markdown and the files it names, writes nothing, and reports every problem at once instead
 of stopping at the first. It exits 1 when it finds any.
 
-```bash file=block-validate.sh
+```bash
 # Would `mdcode update README.md` be able to read every file= and region=?
 mdcode validate README.md
 
@@ -792,7 +792,7 @@ $ mdcode validate --for extract doc.md
 Keep a terminal open while you edit, and `watch` tells you which documents and blocks drift from
 their sources as soon as you save.
 
-```bash file=block-watch.sh
+```bash
 # Report drift in README.md after each change, without writing
 mdcode watch README.md
 
@@ -846,7 +846,7 @@ one. See [Security: Untrusted Markdown](#security-untrusted-markdown).
 
 Use `{file}` as a placeholder for the temporary file path:
 
-```bash file=block-39.sh
+```bash
 # Run node on JavaScript blocks
 mdcode run --allow-shell "node {file}" --lang javascript README.md
 
@@ -859,7 +859,7 @@ mdcode run --allow-shell "gcc {file} -o out && ./out" --lang c docs/
 
 ### Filter by Language
 
-```bash file=block-40.sh
+```bash
 # Long form
 mdcode run --allow-shell --lang js "node {file}" README.md
 
@@ -876,7 +876,7 @@ mdcode run --allow-shell -l js "node {file}" docs/*.md
 Select blocks by their `name` metadata. Every command accepts `-n, --name`; see
 [Selecting Blocks by Name](#selecting-blocks-by-name).
 
-```bash file=block-41.sh
+```bash
 # Long form
 mdcode run --allow-shell --name test-example "node {file}" README.md
 
@@ -891,7 +891,7 @@ mdcode run --allow-shell -l js -n integration-test "node {file}" tests/
 
 Specify where to save temporary files and run commands:
 
-```bash file=block-42.sh
+```bash
 # Long form
 mdcode run --allow-shell --dir /tmp/mdcode "node {file}" README.md
 
@@ -906,7 +906,7 @@ mdcode run --allow-shell -l js -d ./build "node {file}" README.md
 
 Preserve temporary directory after execution (useful for debugging):
 
-```bash file=block-43.sh
+```bash
 # Long form
 mdcode run --allow-shell --keep "node {file}" README.md
 
@@ -918,7 +918,7 @@ mdcode run --allow-shell -k "python {file}" docs/
 
 ### Combined Examples
 
-```bash file=block-44.sh
+```bash
 # Run JavaScript tests with all flags
 mdcode run --allow-shell -l js -n test -k -d ./temp "node {file}" README.md
 
@@ -931,7 +931,7 @@ mdcode run --allow-shell -k -f "calculator.py" "python {file}" README.md
 
 ### Advanced Usage
 
-```bash file=block-45.sh
+```bash
 # Lint all JavaScript blocks
 mdcode run --allow-shell -l js "eslint {file}" README.md
 
@@ -958,7 +958,7 @@ blocks with no `runnable=` at all, is left out. Add `file=` when a snippet needs
 for example so another snippet can import it. Without it, the file is named `block-N` with an
 extension for its language:
 
-````markdown file=block-snippets-guide.md
+````markdown
 ```js runnable=true name=add file=lib/add.js
 export const add = (a, b) => a + b;
 ```
@@ -989,7 +989,7 @@ Your command goes after `--` and runs without a shell. If an argument contains `
 command runs once per extracted file, with `{file}` replaced by that file's path in the workspace,
 and a failure names the block. Otherwise it runs once per document against the whole workspace:
 
-```bash file=block-snippets-local.sh
+```bash
 # Run every snippet as a script; a failure names the block
 node scripts/validate-snippets.mjs README.md docs/guide.md -- node {file}
 
@@ -1013,7 +1013,7 @@ It needs Node 22+ and mdcode-ts 0.1.0 or later, with `mdcode` on `PATH`. As with
 [Checking Docs in CI](#checking-docs-in-ci), add mdcode-ts to `devDependencies` and call the script
 from an npm script:
 
-```json file=block-snippets-scripts.json
+```json
 {
   "scripts": {
     "docs:snippets": "node scripts/validate-snippets.mjs README.md docs/guide.md -- node {file}"
@@ -1026,7 +1026,7 @@ from an npm script:
 
 In GitHub Actions, the script also annotates each failing block in the pull request:
 
-```yaml file=block-snippets-workflow.yml
+```yaml
 name: Docs
 
 on: [push, pull_request]
@@ -1062,7 +1062,7 @@ produced.
 
 ### Basic Usage (Output to stdout)
 
-```bash file=block-46.sh
+```bash
 # Dump to stdout
 mdcode dump README.md > code-blocks.tar
 
@@ -1072,7 +1072,7 @@ mdcode dump docs/*.md | tar -x
 
 ### Output to File
 
-```bash file=block-47.sh
+```bash
 # Long form
 mdcode dump --out archive.tar README.md
 
@@ -1085,7 +1085,7 @@ mdcode dump -o examples-$(date +%Y%m%d).tar README.md
 
 ### Quiet Mode
 
-```bash file=block-48.sh
+```bash
 # Long form
 mdcode dump --quiet --out archive.tar README.md
 
@@ -1098,7 +1098,7 @@ mdcode dump -q README.md > archive.tar
 
 ### Filter What to Dump
 
-```bash file=block-49.sh
+```bash
 # Dump only JavaScript files
 mdcode dump --lang js -o js-blocks.tar README.md
 mdcode dump -l js -o javascript.tar docs/*.md
@@ -1116,7 +1116,7 @@ mdcode dump -m region=main -o main.tar API.md
 
 After creating a tar archive, you can extract it:
 
-```bash file=block-50.sh
+```bash
 # Standard tar extraction
 tar -xf code-blocks.tar
 
@@ -1135,7 +1135,7 @@ All commands support the same filtering options. Here are comprehensive filterin
 
 ### Single Filters
 
-```bash file=block-51.sh
+```bash
 # By language
 mdcode list -l js README.md
 mdcode extract -l python docs/*.md
@@ -1156,7 +1156,7 @@ mdcode update --apply -m author=admin API.md
 
 When you combine filters, ALL filters must match:
 
-```bash file=block-52.sh
+```bash
 # Language AND file
 mdcode list -l js -f app.js README.md
 
@@ -1172,7 +1172,7 @@ mdcode list -l js -f app.js -m region=main README.md
 
 ### Complex Filtering Scenarios
 
-```bash file=block-53.sh
+```bash
 # Extract all test files that are JavaScript
 mdcode extract -l js -f "*.test.js" -d ./tests docs/
 
@@ -1192,13 +1192,13 @@ Give a block a stable name with `name=`, then select it by that name from any co
 unique within one markdown document, so each `--name` picks out at most one block; repeat `--name`
 to select several. Elsewhere, the document path plus the name identifies the block.
 
-````markdown file=block-93.md
+````markdown
 ```js name="quick start" file="examples/getting started.js"
 console.log('Hello, world!');
 ```
 ````
 
-```bash file=block-94.sh
+```bash
 mdcode list --name "quick start" README.md
 mdcode extract -n "quick start" -d ./out README.md
 mdcode update --apply --name "quick start" README.md
@@ -1235,7 +1235,7 @@ my-project/
 
 The file is plain JSON and is never executed:
 
-```json file=block-config.json
+```json
 {
   "documents": ["README.md", "docs/**/*.md"],
   "sourceRoot": ".",
@@ -1293,7 +1293,7 @@ Error: mdcode.config.json: documents[1] "guide/*.md" matched no files in /work/m
 
 ### Locally and in CI
 
-```bash file=block-config-local.sh
+```bash
 # Plan, check and apply every configured document
 mdcode update --project
 mdcode update --project --check
@@ -1311,7 +1311,7 @@ mdcode update --config config/mdcode.config.json --check
 
 Add mdcode-ts and the scripts to `package.json`:
 
-```json file=block-config-scripts.json
+```json
 {
   "scripts": {
     "docs:check": "mdcode update --project --check",
@@ -1325,7 +1325,7 @@ Add mdcode-ts and the scripts to `package.json`:
 
 Then check the documents on every push and pull request:
 
-```yaml file=block-config-workflow.yml
+```yaml
 name: Docs
 
 on: [push, pull_request]
@@ -1546,7 +1546,7 @@ The schema below is written out from the types the library exports (`Envelope`, 
 `DumpedFile`). Under `--json`, `errors` moves from a command's result to the envelope, and the CLI adds
 the fields only it knows about, such as `document`, `written` and `out`.
 
-```typescript file=block-96.ts
+```typescript
 interface Envelope<R> {
   version: 1;
   command: "list" | "extract" | "update" | "run" | "dump";
@@ -1742,7 +1742,7 @@ type DumpEnvelope = Envelope<{
 
 `mdcode list --json guide.md` on this document:
 
-````markdown file=block-97.md
+````markdown
 # Guide
 
 ```js name=hello file=hello.js
@@ -1754,7 +1754,7 @@ echo hi
 ```
 ````
 
-```json file=block-98.json
+```json
 {
   "version": 1,
   "command": "list",
@@ -1788,7 +1788,7 @@ echo hi
 
 `mdcode run --allow-shell --json "sh {file}" checks.md`, where the second block fails, exits 1:
 
-````markdown file=block-99.md
+````markdown
 # Checks
 
 ```sh name=passes
@@ -1801,7 +1801,7 @@ exit 3
 ```
 ````
 
-```json file=block-100.json
+```json
 {
   "version": 1,
   "command": "run",
@@ -1840,7 +1840,7 @@ exit 3
 `mdcode list --json broken.md`, where two blocks share a name and one has an unterminated quote,
 fails before doing any work, so `result` is `null`:
 
-````markdown file=block-101.md
+````markdown
 # Broken
 
 ```js name=setup
@@ -1852,7 +1852,7 @@ let b = 2;
 ```
 ````
 
-```json file=block-102.json
+```json
 {
   "version": 1,
   "command": "list",
@@ -1875,7 +1875,7 @@ let b = 2;
 
 `mdcode dump --json guide.md`, without `--out`:
 
-```json file=block-103.json
+```json
 {
   "version": 1,
   "command": "dump",
@@ -1892,7 +1892,7 @@ let b = 2;
 
 The envelope works with `jq`:
 
-```bash file=block-104.sh
+```bash
 # Languages used in a document
 mdcode list --json README.md | jq -r '.result.blocks[].lang' | sort | uniq -c
 
@@ -1970,7 +1970,7 @@ Exit codes are the same with and without `--json`:
 
 You can use mdcode programmatically in your Node.js or TypeScript projects:
 
-```bash file=block-54.sh
+```bash
 pnpm add mdcode-ts
 ```
 
@@ -1978,7 +1978,7 @@ pnpm add mdcode-ts
 
 The simplest way to use mdcode is with the default export:
 
-```typescript file=block-55.ts
+```typescript
 import mdcode from 'mdcode-ts';
 
 // Transform a markdown file
@@ -2007,7 +2007,7 @@ opt-out here; to collect every failure, call `update()` with `continueOnError: t
 
 With filters:
 
-```typescript file=block-56.ts
+```typescript
 // Transform only SQL blocks
 const result = await mdcode(
   '/path/to/file.md',
@@ -2020,7 +2020,7 @@ const result = await mdcode(
 
 For more control, use the named exports:
 
-```typescript file=block-57.ts
+```typescript runnable=true
 import {
   parse,
   walk,
@@ -2038,19 +2038,19 @@ import {
 
 ### Parse and Extract Code Blocks
 
-````typescript file=block-58.ts
+```typescript runnable=true
 import { parse } from 'mdcode-ts';
 
 const markdown = `
 # Example
 
-```js file=app.js
+\`\`\`js file=app.js
 const x = 1;
-```
+\`\`\`
 
-```python file=block-59.ts
+\`\`\`python
 y = 2
-```
+\`\`\`
 `;
 
 // Extract all blocks
@@ -2062,21 +2062,21 @@ const jsBlocks = parse({
   source: markdown,
   filter: { lang: 'js' }
 });
-````
+```
 
 ### Transform Code Blocks
 
-````typescript file=block-60.ts
+```typescript runnable=true
 import { update, defineTransform } from 'mdcode-ts';
 
 const markdown = `
-```sql
+\`\`\`sql
 select * from users;
-```
+\`\`\`
 
-```js file=block-61.ts
+\`\`\`js
 test('example');
-```
+\`\`\`
 `;
 
 // Create a transformer
@@ -2086,8 +2086,8 @@ const transformer = defineTransform(({tag, meta, code}) => {
     return code.toUpperCase();
   }
 
-  // Add headers to test files
-  if (meta.file?.includes('.spec.')) {
+  // Add a header to JavaScript blocks
+  if (tag === 'js') {
     return `// AUTO-GENERATED TEST\n${code}`;
   }
 
@@ -2098,11 +2098,11 @@ const transformer = defineTransform(({tag, meta, code}) => {
 const { source, blocks, errors } = await update({ source: markdown, transformer });
 console.log(source); // Transformed markdown
 console.log(blocks); // [{ name: null, line: 2, lang: 'sql', changed: true, transformed: true }, ...]
-````
+```
 
 ### Async Transformers
 
-```typescript file=block-62.ts
+```typescript
 import { update, defineTransform } from 'mdcode-ts';
 
 const transformer = defineTransform(async ({tag, meta, code}) => {
@@ -2116,7 +2116,7 @@ const { source } = await update({ source: markdown, transformer });
 
 ### Custom Walker for Advanced Processing
 
-```typescript file=block-63.md
+```typescript
 import { walk, type Block } from 'mdcode-ts';
 
 const result = await walk({
@@ -2140,7 +2140,7 @@ console.log(result.modified); // true if any changes were made
 
 All functions support filtering:
 
-```typescript file=block-64.js
+```typescript
 // Filter by language
 parse({ source: markdown, filter: { lang: 'js' } });
 
@@ -2309,7 +2309,7 @@ Helper to define type-safe transformers.
 
 Add metadata to code blocks using the info string:
 
-````markdown file=block-65.md
+````markdown
 ```js file=hello.js region=main
 console.log('Hello, world!');
 ```
@@ -2336,7 +2336,7 @@ The first word of the info string is the language. Each `key=value` after it is 
 mdcode refuses to process a document with broken metadata, and it reports every problem with the
 line of the block's opening fence:
 
-```text file=block-95.txt
+```text
 Error: Invalid code block metadata:
   line 12: unterminated quoted value for "file"; add the closing "
   line 30: duplicate name "quick start" on lines 30, 41; names must be unique within a document
@@ -2369,7 +2369,7 @@ and length are kept as written.
 
 Use region comments in your source files to extract specific sections. Each region name may be used once per file: `update` refuses a region it finds more than once as `duplicate_region`, rather than guessing which body you meant.
 
-```javascript file=block-66.md
+```javascript
 // #region factorial
 function factorial(n) {
   if (n <= 1) return 1;
@@ -2386,7 +2386,7 @@ Region markers are detected using language-appropriate comment styles (e.g. `//`
 
 Then reference the region in your markdown:
 
-````markdown file=block-67.js
+````markdown
 ```js file=math.js region=factorial
 ```
 ````
@@ -2448,7 +2448,7 @@ All commands take the original's flags, with these differences:
   name that would unpack outside the archive; see
   [Security: Untrusted Markdown](#security-untrusted-markdown).
 
-```bash file=block-70.js
+```bash
 # The same in both
 mdcode list -l js README.md
 mdcode extract -d output -q docs/*.md
@@ -2463,12 +2463,12 @@ mdcode run --allow-shell -l python "python {file}" README.md
 These features are **not** in the original but are available in this implementation:
 
 1. **Transform Functions** - Apply custom transformations to code blocks
-   ```bash file=block-71.md
+   ```bash
    mdcode update --apply --transform ./uppercase.js -l sql README.md
    ```
 
 2. **Library API** - Use mdcode programmatically in Node.js/TypeScript projects
-   ```javascript file=block-72.sh
+   ```javascript
    import mdcode from 'mdcode-ts';
    const result = await mdcode('README.md', transformer);
    ```
@@ -2481,7 +2481,7 @@ These features are **not** in the original but are available in this implementat
 
 ### Workflow: Extract, Modify, Update
 
-```bash file=block-90.sh
+```bash
 # 1. Extract code blocks to files
 mdcode extract -d ./readme README.md
 
@@ -2495,7 +2495,7 @@ mdcode update --apply README.md
 
 ### Workflow: Test All Code Blocks
 
-```bash file=block-91.sh
+```bash
 # Extract test files
 mdcode extract -l js -f "*.test.js" -d ./tests docs/
 
@@ -2508,7 +2508,7 @@ mdcode dump -l js -f "*.test.js" -o tests.tar docs/
 
 ### Workflow: Transform and Publish
 
-```bash file=block-92.sh
+```bash
 # Transform SQL to uppercase
 mdcode update --apply -t ./uppercase.js -l sql README.md
 
