@@ -128,7 +128,7 @@ function extractDir(dir: string | undefined, config: ProjectConfig | undefined):
 async function validateDocuments(
   documents: Array<Document>,
   operation: ValidateOperation,
-  options: Pick<ValidateOptions, "filter" | "strict" | "ignoreAnonymous"> & { base: (document: Document) => string; }
+  options: Pick<ValidateOptions, "filter" | "strict" | "updateSource"> & { base: (document: Document) => string; }
 ): Promise<{ results: Array<ValidatedDocument>; errors: Array<ResultError>; lines: Array<string>; }> {
   const { base, ...shared } = options;
   const several = documents.length > 1;
@@ -196,7 +196,6 @@ type ExtractCliOptions = FilterCliOptions & ProjectCliOptions & {
   dir?: string;
   quiet?: boolean;
   updateSource?: boolean;
-  ignoreAnonymous?: boolean;
   force?: boolean;
   check?: boolean;
 };
@@ -216,7 +215,6 @@ type ValidateCliOptions = FilterCliOptions & ProjectCliOptions & {
   strict?: boolean;
   base?: string;
   dir?: string;
-  ignoreAnonymous?: boolean;
 };
 
 /**
@@ -405,8 +403,7 @@ export async function Execute(
     .option("-n, --name <name>", NAME_FLAG_HELP, collect)
     .option("-d, --dir <dir>", "Directory file= paths resolve against and must stay inside; absolute paths and paths leading out, including through symlinks, are refused (default: the configuration's outputRoot, else the current directory)")
     .option("-q, --quiet", "Suppress status messages")
-    .option("--update-source", "Add file metadata to anonymous code blocks")
-    .option("--ignore-anonymous", "Skip blocks without file metadata")
+    .option("--update-source", "Also extract blocks without file metadata, as block-<N>.<ext>, and add that file= to them in the markdown (without it they are skipped)")
     .option("--force", "Overwrite existing files whose blocks have no region=")
     .option("--check", "Exit 1 when a file differs from what extract would write, without writing")
     .option("--project", PROJECT_HELP)
@@ -414,10 +411,6 @@ export async function Execute(
     .option("--json", "Print one versioned JSON result instead of text")
     .action(async (files: Array<string>, options: ExtractCliOptions) => {
       await perform("extract", options.json, async () => {
-        if (options.updateSource && options.ignoreAnonymous) {
-          throw new CommandError("invalid_usage", "Cannot use --update-source and --ignore-anonymous together");
-        }
-
         if (options.check && options.updateSource) {
           throw new CommandError("invalid_usage", "Cannot use --check and --update-source together: --check writes nothing");
         }
@@ -432,7 +425,7 @@ export async function Execute(
         // documents writing one file, leaves every document's targets untouched.
         // One document plans for itself inside extract().
         if (several) {
-          const planned = await validateDocuments(documents, "extract", { filter, base: () => outputDir, ignoreAnonymous: options.ignoreAnonymous });
+          const planned = await validateDocuments(documents, "extract", { filter, base: () => outputDir, updateSource: options.updateSource });
 
           if (planned.errors.length > 0) {
             return {
@@ -461,7 +454,6 @@ export async function Execute(
               filter,
               outputDir,
               updateSource: options.updateSource,
-              ignoreAnonymous: options.ignoreAnonymous,
               force: options.force,
               check: options.check,
             });
@@ -832,7 +824,6 @@ export async function Execute(
     .option("--strict", "Require file= metadata on every selected block")
     .option("--base <dir>", "With --for update: directory file= paths resolve against and must stay inside, as for update")
     .option("-d, --dir <dir>", "With --for extract: directory file= targets resolve against and must stay inside, as for extract")
-    .option("--ignore-anonymous", "With --for extract: skip blocks without file metadata, as extract does")
     .option("--project", PROJECT_HELP)
     .option("--config <path>", CONFIG_HELP)
     .option("--json", "Print one versioned JSON result instead of text")
@@ -840,7 +831,7 @@ export async function Execute(
       await perform("validate", options.json, async () => {
         const operation = options.for;
         const misplaced = operation === "update"
-          ? [ options.dir === undefined ? "" : "--dir", options.ignoreAnonymous ? "--ignore-anonymous" : "" ]
+          ? [ options.dir === undefined ? "" : "--dir" ]
           : [ options.base === undefined ? "" : "--base" ];
 
         if (misplaced.some(flag => flag !== "")) {
@@ -855,7 +846,6 @@ export async function Execute(
           filter,
           base: document => operation === "extract" ? extractDir(options.dir, config) : updateBase(options.base, config, document),
           strict: options.strict,
-          ignoreAnonymous: options.ignoreAnonymous,
         });
 
         const checkedBlocks = results.reduce((count, result) => count + result.blocks.length, 0);

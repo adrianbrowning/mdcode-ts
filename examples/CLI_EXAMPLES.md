@@ -269,7 +269,7 @@ mdcode extract README.md
 mdcode extract --force README.md
 
 # Would extracting change anything? Writes nothing; exit 1 lists each block that differs
-mdcode extract --check --force --ignore-anonymous README.md
+mdcode extract --check --force README.md
 ```
 
 ### Basic Usage

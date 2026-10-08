@@ -56,7 +56,6 @@ async function action(dir: string, inputs: Record<string, string>, extraEnv: Rec
     env: {
       PATH: [ dirname(process.execPath), "/usr/bin", "/bin" ].join(delimiter),
       DIRECTIONS: "update extract",
-      IGNORE_ANONYMOUS: "true",
       MDCODE_COMMAND: `"${process.execPath}" "${CLI_PATH}"`,
       GITHUB_STEP_SUMMARY: summary,
       GITHUB_OUTPUT: outputs,

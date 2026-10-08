@@ -70,12 +70,12 @@ describe("validate for extract: blocks sharing a target", () => {
     }
   });
 
-  test("counts generated names as targets, unless anonymous blocks are ignored", async () => {
+  test("counts generated names as targets only with updateSource, as extract does", async () => {
     const dir = await project();
     const source = block("sh") + block("sh file=block-1.sh");
 
-    assert.deepEqual((await findings({ source, operation: "extract", base: dir })).map(({ code }) => code), [ "ambiguous_target", "ambiguous_target" ]);
-    assert.deepEqual(await findings({ source, operation: "extract", base: dir, ignoreAnonymous: true }), []);
+    assert.deepEqual(await findings({ source, operation: "extract", base: dir }), [], "extract skips the block without file=");
+    assert.deepEqual((await findings({ source, operation: "extract", base: dir, updateSource: true })).map(({ code }) => code), [ "ambiguous_target", "ambiguous_target" ]);
   });
 });
 

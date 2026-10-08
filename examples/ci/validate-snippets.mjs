@@ -29,7 +29,7 @@
 //   2  at least one document could not be validated (extract failed, no
 //      runnable=true blocks anywhere, <command> or mdcode not found, bad arguments)
 import { spawn, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { constants, tmpdir } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
 
@@ -78,7 +78,21 @@ function parseArguments(argv) {
 
 /** Extract one document's runnable blocks into workspace; returns the files written, or why it could not. */
 function extractRunnable(document, workspace) {
-  const run = spawnSync("mdcode", [ "extract", "--meta", "runnable=true", "--dir", workspace, "--json", document ], {
+  let markdown;
+
+  try {
+    markdown = readFileSync(document, "utf8");
+  }
+  catch (error) {
+    // The same form as mdcode's own io_error, which it reported when it read the document itself.
+    return { problems: [ `io_error: ${error.message}` ] };
+  }
+
+  // Runnable blocks rarely have file=, and extract writes such a block only with
+  // --update-source. The document goes in on stdin so that mode never rewrites
+  // it: the Markdown with file= added comes back in the JSON result instead.
+  const run = spawnSync("mdcode", [ "extract", "--update-source", "--meta", "runnable=true", "--dir", workspace, "--json" ], {
+    input: markdown,
     encoding: "utf8",
     maxBuffer: Infinity,
   });

@@ -41,7 +41,8 @@ function runs(direction, docs) {
   }
 
   // --force compares existing whole files instead of reporting them skipped; --check writes nothing.
-  const extract = [ "extract", "--check", "--force", ...(flag("IGNORE_ANONYMOUS") ? [ "--ignore-anonymous" ] : []), ...common ];
+  // Blocks without file= link to no file, and extract leaves them out.
+  const extract = [ "extract", "--check", "--force", ...common ];
   // Both directions resolve file= against one root: dir, else update's base. A
   // configuration supplies its own outputRoot.
   const root = env("DIR") || env("BASE");

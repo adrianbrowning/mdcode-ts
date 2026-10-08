@@ -28,7 +28,7 @@ skills:
       - update plan, --diff, --apply, --check, --stdout, --base
       - list and validate for inspection
       - block selection with --name, --lang, --file, --meta
-      - extract with region splicing, --force, --ignore-anonymous, --dir, --check
+      - extract with region splicing, --force, --update-source, --dir, --check
       - run --allow-shell and dump
       - --transform modules and the update(), parse(), extract() library functions
       - --json envelope and exit codes
@@ -65,13 +65,13 @@ skills:
         source: src/cli.ts (UPDATE_MODES); packages/usage/tests/skill-sync-markdown-code-blocks.test.ts
         priority: HIGH
         status: active
-      - mistake: Plain extract on a README
-        mechanism: every block without file= is written as block-N.<ext> into --dir
+      - mistake: extract --update-source on a README
+        mechanism: every block without file= is written as block-N.<ext> into --dir, and the Markdown is rewritten to point at it
         wrong_pattern: |
-          mdcode extract README.md
+          mdcode extract --update-source README.md
         correct_pattern: |
-          mdcode validate --for extract README.md && mdcode extract --ignore-anonymous README.md
-        source: src/commands/validate.ts (planExtract)
+          mdcode validate --for extract README.md && mdcode extract README.md
+        source: src/commands/extract.ts (updateSource)
         priority: HIGH
         status: active
       - mistake: Overwriting existing files with --force

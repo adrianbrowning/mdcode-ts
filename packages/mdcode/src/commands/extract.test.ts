@@ -269,11 +269,20 @@ describe("extract: block names", () => {
     assert.deepEqual(await readdir(dir), []);
   });
 
-  test("refuses updateSource with ignoreAnonymous as invalid_usage, and writes nothing", async () => {
+  test("skips blocks without file= unless updateSource names them in the markdown", async () => {
     const dir = await tempDir();
+    const source = "```js file=a.js\n1\n```\n\n```sh\nls\n```\n\n```json\n{}\n```\n";
 
-    await assert.rejects(extract({ source: "```js\n1\n```\n", outputDir: dir, updateSource: true, ignoreAnonymous: true }), { code: "invalid_usage" });
-    assert.deepEqual(await readdir(dir), []);
+    const skipped = await extract({ source, outputDir: dir });
+
+    assert.deepEqual(skipped.targets.map(({ path }) => path), [ join(dir, "a.js") ]);
+    assert.deepEqual(await readdir(dir), [ "a.js" ], "no block-<N> file is written");
+    assert.equal(skipped.updatedSource, undefined);
+
+    const named = await extract({ source, outputDir: dir, updateSource: true, force: true });
+
+    assert.deepEqual((await readdir(dir)).sort(), [ "a.js", "block-2.sh", "block-3.json" ]);
+    assert.equal(named.updatedSource, "```js file=a.js\n1\n```\n\n```sh file=block-2.sh\nls\n```\n\n```json file=block-3.json\n{}\n```\n");
   });
 });
 
@@ -327,7 +336,7 @@ describe("extract: file= outside the output directory", () => {
 
     // The generated name derives from the language tag; a path-like tag must not steer it.
     const source = "```sh\necho hi\n```\n\n```../../evil\npwned\n```\n";
-    const result = await extract({ source, outputDir: out });
+    const result = await extract({ source, outputDir: out, updateSource: true });
 
     assert.deepEqual(written(result), [ join(out, "block-1.sh"), join(out, "block-2.txt") ]);
     assert.deepEqual((await readdir(out)).sort(), [ "block-1.sh", "block-2.txt" ]);
