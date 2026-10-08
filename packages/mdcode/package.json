@@ -1,6 +1,6 @@
 {
   "name": "mdcode-ts",
-  "version": "0.0.4",
+  "version": "0.1.0",
   "description": "Keep Markdown code blocks in sync with source files: update, extract, list and run README examples. TypeScript port of mdcode.",
   "type": "module",
   "files": [
