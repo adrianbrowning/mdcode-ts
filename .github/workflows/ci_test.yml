@@ -30,3 +30,17 @@ jobs:
 
       - name: Run runnable examples
         run: pnpm docs:examples
+
+      # Dogfood the consumer action against this branch's build: the release it
+      # would fetch from npm by default lacks features this branch may add.
+      - name: Check docs with the check-sync action
+        uses: ./.github/actions/check-sync
+        with:
+          documents: |
+            README.md
+            packages/mdcode/README.md
+            examples/CLI_EXAMPLES.md
+            TESTING.md
+            packages/mdcode/tests/examples/*/README.md
+          node-version: ''
+          mdcode-command: node packages/mdcode/dist/main.js

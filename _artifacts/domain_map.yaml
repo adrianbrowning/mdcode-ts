@@ -28,7 +28,7 @@ skills:
       - update plan, --diff, --apply, --check, --stdout, --base
       - list and validate for inspection
       - block selection with --name, --lang, --file, --meta
-      - extract with region splicing, --force, --ignore-anonymous, --dir
+      - extract with region splicing, --force, --ignore-anonymous, --dir, --check
       - run --allow-shell and dump
       - --transform modules and the update(), parse(), extract() library functions
       - --json envelope and exit codes

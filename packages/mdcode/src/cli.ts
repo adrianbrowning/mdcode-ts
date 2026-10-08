@@ -198,6 +198,7 @@ type ExtractCliOptions = FilterCliOptions & ProjectCliOptions & {
   updateSource?: boolean;
   ignoreAnonymous?: boolean;
   force?: boolean;
+  check?: boolean;
 };
 
 /** What extract did for one document, as it appears in the result's documents. */
@@ -407,6 +408,7 @@ export async function Execute(
     .option("--update-source", "Add file metadata to anonymous code blocks")
     .option("--ignore-anonymous", "Skip blocks without file metadata")
     .option("--force", "Overwrite existing files whose blocks have no region=")
+    .option("--check", "Exit 1 when a file differs from what extract would write, without writing")
     .option("--project", PROJECT_HELP)
     .option("--config <path>", CONFIG_HELP)
     .option("--json", "Print one versioned JSON result instead of text")
@@ -414,6 +416,10 @@ export async function Execute(
       await perform("extract", options.json, async () => {
         if (options.updateSource && options.ignoreAnonymous) {
           throw new CommandError("invalid_usage", "Cannot use --update-source and --ignore-anonymous together");
+        }
+
+        if (options.check && options.updateSource) {
+          throw new CommandError("invalid_usage", "Cannot use --check and --update-source together: --check writes nothing");
         }
 
         const config = await loadProject(options);
@@ -434,7 +440,7 @@ export async function Execute(
               errors: planned.errors,
               human: () => writeLines(stderr, [
                 ...planned.errors.map(error => `Error: ${error.document}: ${describeError(error)}`),
-                styleText("yellow", `Nothing was written for any of the ${documents.length} documents.`),
+                styleText("yellow", options.check ? `Nothing was checked for any of the ${documents.length} documents.` : `Nothing was written for any of the ${documents.length} documents.`),
               ]),
             };
           }
@@ -457,12 +463,17 @@ export async function Execute(
               updateSource: options.updateSource,
               ignoreAnonymous: options.ignoreAnonymous,
               force: options.force,
+              check: options.check,
             });
           }
           catch (error: unknown) {
-            // Extract writes as it goes, so later documents are not started.
             errors.push(...inDocument(document, errorsFrom(error)));
             reports.push(() => writeLines(stderr, errorLines(error).map(line => `Error: ${at(line)}`)));
+
+            // Extract writes as it goes, so later documents are not started. --check writes nothing.
+            if (options.check) {
+              continue;
+            }
             break;
           }
 
@@ -481,8 +492,12 @@ export async function Execute(
           });
           errors.push(...inDocument(document, skipped));
           reports.push(() => {
+            const drift = skipped.filter(error => error.code === "out_of_sync");
+            const refused = skipped.filter(error => error.code === "extract_skipped");
+
             if (!options.quiet) {
-              writeLines(stderr, formatExtract(result, options).map(at));
+              writeLines(stderr, formatExtract(result, options).filter((_, index) => !options.check || result.targets[index]!.action === "unchanged" || result.targets[index]!.action === "skipped")
+                .map(at));
             }
 
             if (updatedSource !== undefined) {
@@ -494,9 +509,18 @@ export async function Execute(
               }
             }
 
+            // Reported even under --quiet, so a failing check always says why.
+            if (options.check) {
+              writeLines(stderr, drift.map(error => styleText("red", at(`✗ Out of sync: ${describeError(error)}`))));
+
+              if (drift.length > 0) {
+                stderr.write(styleText("yellow", at(`${drift.length} block(s) out of sync with their files. Run mdcode extract to write them, or mdcode update to bring the blocks up to date instead.`)) + "\n");
+              }
+            }
+
             // Reported even under --quiet, so a refusal is never silent.
-            if (skipped.length > 0) {
-              stderr.write(styleText("yellow", at(`⚠ Skipped ${skipped.length} file(s); nothing was written for them`)) + "\n");
+            if (refused.length > 0) {
+              stderr.write(styleText("yellow", at(`⚠ Skipped ${refused.length} file(s); nothing was written for them`)) + "\n");
             }
           });
         }
