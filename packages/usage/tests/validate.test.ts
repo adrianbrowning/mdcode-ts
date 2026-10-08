@@ -71,7 +71,7 @@ describe("mdcode validate", () => {
       { line: 1, path: "src.js", valid: false },
       { line: 5, path: "out.ts", valid: false },
       { line: 9, path: "out.ts", valid: false },
-      { line: 13, path: "block-4.sh", valid: true },
+      { line: 13, path: null, valid: true },
     ]);
     assert.deepEqual(envelope.errors.map(({ document, code, line, path }: Record<string, unknown>) => ({ document, code, line, path })), [
       { document: "doc.md", code: "duplicate_region", line: 1, path: "src.js" },
@@ -80,17 +80,17 @@ describe("mdcode validate", () => {
     ]);
   });
 
-  it("--strict refuses blocks without file=, and passes once the selection has none", async () => {
+  it("--strict refuses blocks without file=, which extract would skip", async () => {
     const dir = await project();
     const strict = await execCli([ "validate", "--for", "extract", "--strict", "--json", "--lang", "sh", "doc.md" ], { cwd: dir });
 
     assert.equal(strict.exitCode, 1);
     assert.deepEqual(JSON.parse(strict.stdout).errors.map(({ code, line }: Record<string, unknown>) => ({ code, line })), [{ code: "missing_file_metadata", line: 13 }]);
 
-    const clean = await execCli([ "validate", "--for", "extract", "--strict", "--lang", "sh", "--ignore-anonymous", "doc.md" ], { cwd: dir });
+    const lenient = await execCli([ "validate", "--for", "extract", "--lang", "sh", "doc.md" ], { cwd: dir });
 
-    assert.equal(clean.exitCode, 0);
-    assert.match(clean.stderr, /^✓ 0 block\(s\) ready for extract\.$/m);
+    assert.equal(lenient.exitCode, 0);
+    assert.match(lenient.stderr, /^✓ 1 block\(s\) ready for extract\.$/m);
   });
 
   it("refuses flags that belong to the other operation", async () => {

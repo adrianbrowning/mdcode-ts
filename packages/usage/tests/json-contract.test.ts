@@ -115,7 +115,7 @@ describe("--json contract", () => {
   });
 
   describe("extract", () => {
-    it("reports each target it wrote", async () => {
+    it("reports each target it wrote, skipping blocks without file=", async () => {
       const dir = await tempDir();
       const { envelope } = await runJson("extract", [ "-d", dir ], { stdin: DOC });
 
@@ -124,10 +124,10 @@ describe("--json contract", () => {
           document: null,
           targets: [
             { path: join(dir, "greet.js"), action: "written", blocks: [{ name: "greet", line: 3 }], regions: [] },
-            { path: join(dir, "block-2.sh"), action: "written", blocks: [{ name: null, line: 7 }], regions: [] },
           ],
         }],
       });
+      assert.deepEqual(await readdir(dir), [ "greet.js" ], "the block without file= is written only with --update-source");
       assert.equal(await readFile(join(dir, "greet.js"), "utf-8"), "console.log('hi');");
     });
 
@@ -163,7 +163,7 @@ describe("--json contract", () => {
     });
 
     it("reports conflicting flags as invalid_usage before reading input", async () => {
-      const { envelope } = await runJson("extract", [ "--update-source", "--ignore-anonymous" ], { stdin: DOC });
+      const { envelope } = await runJson("extract", [ "--update-source", "--check" ], { stdin: DOC });
 
       assert.deepEqual(envelope.errors.map(error => error.code), [ "invalid_usage" ]);
       assert.equal(envelope.result, null);

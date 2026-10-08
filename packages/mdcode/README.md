@@ -338,7 +338,9 @@ mdcode list -l js -f app.test.js docs/guide.md
 
 ## Extract Command
 
-Extract code blocks to files based on their `file` metadata.
+Extract code blocks to files based on their `file` metadata. A block without `file=` (an anonymous
+block) links to no file, so `extract` skips it; pass [`--update-source`](#update-source-with-generated-filenames)
+to extract anonymous blocks too.
 
 Extract is non-destructive. Before it writes anything, it checks every target (see
 [Validate Command](#validate-command)). When any block breaks a rule, nothing is written and `extract`
@@ -350,8 +352,8 @@ exits 1 with an error per block:
   as `ambiguous_target`. Two spellings of one file (`./a.ts` and `a.ts`, or a symlinked directory
   inside `--dir`) count as one file. With several documents, the same rule applies to blocks in
   different documents that write one file, so `docs/a.md` and `docs/b.md` cannot both write
-  `src/x.ts` whole, nor both write region `one` of it. Anonymous blocks count too: `block-1.sh` from
-  two documents is one file.
+  `src/x.ts` whole, nor both write region `one` of it. With `--update-source`, anonymous blocks count
+  too: `block-1.sh` from two documents is one file.
 - **An existing file's markers for a declared region are broken** → a region that is never closed or
   overlaps another is `malformed_region`, one opened more than once is `duplicate_region`, and one
   marked only in another language's comment syntax is `region_language_mismatch`. An invalid
@@ -380,8 +382,9 @@ Otherwise, files that don't exist yet are created.
   as an `unsafe_path` error. Every target is checked before anything is written, so when any is
   refused, nothing is written and `extract` exits 1. To write into `../../shared-tests`, point
   `--dir` higher and write `file=` relative to it.
-- **No `file=`** → written as `block-N.<ext>` directly inside `--dir`. An existing symlink of that
-  name that leads out of `--dir` is refused too.
+- **No `file=`, with `--update-source`** → written as `block-N.<ext>` directly inside `--dir`. An
+  existing symlink of that name that leads out of `--dir` is refused too. Without `--update-source`,
+  the block is skipped.
 
 Whenever a file is skipped (an existing file without `--force`, a symlinked target, or a target that is
 not valid UTF-8), `extract` prints a summary (even under `--quiet`) and exits with status 2.
@@ -452,7 +455,9 @@ mdcode extract -l python -m type=example -d ./examples docs/TUTORIAL.md
 
 ### Update Source with Generated Filenames
 
-When extracting anonymous blocks (blocks without `file` metadata), automatically add the generated filename back to the markdown source:
+`--update-source` also extracts anonymous blocks (blocks without `file` metadata), each as
+`block-<N>.<ext>`, and adds that generated filename back to the markdown, so every extracted file is
+linked to its block. Without it, anonymous blocks are skipped:
 
 ```bash
 # Extract and update README with file metadata
@@ -484,19 +489,7 @@ This enables bidirectional sync workflow:
 2. Modify extracted files: `nano block-1.sh`
 3. Update markdown: `mdcode update --apply README.md`
 
-### Skip Anonymous Blocks
-
-Only extract blocks that have explicit `file` metadata, ignoring anonymous blocks:
-
-```bash
-# Only extract blocks with file= attribute
-mdcode extract --ignore-anonymous README.md
-
-# With filters and custom directory
-mdcode extract --ignore-anonymous -l js -d ./src docs/API.md
-```
-
-**Note:** The flags `--update-source` and `--ignore-anonymous` are mutually exclusive. Using both will result in an error.
+`--update-source` cannot be combined with `--check`, which writes nothing.
 
 ### Force Overwrite
 
@@ -522,7 +515,7 @@ including with `--force`.
 
 ```bash
 # Would extracting change any file? Pass --force so existing whole files are compared, not skipped
-mdcode extract --check --force --ignore-anonymous README.md
+mdcode extract --check --force README.md
 ```
 
 ```text
@@ -1560,7 +1553,6 @@ last release, which may lack a flag the action needs; pin a release commit.
 | `directions` | `update extract` | Which directions to check |
 | `base` | | For update, the directory `file=` resolves against (`--base`); default each document's own directory |
 | `dir` | | For extract, the same (`--dir`); default `base`, else each document's own directory, so both directions read the same files |
-| `ignore-anonymous` | `true` | For extract, skip blocks without `file=`, which link to no file |
 | `project` | `false` | Use `mdcode.config.json` (`--project`): its documents when `documents` is empty, its `sourceRoot` and `outputRoot`, its filters |
 | `config` | | Use this configuration file instead (`--config`) |
 | `working-directory` | `.` | Where to run |
@@ -1673,8 +1665,8 @@ Additional flags by command:
 - `-d, --dir <dir>` - Directory that `file=` paths resolve against and must stay inside (default: the
   configuration's `outputRoot`, else the current directory)
 - `-q, --quiet` - Suppress status messages
-- `--update-source` - Add file metadata to anonymous code blocks and update source
-- `--ignore-anonymous` - Skip blocks without file metadata (mutually exclusive with --update-source)
+- `--update-source` - Also extract blocks without `file=`, each as `block-<N>.<ext>`, and add that
+  `file=` to them in the markdown. Without it, those blocks are skipped
 - `--force` - Overwrite existing files whose blocks have no `region=` (skipped by default)
 - `--check` - Write nothing; exit 1 when a target differs from what `extract` would write. See
   [Check Without Writing](#check-without-writing)
@@ -1704,7 +1696,6 @@ Additional flags by command:
 - `--strict` - Require `file=` metadata on every selected block
 - `--base <dir>` - With `--for update`: as for `update`
 - `-d, --dir <dir>` - With `--for extract`: as for `extract`
-- `--ignore-anonymous` - With `--for extract`: skip blocks without `file=`, as `extract` does
 - `--project`, `--config <path>` - As for `update` and `extract`
 
 **watch:**
@@ -1739,8 +1730,8 @@ document an agent produced. It treats the markdown as untrusted and whoever runs
 
 - `update` reads a `file=` only when it resolves inside the base: the markdown file's directory by
   default, the current directory for stdin, or the directory given with `--base`.
-- `extract` writes a target only when it resolves inside `--dir`, and that includes the generated
-  `block-N.<ext>` names.
+- `extract` writes a target only when it resolves inside `--dir`, and that includes the
+  `block-N.<ext>` names `--update-source` generates.
 - For `update` and `extract`, an absolute `file=`, one that climbs out with `..`, and one that leads
   out through an existing symlink anywhere along the path, the file itself included, are refused as
   `unsafe_path`. The check runs before anything is read or written.
@@ -2045,8 +2036,8 @@ type DumpEnvelope = Envelope<{
   nothing, and a document that never got a result has no entry.
 - `validate` - `operation` is the command the documents were checked for. One entry in `documents` per
   document, each with one entry per selected block, in document order. `path` is the file the block
-  maps to: for `extract`, the target joined onto `--dir`, with the generated `block-N` name for a
-  block without `file=`; for `update`, its `file=` as written; `null` when it maps to no file. `valid`
+  maps to: for `extract`, the target joined onto `--dir`, or `null` for a block without `file=`, which
+  `extract` skips; for `update`, its `file=` as written; `null` when it maps to no file. `valid`
   is `false` when an error concerns the block, and each problem adds an error whose code names the
   rule.
 - `run` - One entry per selected block, with the command's exit code and output. Each block whose
@@ -2297,6 +2288,12 @@ Exit codes are the same with and without `--json`:
 - `extract --force` refuses a target that is a symlink or not valid UTF-8, as region splices already
   did, instead of replacing the link with a regular file or re-encoding the bytes. The target is
   skipped and `extract` exits 2.
+- `extract` no longer writes blocks without `file=` by default. A plain `mdcode extract README.md`
+  used to write every untagged block as `block-<N>.<ext>` beside the README; now it writes only
+  blocks that have `file=`, as `--ignore-anonymous` did. `--ignore-anonymous` is removed from
+  `extract` and `validate`, and so is the library's `ignoreAnonymous` option: drop it. To extract
+  anonymous blocks, pass `--update-source` (`updateSource: true`), which also writes their generated
+  `file=` into the markdown. `validate --for extract` reports such blocks with `path: null`.
 
 ---
 
@@ -2560,8 +2557,8 @@ Write code blocks to files based on their `file` metadata.
 - **options.filter** - Optional filter criteria
 - **options.outputDir** - Directory that `file=` paths resolve against and must stay inside (default:
   '.')
-- **options.updateSource** - Add `file=` to anonymous blocks
-- **options.ignoreAnonymous** - Skip blocks without `file=`
+- **options.updateSource** - Also extract blocks without `file=`, each as `block-<N>.<ext>`, and add
+  that `file=` to them in `updatedSource`. Without it, those blocks are skipped
 - **options.force** - Overwrite existing files whose blocks have no `region=`
 - **options.check** - Write nothing; compare each target with what `extract` would write instead. See
   [Check Without Writing](#check-without-writing)
@@ -2573,7 +2570,7 @@ Write code blocks to files based on their `file` metadata.
   mapping rule checked by `validate()` for extract, it throws an `Error` whose `errors` array holds
   one `ResultError` per block (`unsafe_path`, `ambiguous_target`, `malformed_region`,
   `duplicate_region` or `region_language_mismatch`), and nothing is written. `updateSource` with
-  `ignoreAnonymous` or with `check` throws an `Error` whose `code` is `invalid_usage`.
+  `check` throws an `Error` whose `code` is `invalid_usage`.
 
 #### `validate(options: ValidateOptions): Promise<ValidateResult>`
 
@@ -2585,7 +2582,8 @@ name, where they exist, but never writes. See [Validate Command](#validate-comma
 - **options.filter** - Optional filter criteria
 - **options.base** - `extract`'s `outputDir`, or `update`'s `basePath` (default: '.')
 - **options.strict** - Require `file=` on every selected block
-- **options.ignoreAnonymous** - For `"extract"`, leave out blocks without `file=`
+- **options.updateSource** - For `"extract"`, also map blocks without `file=` to the `block-<N>`
+  files `extract` writes for them with `updateSource`. Without it, they map to no file (`path: null`)
 - **Returns** - Promise of `{ blocks, errors }`: one `ValidatedBlock` (`name`, `line`, `lang`, `path`,
   `region?`, `valid`) per selected block, and one `ResultError` per broken rule, in document order
 - **Throws** - `MetadataError` when the document's metadata is invalid

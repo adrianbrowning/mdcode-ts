@@ -265,7 +265,8 @@ const y = 2;
         [[ "list" ], blocks ],
         [[ "update" ], inDocuments("blocks") ],
         [[ "validate", "--for", "extract" ], inDocuments("blocks") ],
-        [[ "extract", "-d", "out" ], inDocuments("targets") ],
+        // The block has no file=, so extract writes it only with --update-source.
+        [[ "extract", "-d", "out", "--update-source" ], inDocuments("targets") ],
         [[ "run", "--allow-shell", "true" ], blocks ],
         [[ "dump", "-o", "out.tar" ], envelope => envelope.result.files as Array<{ name: string; }> ],
       ];

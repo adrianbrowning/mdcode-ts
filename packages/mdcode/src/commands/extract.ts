@@ -18,8 +18,11 @@ export type ExtractOptions = {
   filter?: FilterOptions;
   /** Directory file= paths resolve against and must stay inside (default: the current directory). */
   outputDir?: string;
+  /**
+   * Also extract blocks without file=: each is written as `block-<N>.<ext>` and
+   * gets that file= in `updatedSource`. Without it, those blocks are skipped.
+   */
   updateSource?: boolean;
-  ignoreAnonymous?: boolean;
   force?: boolean;
   /**
    * Write nothing; compare each target with what extract would write instead.
@@ -70,7 +73,6 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     filter,
     outputDir = ".",
     updateSource = false,
-    ignoreAnonymous = false,
     force = false,
     check = false,
   } = options;
@@ -79,16 +81,9 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
     throw new CommandError("invalid_usage", "Cannot use --check and --update-source together: --check writes nothing");
   }
 
-  // Validate mutual exclusivity
-  if (updateSource && ignoreAnonymous) {
-    throw new CommandError("invalid_usage", "Cannot use --update-source and --ignore-anonymous together");
-  }
-
-  let blocks = parse({ source, filter });
-
-  if (ignoreAnonymous) {
-    blocks = blocks.filter(b => b.meta.file);
-  }
+  // A block without file= is written only when --update-source names it in
+  // the markdown, so no extracted file is left linked to nothing.
+  const blocks = parse({ source, filter }).filter(block => updateSource || block.meta.file !== undefined);
 
   // Every target is checked before anything is written, so one hostile or
   // ambiguous file= cannot ride along with a batch of legitimate ones.
@@ -156,9 +151,9 @@ export async function extract(options: ExtractOptions): Promise<ExtractResult> {
 }
 
 /** Human-readable progress lines for an extract result, as the CLI prints them on stderr. */
-export function formatExtract({ targets }: Pick<ExtractResult, "targets">, options: { ignoreAnonymous?: boolean; }): Array<string> {
+export function formatExtract({ targets }: Pick<ExtractResult, "targets">, options: { updateSource?: boolean; }): Array<string> {
   if (targets.length === 0) {
-    return [ styleText("yellow", options.ignoreAnonymous ? "No code blocks with file metadata found." : "No code blocks found to extract.") ];
+    return [ styleText("yellow", options.updateSource ? "No code blocks found to extract." : "No code blocks with file metadata found.") ];
   }
 
   return targets.map(({ path, action, blocks, regions, reason }) => {

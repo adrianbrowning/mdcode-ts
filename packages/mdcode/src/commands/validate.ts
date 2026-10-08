@@ -29,16 +29,20 @@ export interface ValidateOptions {
   base?: string;
   /** Require file= on every selected block. */
   strict?: boolean;
-  /** extract only: leave out blocks without file=, as extract does with ignoreAnonymous. */
-  ignoreAnonymous?: boolean;
+  /**
+   * extract only: also map blocks without file= to the `block-<N>.<ext>` files
+   * extract writes for them with updateSource. Without it they map to no file,
+   * as extract skips them.
+   */
+  updateSource?: boolean;
 }
 
 export interface ValidatedBlock extends BlockRef {
   lang: string;
   /**
    * The file the block maps to: for extract, the target joined onto the base,
-   * generated for a block without file=; for update, its file= as written.
-   * null when the block maps to no file.
+   * generated for a block without file= when updateSource is set; for update,
+   * its file= as written. null when the block maps to no file.
    */
   path: string | null;
   region?: string;
@@ -66,12 +70,8 @@ export interface ValidatedDocument {
  * @throws {MetadataError} when the document's metadata is invalid
  */
 export async function validate(options: ValidateOptions): Promise<ValidateResult> {
-  const { source, operation, filter, base = ".", strict = false, ignoreAnonymous = false } = options;
-  let blocks = parse({ source, filter });
-
-  if (operation === "extract" && ignoreAnonymous) {
-    blocks = blocks.filter(block => block.meta.file !== undefined);
-  }
+  const { source, operation, filter, base = ".", strict = false, updateSource = false } = options;
+  const blocks = parse({ source, filter });
 
   const errors: Array<ResultError> = [];
   const paths = new Map<Block, string>();
@@ -83,7 +83,7 @@ export async function validate(options: ValidateOptions): Promise<ValidateResult
   }
 
   if (operation === "extract") {
-    const plan = await planExtract(source, blocks, base);
+    const plan = await planExtract(source, updateSource ? blocks : blocks.filter(block => block.meta.file !== undefined), base);
 
     for (const { display, items } of plan.groups) {
       for (const { block } of items) paths.set(block, display);

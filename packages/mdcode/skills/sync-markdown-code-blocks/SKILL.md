@@ -172,21 +172,23 @@ When writing scripts or CI that read mdcode's results, read
 
 ### Extract blocks to files
 
-`extract` goes the other way: it writes each block with `file=` to that file.
+`extract` goes the other way: it writes each block with `file=` to that file. Blocks without `file=`
+are skipped.
 
 ```bash
-mdcode extract --ignore-anonymous README.md         # only blocks that have file=
-mdcode extract --dir out --ignore-anonymous README.md
+mdcode extract README.md                            # only blocks that have file=
+mdcode extract --dir out README.md
 mdcode validate --for extract --dir out README.md   # preview refusals, writes nothing
-mdcode extract --check --force --ignore-anonymous README.md   # would extract change a file? writes nothing
+mdcode extract --check --force README.md            # would extract change a file? writes nothing
 ```
 
 - A block with `region=` is spliced into an existing file. Code outside the region, and regions the
   Markdown doesn't mention, are kept. A region the file lacks is appended.
 - An existing file whose block has no `region=` is **skipped** (exit 2) unless you pass `--force`,
   which overwrites the whole file.
-- Without `--ignore-anonymous`, every block without `file=` is written as `block-<N>.<ext>` in
-  `--dir`. That is usually not what you want in a README.
+- `--update-source` also writes every block without `file=` as `block-<N>.<ext>` in `--dir` and
+  adds that `file=` to the block in the Markdown. Use it only when the user wants the snippets
+  turned into files.
 - Blocks that share a target must each have their own `region=`, in one language. That includes
   blocks in different documents of one run. Otherwise `extract` refuses with `ambiguous_target`
   and writes nothing.
@@ -242,8 +244,9 @@ path from the Markdown itself.
   `update --apply`. (`src/commands/update.ts`)
 - **HIGH: treating the plan as success.** `mdcode update README.md` exits 0 and writes nothing. Pass
   `--apply` to write, and `--check` to verify. (`src/cli.ts`, update modes)
-- **HIGH: plain `extract` on a README.** It writes `block-<N>.<ext>` for every block without
-  `file=`. Pass `--ignore-anonymous`, and run `validate --for extract` first.
+- **HIGH: `extract --update-source` on a README.** It writes `block-<N>.<ext>` for every block
+  without `file=` and rewrites the Markdown to point at them. Run plain `extract` unless the user
+  asked for that.
 - **HIGH: relying on `--force`.** It overwrites a whole existing file. Prefer `region=` blocks, which
   splice in place, and use `--force` only when the user wants the file replaced.
 - **MEDIUM: a glob or directory in a selector or file argument.** `--file` matches `file=` exactly

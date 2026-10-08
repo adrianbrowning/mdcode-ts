@@ -3,21 +3,21 @@
   "baseline": "5254174a2a13060d110f34dbc0a4421b5302f5cb",
   "items": {
     "skill:packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": {
-      "fingerprint": "11ab7659c004b4781c934e177be639495f75452eedf9d4f89755d508d356d327",
+      "fingerprint": "88fc53cdc77700d5a3faf1d02d161a495a300902716186be53bae71b8401ccc8",
       "snapshot": {
         "examples/ci/check-docs-sync.mjs": "7a1dc943571637883dfc28de98825c3c595d6c5a5561239373bacf1dfbf1dc72",
-        "examples/ci/validate-snippets.mjs": "d177fba60f830179c285a25ea0a878d98dc044684114447f687366907e9e722d",
-        "packages/mdcode/README.md": "65c58f7c68fd5894bc7add8bcee17678ef283689881de5961844e1d08a9b2dab",
-        "packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": "b553026d702b291bc829c0b76de1f2c75fcc7a5ffe62af6084e782cb0d120566",
+        "examples/ci/validate-snippets.mjs": "a1559370a4c829f097823290a6a0345b710619b8a2cd6dd56dae7f32fe271822",
+        "packages/mdcode/README.md": "e848ff4c76a3afc79ac534febd60c463e0cfa7a4c96b6460e413aff93eeaa8f9",
+        "packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": "d373b34f843f33cf7e61e017c29f5a392daaa1ed000ad6c55aac5f061d2da7f1",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/json-results.md": "ccbcb240d796eccc02c6f1974573df1f8a9052ea37808b78a15420f9e66f1f63",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/transformers.md": "b35f5caf45b6334d21e534facb2d22a76c52f576d1640e3a5732fd1d6119cf13",
-        "packages/mdcode/src/cli.ts": "635c980c65e34a5cc9061e1a423909fc18bcbc85f10ae2ff3e13fdddc021aedf",
+        "packages/mdcode/src/cli.ts": "3d3d6d61f98f88435a0730c94d8d4eea369d6899e3edd8858d8ba8a096c68745",
         "packages/mdcode/src/commands/dump.ts": "c51ca44f0159c59b849c5cb725e2de36ca5ef0578356bc9f921330ce8677d346",
-        "packages/mdcode/src/commands/extract.ts": "c798ac7b48031019c5c0d5b9dbee34f88c4c4fdb7b587b406c81a4aa37aab955",
+        "packages/mdcode/src/commands/extract.ts": "84e4e148693c72bf3681683b3f0e808ca47b3f7e594528647b636c7f025be4c6",
         "packages/mdcode/src/commands/list.ts": "d919894dd08249bb1eb0d12bcd5c21016cb87c0a6cba484de7da492bbe3c5c75",
         "packages/mdcode/src/commands/run.ts": "2c35da6b7ee31feb34df303d532715299f6e6eb87f24d914637bb299f875b77c",
         "packages/mdcode/src/commands/update.ts": "0e3c7d632ca3a424e8c01d64b3bd5872fe8ec9c0856610e3e95ce28e5dfe67c8",
-        "packages/mdcode/src/commands/validate.ts": "a71b2c43dbf84df343d84635e89a1341a2e4c8a0c328d89bccf2201bbeffcedb",
+        "packages/mdcode/src/commands/validate.ts": "6174d077d8b6521bdde97649e32f34c7fd7fc3b89f0f8c313aa3709b00912b73",
         "packages/mdcode/src/outline.ts": "56a871dc88cd65a82c5ded1bbfcea1fd516f093b8fc15ade6fe92da2bba9e7f8",
         "packages/mdcode/src/parser.ts": "d0595a4beea7239c7f68934998b59a21712c5a90d1f0c9eac35a2f6e32e41c60",
         "packages/mdcode/src/region.ts": "678935dfac7770e9416a16ac3d8408102b9386ad92e91d609a31e05ab24577a6",
@@ -32,32 +32,32 @@
         "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/src/greet.ts": "a2938e7cf0fa1f29393bd2ac1cb3e1f7c8a6fe0ff4c9ea8b1c47becffd4fa168",
         "packages/usage/tests/skills/sync-markdown-code-blocks/task.md": "69f373db5a34c8165e1abe370e63230a6652c1412f2fa44a413dfd8534d84dbc"
       },
-      "head": "778a87a0e1ae7a33fd71ee5cbb9adf13869544d5",
-      "outcome": "no-change",
-      "reason": "The update-readme action is a GitHub Action for consumer repositories, documented in the package README; the skill covers the mdcode CLI and library, whose behaviour this PR does not change.",
+      "head": "9b1b05204515bd82b49c250920335623dcfe3f3a",
+      "outcome": "updated",
+      "reason": "Extract section drops --ignore-anonymous, says blocks without file= are skipped, and describes --update-source as the only way they become block-<N> files; the 'plain extract on a README' mistake becomes 'extract --update-source on a README'.",
       "evidence": [
-        "update-readme-action.test.ts (8 tests) passes against a local bare repository and a stand-in gh: PR holds only the two documents update wrote; sources untouched; caller checkout unchanged; rerun pushes nothing; refresh on main's new tip; behind checkout still bases on tip; in-sync closes the PR; unreadable file= opens nothing; branch==base exits 2. check-sync-action.test.ts (8 tests) still passes after moving its helpers to .github/actions/shared/mdcode.mjs."
+        "Built CLI: plain `extract README.md` wrote only a.js (exit 0, no block-* files); `--update-source` wrote block-2.sh and block-3.json and added their file=; two documents with an untagged sh block: plain extract exits 0 and writes nothing, `--update-source` exits 1 with ambiguous_target for both and leaves both documents unchanged; `--ignore-anonymous` is an unknown option for extract and validate; passing `ignoreAnonymous` to extract() is TS2353. pnpm test passes; docs:examples passes (6 runnable blocks via validate-snippets on stdin with --update-source)."
       ]
     },
     "planning:_artifacts": {
-      "fingerprint": "bd7d260802faa273a66c0c86057b84d8012084e689adea10cbc3e0664f2bd848",
+      "fingerprint": "039274bf0ca5e78cbf05bcf5b326e82a3f29d77701bc362a39de676dbaf0791f",
       "snapshot": {
-        "_artifacts/domain_map.yaml": "ceb4094bf4fa2cd63354e1c76cce3fec97d19c4a807a40b974646e1dbb00152b",
-        "_artifacts/skill_spec.md": "d0af268c94e3fefde165ce14f470c88ce52e7f8162c4c8632718fe0f959f5a23",
+        "_artifacts/domain_map.yaml": "ebf5df25aa719ab2a029668673605fc5f4ede936177e989eeb56d6509da146a7",
+        "_artifacts/skill_spec.md": "cc63a652482fe74b6caaf0f3798312b67d5315f346fd1e0e9622edf21d655f27",
         "_artifacts/skill_tree.yaml": "dd7871f46459a8985bccdf8bd485eaa86366baf0eb76ddff2fa8da69a382ac2c",
         "examples/ci/check-docs-sync.mjs": "7a1dc943571637883dfc28de98825c3c595d6c5a5561239373bacf1dfbf1dc72",
-        "examples/ci/validate-snippets.mjs": "d177fba60f830179c285a25ea0a878d98dc044684114447f687366907e9e722d",
-        "packages/mdcode/README.md": "65c58f7c68fd5894bc7add8bcee17678ef283689881de5961844e1d08a9b2dab",
-        "packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": "b553026d702b291bc829c0b76de1f2c75fcc7a5ffe62af6084e782cb0d120566",
+        "examples/ci/validate-snippets.mjs": "a1559370a4c829f097823290a6a0345b710619b8a2cd6dd56dae7f32fe271822",
+        "packages/mdcode/README.md": "e848ff4c76a3afc79ac534febd60c463e0cfa7a4c96b6460e413aff93eeaa8f9",
+        "packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": "d373b34f843f33cf7e61e017c29f5a392daaa1ed000ad6c55aac5f061d2da7f1",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/json-results.md": "ccbcb240d796eccc02c6f1974573df1f8a9052ea37808b78a15420f9e66f1f63",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/transformers.md": "b35f5caf45b6334d21e534facb2d22a76c52f576d1640e3a5732fd1d6119cf13",
-        "packages/mdcode/src/cli.ts": "635c980c65e34a5cc9061e1a423909fc18bcbc85f10ae2ff3e13fdddc021aedf",
+        "packages/mdcode/src/cli.ts": "3d3d6d61f98f88435a0730c94d8d4eea369d6899e3edd8858d8ba8a096c68745",
         "packages/mdcode/src/commands/dump.ts": "c51ca44f0159c59b849c5cb725e2de36ca5ef0578356bc9f921330ce8677d346",
-        "packages/mdcode/src/commands/extract.ts": "c798ac7b48031019c5c0d5b9dbee34f88c4c4fdb7b587b406c81a4aa37aab955",
+        "packages/mdcode/src/commands/extract.ts": "84e4e148693c72bf3681683b3f0e808ca47b3f7e594528647b636c7f025be4c6",
         "packages/mdcode/src/commands/list.ts": "d919894dd08249bb1eb0d12bcd5c21016cb87c0a6cba484de7da492bbe3c5c75",
         "packages/mdcode/src/commands/run.ts": "2c35da6b7ee31feb34df303d532715299f6e6eb87f24d914637bb299f875b77c",
         "packages/mdcode/src/commands/update.ts": "0e3c7d632ca3a424e8c01d64b3bd5872fe8ec9c0856610e3e95ce28e5dfe67c8",
-        "packages/mdcode/src/commands/validate.ts": "a71b2c43dbf84df343d84635e89a1341a2e4c8a0c328d89bccf2201bbeffcedb",
+        "packages/mdcode/src/commands/validate.ts": "6174d077d8b6521bdde97649e32f34c7fd7fc3b89f0f8c313aa3709b00912b73",
         "packages/mdcode/src/outline.ts": "56a871dc88cd65a82c5ded1bbfcea1fd516f093b8fc15ade6fe92da2bba9e7f8",
         "packages/mdcode/src/parser.ts": "d0595a4beea7239c7f68934998b59a21712c5a90d1f0c9eac35a2f6e32e41c60",
         "packages/mdcode/src/region.ts": "678935dfac7770e9416a16ac3d8408102b9386ad92e91d609a31e05ab24577a6",
@@ -72,11 +72,11 @@
         "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/src/greet.ts": "a2938e7cf0fa1f29393bd2ac1cb3e1f7c8a6fe0ff4c9ea8b1c47becffd4fa168",
         "packages/usage/tests/skills/sync-markdown-code-blocks/task.md": "69f373db5a34c8165e1abe370e63230a6652c1412f2fa44a413dfd8534d84dbc"
       },
-      "head": "a3a017dfd464bc684bfec8a991698e268e65452e",
+      "head": "9b1b05204515bd82b49c250920335623dcfe3f3a",
       "outcome": "updated",
-      "reason": "skill_tree.yaml gains review.ignore for .bumpy/** and packages/mdcode/CHANGELOG.md: release bookkeeping that bumpy's Version Packages PR deletes or writes, and that never informs the skill. Skill sources are unchanged and still reviewed.",
+      "reason": "domain_map.yaml covers --update-source instead of --ignore-anonymous and updates the failure mode; skill_spec.md adds batch 4 for #26.",
       "evidence": [
-        "Changed: _artifacts/skill_tree.yaml at a3a017dfd464bc684bfec8a991698e268e65452e"
+        "Built CLI: plain `extract README.md` wrote only a.js (exit 0, no block-* files); `--update-source` wrote block-2.sh and block-3.json and added their file=; two documents with an untagged sh block: plain extract exits 0 and writes nothing, `--update-source` exits 1 with ambiguous_target for both and leaves both documents unchanged; `--ignore-anonymous` is an unknown option for extract and validate; passing `ignoreAnonymous` to extract() is TS2353. pnpm test passes; docs:examples passes (6 runnable blocks via validate-snippets on stdin with --update-source)."
       ]
     },
     "source:.bumpy/agent-skill.md": {
@@ -116,15 +116,15 @@
       ]
     },
     "source:examples/CLI_EXAMPLES.md": {
-      "fingerprint": "afdf039600b52fd6a5b65b1cff64d8c7ef18f6782778553792073683ad0be8e0",
+      "fingerprint": "bbc4823c6fe150a5e9a351335d93939307e13acb9a97d0eb453ba92aa60ad599",
       "snapshot": {
-        "examples/CLI_EXAMPLES.md": "b9546828eaaa027339dbc08746374570ce25e8b0badbb29305af0d3436ca1fdb"
+        "examples/CLI_EXAMPLES.md": "09f99c1182de1c550e070640843757a9a636b28c68500318d668247bebc15e06"
       },
-      "head": "96c394e80f4b69ee75e1d0d0456218a62ffac326",
+      "head": "9b1b05204515bd82b49c250920335623dcfe3f3a",
       "outcome": "no-change",
-      "reason": "Mapped source changed alongside the extract --check feature; the skill's guidance was updated separately where it applies and is otherwise unaffected.",
+      "reason": "Tests and examples updated for the new extract default; the skill's guidance was updated separately.",
       "evidence": [
-        "extract.test.ts 'extract: check' (6 tests) and region.test.ts round-trip test pass; check-sync-action.test.ts (8 tests) passes; `mdcode extract --check --force --ignore-anonymous` verified on a temp project: exit 0 in sync, exit 1 with per-block out_of_sync, files unchanged; dogfood: check-sync over this repo's 6 documents passes in both directions, and a real extract now leaves packages/mdcode/tests/examples/fibonacci/fibonacci.js unchanged."
+        "Built CLI: plain `extract README.md` wrote only a.js (exit 0, no block-* files); `--update-source` wrote block-2.sh and block-3.json and added their file=; two documents with an untagged sh block: plain extract exits 0 and writes nothing, `--update-source` exits 1 with ambiguous_target for both and leaves both documents unchanged; `--ignore-anonymous` is an unknown option for extract and validate; passing `ignoreAnonymous` to extract() is TS2353. pnpm test passes; docs:examples passes (6 runnable blocks via validate-snippets on stdin with --update-source)."
       ]
     },
     "source:packages/mdcode/src/types.ts": {
@@ -140,15 +140,15 @@
       ]
     },
     "source:packages/usage/tests/cli-integration.test.ts": {
-      "fingerprint": "66381fd8482be689bdb8f5b47081edc43d913907e75825d6becb7bc9cdd0ad51",
+      "fingerprint": "23c59d4b395fbde27898d5ace0189f8c61ae705afe20b8e4dc3c591af3dae56a",
       "snapshot": {
-        "packages/usage/tests/cli-integration.test.ts": "b6d519515c11fbca0632b50925c02a9af55f11a4928e0e0f10d462a9856cda38"
+        "packages/usage/tests/cli-integration.test.ts": "3200a12dcc9f14632a96d414701987d818d20260b97cf3ce52985337946cdce9"
       },
-      "head": "47705d8f2d87d0c8d1ecddbe4f5571b91cae5bd8",
+      "head": "9b1b05204515bd82b49c250920335623dcfe3f3a",
       "outcome": "no-change",
-      "reason": "Whitespace-only lint fix to the --meta table test (array bracket spacing); no guidance affected.",
+      "reason": "Tests and examples updated for the new extract default; the skill's guidance was updated separately.",
       "evidence": [
-        "Changed: packages/usage/tests/cli-integration.test.ts at 47705d8f2d87d0c8d1ecddbe4f5571b91cae5bd8"
+        "Built CLI: plain `extract README.md` wrote only a.js (exit 0, no block-* files); `--update-source` wrote block-2.sh and block-3.json and added their file=; two documents with an untagged sh block: plain extract exits 0 and writes nothing, `--update-source` exits 1 with ambiguous_target for both and leaves both documents unchanged; `--ignore-anonymous` is an unknown option for extract and validate; passing `ignoreAnonymous` to extract() is TS2353. pnpm test passes; docs:examples passes (6 runnable blocks via validate-snippets on stdin with --update-source)."
       ]
     },
     "source:.bumpy/extract-check-and-check-sync.md": {
@@ -164,27 +164,27 @@
       ]
     },
     "source:.github/actions/check-sync/action.yml": {
-      "fingerprint": "05e5075c1199e61c25ea23a1db0987c85b78745395b92ef45bafc81dbc451aae",
+      "fingerprint": "4633beb721055377ae7166cf6598d40f6da32ba3a45f84f8923ea130b565810e",
       "snapshot": {
-        ".github/actions/check-sync/action.yml": "538a6a01b4343e3391ab6b3a25b591e913307e6c7489a73d41759152fdd2feb2"
+        ".github/actions/check-sync/action.yml": "45fa535d9b192a9524b9b9d9abbdb8b91b8a463a337becd1756174df5dc417d1"
       },
-      "head": "96c394e80f4b69ee75e1d0d0456218a62ffac326",
+      "head": "9b1b05204515bd82b49c250920335623dcfe3f3a",
       "outcome": "out-of-scope",
-      "reason": "The consumer check-sync action and this repo's CI dogfood step. The action is documented in the package README, not in the skill, which covers the mdcode CLI and library.",
+      "reason": "check-sync action drops its ignore-anonymous input; the action is documented in the package README, not the skill.",
       "evidence": [
-        "extract.test.ts 'extract: check' (6 tests) and region.test.ts round-trip test pass; check-sync-action.test.ts (8 tests) passes; `mdcode extract --check --force --ignore-anonymous` verified on a temp project: exit 0 in sync, exit 1 with per-block out_of_sync, files unchanged; dogfood: check-sync over this repo's 6 documents passes in both directions, and a real extract now leaves packages/mdcode/tests/examples/fibonacci/fibonacci.js unchanged."
+        "Built CLI: plain `extract README.md` wrote only a.js (exit 0, no block-* files); `--update-source` wrote block-2.sh and block-3.json and added their file=; two documents with an untagged sh block: plain extract exits 0 and writes nothing, `--update-source` exits 1 with ambiguous_target for both and leaves both documents unchanged; `--ignore-anonymous` is an unknown option for extract and validate; passing `ignoreAnonymous` to extract() is TS2353. pnpm test passes; docs:examples passes (6 runnable blocks via validate-snippets on stdin with --update-source)."
       ]
     },
     "source:.github/actions/check-sync/check-sync.mjs": {
-      "fingerprint": "e97c4c84e100765da8af88f7e18366f8915919473be3e52d255e567189e0596f",
+      "fingerprint": "f9750bfe01ded8d4932bd617b0309fd896a817c87415705f9b69d05ffa92ca31",
       "snapshot": {
-        ".github/actions/check-sync/check-sync.mjs": "cd8d334364e28378b2cc3b852cbb97df8f570ae4ea321574a96ac76b5ddeb76f"
+        ".github/actions/check-sync/check-sync.mjs": "6de5a4f6aa9c5875595b8036987b0424e603ba8f969fd536f4f4640c4b987902"
       },
-      "head": "778a87a0e1ae7a33fd71ee5cbb9adf13869544d5",
+      "head": "9b1b05204515bd82b49c250920335623dcfe3f3a",
       "outcome": "out-of-scope",
-      "reason": "Consumer GitHub Action code (update-readme, and check-sync's helpers moved to a shared module); documented in the package README, not the skill.",
+      "reason": "check-sync action drops its ignore-anonymous input; the action is documented in the package README, not the skill.",
       "evidence": [
-        "update-readme-action.test.ts (8 tests) passes against a local bare repository and a stand-in gh: PR holds only the two documents update wrote; sources untouched; caller checkout unchanged; rerun pushes nothing; refresh on main's new tip; behind checkout still bases on tip; in-sync closes the PR; unreadable file= opens nothing; branch==base exits 2. check-sync-action.test.ts (8 tests) still passes after moving its helpers to .github/actions/shared/mdcode.mjs."
+        "Built CLI: plain `extract README.md` wrote only a.js (exit 0, no block-* files); `--update-source` wrote block-2.sh and block-3.json and added their file=; two documents with an untagged sh block: plain extract exits 0 and writes nothing, `--update-source` exits 1 with ambiguous_target for both and leaves both documents unchanged; `--ignore-anonymous` is an unknown option for extract and validate; passing `ignoreAnonymous` to extract() is TS2353. pnpm test passes; docs:examples passes (6 runnable blocks via validate-snippets on stdin with --update-source)."
       ]
     },
     "source:.github/workflows/ci_test.yml": {
@@ -200,15 +200,15 @@
       ]
     },
     "source:packages/mdcode/src/commands/extract.test.ts": {
-      "fingerprint": "cfef2d2213bfb2e4f7386cf8b79cfa723c3372e5190ecc225603358b73d335b7",
+      "fingerprint": "54af3480d3671ccbb615faf12503eca07dc27c5dd1626c4e31a5347cd6f91e6a",
       "snapshot": {
-        "packages/mdcode/src/commands/extract.test.ts": "36a6baa0ddd1ff41f0f366b4c7bc45dbf66f6adb785eded1fd4ebc77ffd2f035"
+        "packages/mdcode/src/commands/extract.test.ts": "a97ea3bcc69d0d261b087ffc6b5c56bf473c3acd2d23bdfcf52ab9014f88aa46"
       },
-      "head": "8fd753fe248a42f85ce3fd7d97624156fd74e410",
+      "head": "9b1b05204515bd82b49c250920335623dcfe3f3a",
       "outcome": "no-change",
-      "reason": "extract --force now refuses non-UTF-8 whole-file targets like splices do; README notes updated. The skill describes extract at a level these refusals don't change.",
+      "reason": "Tests and examples updated for the new extract default; the skill's guidance was updated separately.",
       "evidence": [
-        "Changed: packages/mdcode/src/commands/extract.test.ts at 8fd753fe248a42f85ce3fd7d97624156fd74e410"
+        "Built CLI: plain `extract README.md` wrote only a.js (exit 0, no block-* files); `--update-source` wrote block-2.sh and block-3.json and added their file=; two documents with an untagged sh block: plain extract exits 0 and writes nothing, `--update-source` exits 1 with ambiguous_target for both and leaves both documents unchanged; `--ignore-anonymous` is an unknown option for extract and validate; passing `ignoreAnonymous` to extract() is TS2353. pnpm test passes; docs:examples passes (6 runnable blocks via validate-snippets on stdin with --update-source)."
       ]
     },
     "source:packages/mdcode/src/region.test.ts": {
@@ -224,15 +224,15 @@
       ]
     },
     "source:packages/usage/tests/check-sync-action.test.ts": {
-      "fingerprint": "f702d16f2c0ae7c47b12aa8c49fa2b66044ec27ef3a78407d0a1ab9940607f24",
+      "fingerprint": "75a2f182819133181aa0db953e7407ec9d8c4f8326c92dbec11011520fdd362a",
       "snapshot": {
-        "packages/usage/tests/check-sync-action.test.ts": "d72e4db5c5c25fdf28c107c6fcfd896cab2e9e2a09fb7541bdcd6e8b178dc4e9"
+        "packages/usage/tests/check-sync-action.test.ts": "ee39509593297a62b89f305545241c8b51fb990b1fe0e10dabd8ea7807ece6a0"
       },
-      "head": "4fc4ec83eccda6aeb542cc6b552262701c8bdc16",
+      "head": "9b1b05204515bd82b49c250920335623dcfe3f3a",
       "outcome": "no-change",
-      "reason": "Formatting-only lint fixes (chained-call line breaks, import order); no guidance affected.",
+      "reason": "Tests and examples updated for the new extract default; the skill's guidance was updated separately.",
       "evidence": [
-        "Changed: packages/usage/tests/check-sync-action.test.ts at 4fc4ec83eccda6aeb542cc6b552262701c8bdc16"
+        "Built CLI: plain `extract README.md` wrote only a.js (exit 0, no block-* files); `--update-source` wrote block-2.sh and block-3.json and added their file=; two documents with an untagged sh block: plain extract exits 0 and writes nothing, `--update-source` exits 1 with ambiguous_target for both and leaves both documents unchanged; `--ignore-anonymous` is an unknown option for extract and validate; passing `ignoreAnonymous` to extract() is TS2353. pnpm test passes; docs:examples passes (6 runnable blocks via validate-snippets on stdin with --update-source)."
       ]
     },
     "source:.bumpy/update-readme-action.md": {
@@ -305,6 +305,42 @@
       "reason": "Adds .out-of-scope/extract-shrink-guard.md, a triage record of a rejected enhancement (#25). It documents existing extract behaviour and changes no skill guidance.",
       "evidence": [
         "Changed: .out-of-scope/extract-shrink-guard.md at 238c32e5534770f961ab48e46c81674d88bec474"
+      ]
+    },
+    "source:packages/mdcode/src/commands/validate.test.ts": {
+      "fingerprint": "b0fbe8e0059223783ee9d032d018f11b85ba57e0f30b53a8acfa72fc6fecfb43",
+      "snapshot": {
+        "packages/mdcode/src/commands/validate.test.ts": "e42ae6884b5c5bd7dbf0209a507c16a68b30fa3109df059fead5e20af040fe1d"
+      },
+      "head": "9b1b05204515bd82b49c250920335623dcfe3f3a",
+      "outcome": "no-change",
+      "reason": "Tests and examples updated for the new extract default; the skill's guidance was updated separately.",
+      "evidence": [
+        "Built CLI: plain `extract README.md` wrote only a.js (exit 0, no block-* files); `--update-source` wrote block-2.sh and block-3.json and added their file=; two documents with an untagged sh block: plain extract exits 0 and writes nothing, `--update-source` exits 1 with ambiguous_target for both and leaves both documents unchanged; `--ignore-anonymous` is an unknown option for extract and validate; passing `ignoreAnonymous` to extract() is TS2353. pnpm test passes; docs:examples passes (6 runnable blocks via validate-snippets on stdin with --update-source)."
+      ]
+    },
+    "source:packages/usage/tests/json-contract.test.ts": {
+      "fingerprint": "a796cd3e9899c47bf315c0b5a03d8e1f33f371825da5236118c849f2bac9897f",
+      "snapshot": {
+        "packages/usage/tests/json-contract.test.ts": "d7a4c63906892ce06b4cef1e4f56cd23c9e9017fd18acdfa861bba61f3b9451a"
+      },
+      "head": "9b1b05204515bd82b49c250920335623dcfe3f3a",
+      "outcome": "no-change",
+      "reason": "Tests and examples updated for the new extract default; the skill's guidance was updated separately.",
+      "evidence": [
+        "Built CLI: plain `extract README.md` wrote only a.js (exit 0, no block-* files); `--update-source` wrote block-2.sh and block-3.json and added their file=; two documents with an untagged sh block: plain extract exits 0 and writes nothing, `--update-source` exits 1 with ambiguous_target for both and leaves both documents unchanged; `--ignore-anonymous` is an unknown option for extract and validate; passing `ignoreAnonymous` to extract() is TS2353. pnpm test passes; docs:examples passes (6 runnable blocks via validate-snippets on stdin with --update-source)."
+      ]
+    },
+    "source:packages/usage/tests/validate.test.ts": {
+      "fingerprint": "03c3611e077f8311c2b2d65f0891d80d9bb9faa89a3499e42336d9cfff8b3a20",
+      "snapshot": {
+        "packages/usage/tests/validate.test.ts": "8cd2fb392759c4116675c0a1cb65c036f4a1e50415877b7983e56e0bb797b684"
+      },
+      "head": "9b1b05204515bd82b49c250920335623dcfe3f3a",
+      "outcome": "no-change",
+      "reason": "Tests and examples updated for the new extract default; the skill's guidance was updated separately.",
+      "evidence": [
+        "Built CLI: plain `extract README.md` wrote only a.js (exit 0, no block-* files); `--update-source` wrote block-2.sh and block-3.json and added their file=; two documents with an untagged sh block: plain extract exits 0 and writes nothing, `--update-source` exits 1 with ambiguous_target for both and leaves both documents unchanged; `--ignore-anonymous` is an unknown option for extract and validate; passing `ignoreAnonymous` to extract() is TS2353. pnpm test passes; docs:examples passes (6 runnable blocks via validate-snippets on stdin with --update-source)."
       ]
     }
   }

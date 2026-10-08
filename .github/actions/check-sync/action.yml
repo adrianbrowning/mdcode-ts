@@ -25,9 +25,6 @@ inputs:
       Default: base when set, else each document's own directory, matching
       update; with project or config, the configuration's outputRoot.
     default: ''
-  ignore-anonymous:
-    description: For extract, skip blocks without file= (they have no linked file).
-    default: 'true'
   project:
     description: Load mdcode.config.json from the working directory (--project).
     default: 'false'
@@ -69,7 +66,6 @@ runs:
         DIRECTIONS: ${{ inputs.directions }}
         BASE: ${{ inputs.base }}
         DIR: ${{ inputs.dir }}
-        IGNORE_ANONYMOUS: ${{ inputs.ignore-anonymous }}
         PROJECT: ${{ inputs.project }}
         CONFIG: ${{ inputs.config }}
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
