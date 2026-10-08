@@ -40,11 +40,11 @@
       ]
     },
     "planning:_artifacts": {
-      "fingerprint": "6f769696dbf92b036c34be3cb3eaa1fe9bf942b467e5e4295f146b5ecb5e854b",
+      "fingerprint": "bd7d260802faa273a66c0c86057b84d8012084e689adea10cbc3e0664f2bd848",
       "snapshot": {
         "_artifacts/domain_map.yaml": "ceb4094bf4fa2cd63354e1c76cce3fec97d19c4a807a40b974646e1dbb00152b",
         "_artifacts/skill_spec.md": "d0af268c94e3fefde165ce14f470c88ce52e7f8162c4c8632718fe0f959f5a23",
-        "_artifacts/skill_tree.yaml": "2490b6a1d7a2abab698fe1a91e036ddec9dc76de5cfb15dedd8639ebf2875229",
+        "_artifacts/skill_tree.yaml": "dd7871f46459a8985bccdf8bd485eaa86366baf0eb76ddff2fa8da69a382ac2c",
         "examples/ci/check-docs-sync.mjs": "7a1dc943571637883dfc28de98825c3c595d6c5a5561239373bacf1dfbf1dc72",
         "examples/ci/validate-snippets.mjs": "d177fba60f830179c285a25ea0a878d98dc044684114447f687366907e9e722d",
         "packages/mdcode/README.md": "65c58f7c68fd5894bc7add8bcee17678ef283689881de5961844e1d08a9b2dab",
@@ -72,11 +72,11 @@
         "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/src/greet.ts": "a2938e7cf0fa1f29393bd2ac1cb3e1f7c8a6fe0ff4c9ea8b1c47becffd4fa168",
         "packages/usage/tests/skills/sync-markdown-code-blocks/task.md": "69f373db5a34c8165e1abe370e63230a6652c1412f2fa44a413dfd8534d84dbc"
       },
-      "head": "778a87a0e1ae7a33fd71ee5cbb9adf13869544d5",
-      "outcome": "no-change",
-      "reason": "No change to the skill's scope or sources; the actions are outside the skill.",
+      "head": "a3a017dfd464bc684bfec8a991698e268e65452e",
+      "outcome": "updated",
+      "reason": "skill_tree.yaml gains review.ignore for .bumpy/** and packages/mdcode/CHANGELOG.md: release bookkeeping that bumpy's Version Packages PR deletes or writes, and that never informs the skill. Skill sources are unchanged and still reviewed.",
       "evidence": [
-        "update-readme-action.test.ts (8 tests) passes against a local bare repository and a stand-in gh: PR holds only the two documents update wrote; sources untouched; caller checkout unchanged; rerun pushes nothing; refresh on main's new tip; behind checkout still bases on tip; in-sync closes the PR; unreadable file= opens nothing; branch==base exits 2. check-sync-action.test.ts (8 tests) still passes after moving its helpers to .github/actions/shared/mdcode.mjs."
+        "Changed: _artifacts/skill_tree.yaml at a3a017dfd464bc684bfec8a991698e268e65452e"
       ]
     },
     "source:.bumpy/agent-skill.md": {
