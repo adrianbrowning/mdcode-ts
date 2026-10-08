@@ -294,6 +294,18 @@
       "evidence": [
         "update-readme-action.test.ts (8 tests) passes against a local bare repository and a stand-in gh: PR holds only the two documents update wrote; sources untouched; caller checkout unchanged; rerun pushes nothing; refresh on main's new tip; behind checkout still bases on tip; in-sync closes the PR; unreadable file= opens nothing; branch==base exits 2. check-sync-action.test.ts (8 tests) still passes after moving its helpers to .github/actions/shared/mdcode.mjs."
       ]
+    },
+    "source:.out-of-scope/extract-shrink-guard.md": {
+      "fingerprint": "b32c01d95ab489e49413e956f1cbb7e37fcd0474debe8d0925484b8a6db57d3b",
+      "snapshot": {
+        ".out-of-scope/extract-shrink-guard.md": "76388d6ffa05e0454781cc47a685bcf9b9e9d6c9837d8575857f3519d0ed452c"
+      },
+      "head": "238c32e5534770f961ab48e46c81674d88bec474",
+      "outcome": "no-change",
+      "reason": "Adds .out-of-scope/extract-shrink-guard.md, a triage record of a rejected enhancement (#25). It documents existing extract behaviour and changes no skill guidance.",
+      "evidence": [
+        "Changed: .out-of-scope/extract-shrink-guard.md at 238c32e5534770f961ab48e46c81674d88bec474"
+      ]
     }
   }
 }
