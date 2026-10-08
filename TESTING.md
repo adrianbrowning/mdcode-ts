@@ -56,6 +56,8 @@ Two packages, `packages/mdcode` (published as `mdcode-ts`) and `packages/usage`.
   - `check-sync-action.test.ts` runs the check-sync GitHub Action's script
     (`.github/actions/check-sync/check-sync.mjs`) the way `action.yml` does, with inputs as
     environment variables and `mdcode-command` pointing at the built CLI
+  - `update-readme-action.test.ts` runs the update-readme action's script against a local bare
+    repository standing in for GitHub, with a stand-in `gh` on `PATH` that records its calls
   - `skill-sync-markdown-code-blocks.test.ts` grades the task in `tests/skills/sync-markdown-code-blocks/`
     for the shipped skill: it accepts the skill's solution and rejects the mistakes the skill warns
     about. Set `SKILL_TASK_DIR` to grade an agent's attempt in another directory instead

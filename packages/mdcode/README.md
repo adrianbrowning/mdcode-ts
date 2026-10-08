@@ -1575,6 +1575,82 @@ from the Markdown, writes no file, and reads only files inside each document's d
 under the [containment rules](#containment). Run it on `pull_request`, never `pull_request_target`,
 so a fork's change runs without your repository's secrets.
 
+### GitHub Action: update-readme
+
+The `update-readme` action treats the source files as authoritative. It runs `mdcode update --apply`
+on the selected documents and opens one pull request holding only their Markdown changes, or
+refreshes the one it opened before:
+
+```yaml
+name: Update docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-docs
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: adrianbrowning/mdcode-ts/.github/actions/update-readme@<commit-sha> # mdcode-ts@<version>
+        with:
+          documents: |
+            README.md
+            docs/*.md
+```
+
+What it does, in order:
+
+1. Checks out the tip of `base-branch` (default: the repository's default branch) in a temporary git
+   worktree, so the caller's checkout is never changed and the update always sits on that tip.
+2. Runs `mdcode update --apply` there. Only Markdown is written; source files never are, and the
+   commit is refused if it would change any file other than the documents `update` wrote.
+3. Commits to `branch` (default `mdcode/update-docs`) and force-pushes it, unless the branch already
+   holds exactly this change on this tip, so a rerun with nothing new pushes nothing.
+4. Opens a pull request from `branch` into `base-branch`, or updates the title and body of the open
+   one. The body lists every block that changed and the file it came from.
+
+When every block is already in sync, it pushes nothing and closes its open pull request, if there is
+one: that pull request no longer matches the sources. When a block's `file=` or `region=` cannot be
+read, it opens nothing and exits 1 with an annotation per block. It never pushes to `base-branch`;
+setting `branch` to the same name is an error.
+
+| Input | Default | Meaning |
+|-------|---------|---------|
+| `documents` | | Markdown files to update, one path or glob per line |
+| `base` | | The directory `file=` resolves against (`--base`); default each document's own directory |
+| `project`, `config` | | Use `mdcode.config.json` or this configuration file, as for check-sync |
+| `branch` | `mdcode/update-docs` | The branch the action owns and force-pushes |
+| `base-branch` | the default branch | The branch the pull request targets |
+| `title`, `commit-message` | `docs: update code blocks from their source files` | |
+| `author-name`, `author-email` | `github-actions[bot]` | The commit's author |
+| `token` | `github.token` | Pushes the branch and opens the pull request |
+| `working-directory`, `node-version`, `mdcode-command` | | As for check-sync. A relative `mdcode-command` path resolves inside the temporary worktree |
+
+Outputs: `changed` (`true` when the pull request was opened or refreshed), `pull-request-number` and
+`pull-request-url`.
+
+Permissions and safety:
+
+- The job needs `contents: write` and `pull-requests: write`, and with the default `github.token` the
+  repository setting *Allow GitHub Actions to create and approve pull requests* must be on.
+- Pull requests opened with `github.token` do not start workflows, so your checks will not run on
+  them. To have them run, pass a GitHub App token (for example from `actions/create-github-app-token`)
+  or a fine-grained personal access token with contents and pull requests write as `token`.
+- Run it on `push` to your default branch, a `schedule` or `workflow_dispatch`: events whose
+  Markdown has already been reviewed. Never run it on `pull_request_target` or on a fork's code; the
+  action holds a write token, and a pull request's Markdown decides which files `update` reads.
+- It runs no code from the Markdown and offers no `--transform`. It reads only files inside each
+  document's directory or `base`, under the [containment rules](#containment).
 
 ---
 

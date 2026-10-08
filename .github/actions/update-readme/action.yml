@@ -1,0 +1,97 @@
+name: mdcode update README
+description: Update Markdown code blocks from the source files they link to, and open or refresh one pull request with only those Markdown changes.
+
+inputs:
+  documents:
+    description: >
+      Markdown files to update, one path or glob per line (paths may contain
+      spaces). Leave empty with project or config to update the
+      configuration's documents.
+    default: ''
+  base:
+    description: >
+      The directory file= paths resolve against (--base). Default: each
+      document's own directory, or the configuration's sourceRoot.
+    default: ''
+  project:
+    description: Load mdcode.config.json from the working directory (--project).
+    default: 'false'
+  config:
+    description: Load this configuration file instead (--config).
+    default: ''
+  branch:
+    description: The branch the action force-pushes its commit to. Never the base branch.
+    default: mdcode/update-docs
+  base-branch:
+    description: The branch the pull request targets.
+    default: ${{ github.event.repository.default_branch }}
+  title:
+    description: Pull request title.
+    default: 'docs: update code blocks from their source files'
+  commit-message:
+    description: Commit message.
+    default: 'docs: update code blocks from their source files'
+  author-name:
+    description: Commit author name.
+    default: github-actions[bot]
+  author-email:
+    description: Commit author email.
+    default: 41898282+github-actions[bot]@users.noreply.github.com
+  token:
+    description: >
+      Token for pushing the branch and opening the pull request; needs
+      contents and pull-requests write. Pull requests opened with the default
+      GITHUB_TOKEN do not start workflows, so pass a GitHub App token or a
+      fine-grained personal access token for checks to run on them.
+    default: ${{ github.token }}
+  working-directory:
+    description: Directory to run in, relative to the workspace.
+    default: '.'
+  node-version:
+    description: Node.js version to set up (22.17 or later). Empty to use the runner's Node.js.
+    default: '22'
+  mdcode-command:
+    description: >
+      Command that runs mdcode. Default: `npx --yes mdcode-ts@<version>`, the
+      release this action's ref belongs to.
+    default: ''
+
+outputs:
+  changed:
+    description: '`true` when a block changed and the pull request was opened or refreshed, else `false`.'
+    value: ${{ steps.update.outputs.changed }}
+  pull-request-number:
+    description: The pull request's number, when changed is true.
+    value: ${{ steps.update.outputs.pull-request-number }}
+  pull-request-url:
+    description: The pull request's URL, when changed is true.
+    value: ${{ steps.update.outputs.pull-request-url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      if: inputs.node-version != ''
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Update Markdown and open a pull request
+      id: update
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        DOCUMENTS: ${{ inputs.documents }}
+        BASE: ${{ inputs.base }}
+        PROJECT: ${{ inputs.project }}
+        CONFIG: ${{ inputs.config }}
+        BRANCH: ${{ inputs.branch }}
+        BASE_BRANCH: ${{ inputs.base-branch }}
+        TITLE: ${{ inputs.title }}
+        COMMIT_MESSAGE: ${{ inputs.commit-message }}
+        AUTHOR_NAME: ${{ inputs.author-name }}
+        AUTHOR_EMAIL: ${{ inputs.author-email }}
+        TOKEN: ${{ inputs.token }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        MDCODE_COMMAND: ${{ inputs.mdcode-command }}
+      run: node "$GITHUB_ACTION_PATH/update-readme.mjs"

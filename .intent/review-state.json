@@ -3,11 +3,11 @@
   "baseline": "5254174a2a13060d110f34dbc0a4421b5302f5cb",
   "items": {
     "skill:packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": {
-      "fingerprint": "3a240b6e007de3d4c1db8507e4f2d4e35fad2788b7eada45181765ec8c560d17",
+      "fingerprint": "11ab7659c004b4781c934e177be639495f75452eedf9d4f89755d508d356d327",
       "snapshot": {
         "examples/ci/check-docs-sync.mjs": "7a1dc943571637883dfc28de98825c3c595d6c5a5561239373bacf1dfbf1dc72",
         "examples/ci/validate-snippets.mjs": "d177fba60f830179c285a25ea0a878d98dc044684114447f687366907e9e722d",
-        "packages/mdcode/README.md": "4090c130b589f23882b7cf99f488528fdc5cdf6b4772c6d91b56a77aebba4e16",
+        "packages/mdcode/README.md": "65c58f7c68fd5894bc7add8bcee17678ef283689881de5961844e1d08a9b2dab",
         "packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": "b553026d702b291bc829c0b76de1f2c75fcc7a5ffe62af6084e782cb0d120566",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/json-results.md": "ccbcb240d796eccc02c6f1974573df1f8a9052ea37808b78a15420f9e66f1f63",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/transformers.md": "b35f5caf45b6334d21e534facb2d22a76c52f576d1640e3a5732fd1d6119cf13",
@@ -32,22 +32,22 @@
         "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/src/greet.ts": "a2938e7cf0fa1f29393bd2ac1cb3e1f7c8a6fe0ff4c9ea8b1c47becffd4fa168",
         "packages/usage/tests/skills/sync-markdown-code-blocks/task.md": "69f373db5a34c8165e1abe370e63230a6652c1412f2fa44a413dfd8534d84dbc"
       },
-      "head": "8fd753fe248a42f85ce3fd7d97624156fd74e410",
+      "head": "778a87a0e1ae7a33fd71ee5cbb9adf13869544d5",
       "outcome": "no-change",
-      "reason": "extract --force now refuses non-UTF-8 whole-file targets like splices do; README notes updated. The skill describes extract at a level these refusals don't change.",
+      "reason": "The update-readme action is a GitHub Action for consumer repositories, documented in the package README; the skill covers the mdcode CLI and library, whose behaviour this PR does not change.",
       "evidence": [
-        "Changed: packages/mdcode/README.md, packages/mdcode/src/commands/extract.ts at 8fd753fe248a42f85ce3fd7d97624156fd74e410"
+        "update-readme-action.test.ts (8 tests) passes against a local bare repository and a stand-in gh: PR holds only the two documents update wrote; sources untouched; caller checkout unchanged; rerun pushes nothing; refresh on main's new tip; behind checkout still bases on tip; in-sync closes the PR; unreadable file= opens nothing; branch==base exits 2. check-sync-action.test.ts (8 tests) still passes after moving its helpers to .github/actions/shared/mdcode.mjs."
       ]
     },
     "planning:_artifacts": {
-      "fingerprint": "8a69bcf703e02764565bff53153f281369deccc14e5540753d0fd2059a636629",
+      "fingerprint": "6f769696dbf92b036c34be3cb3eaa1fe9bf942b467e5e4295f146b5ecb5e854b",
       "snapshot": {
         "_artifacts/domain_map.yaml": "ceb4094bf4fa2cd63354e1c76cce3fec97d19c4a807a40b974646e1dbb00152b",
         "_artifacts/skill_spec.md": "d0af268c94e3fefde165ce14f470c88ce52e7f8162c4c8632718fe0f959f5a23",
         "_artifacts/skill_tree.yaml": "2490b6a1d7a2abab698fe1a91e036ddec9dc76de5cfb15dedd8639ebf2875229",
         "examples/ci/check-docs-sync.mjs": "7a1dc943571637883dfc28de98825c3c595d6c5a5561239373bacf1dfbf1dc72",
         "examples/ci/validate-snippets.mjs": "d177fba60f830179c285a25ea0a878d98dc044684114447f687366907e9e722d",
-        "packages/mdcode/README.md": "4090c130b589f23882b7cf99f488528fdc5cdf6b4772c6d91b56a77aebba4e16",
+        "packages/mdcode/README.md": "65c58f7c68fd5894bc7add8bcee17678ef283689881de5961844e1d08a9b2dab",
         "packages/mdcode/skills/sync-markdown-code-blocks/SKILL.md": "b553026d702b291bc829c0b76de1f2c75fcc7a5ffe62af6084e782cb0d120566",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/json-results.md": "ccbcb240d796eccc02c6f1974573df1f8a9052ea37808b78a15420f9e66f1f63",
         "packages/mdcode/skills/sync-markdown-code-blocks/references/transformers.md": "b35f5caf45b6334d21e534facb2d22a76c52f576d1640e3a5732fd1d6119cf13",
@@ -72,11 +72,11 @@
         "packages/usage/tests/skills/sync-markdown-code-blocks/fixture/src/greet.ts": "a2938e7cf0fa1f29393bd2ac1cb3e1f7c8a6fe0ff4c9ea8b1c47becffd4fa168",
         "packages/usage/tests/skills/sync-markdown-code-blocks/task.md": "69f373db5a34c8165e1abe370e63230a6652c1412f2fa44a413dfd8534d84dbc"
       },
-      "head": "8fd753fe248a42f85ce3fd7d97624156fd74e410",
+      "head": "778a87a0e1ae7a33fd71ee5cbb9adf13869544d5",
       "outcome": "no-change",
-      "reason": "extract --force now refuses non-UTF-8 whole-file targets like splices do; README notes updated. The skill describes extract at a level these refusals don't change.",
+      "reason": "No change to the skill's scope or sources; the actions are outside the skill.",
       "evidence": [
-        "Changed: packages/mdcode/README.md, packages/mdcode/src/commands/extract.ts at 8fd753fe248a42f85ce3fd7d97624156fd74e410"
+        "update-readme-action.test.ts (8 tests) passes against a local bare repository and a stand-in gh: PR holds only the two documents update wrote; sources untouched; caller checkout unchanged; rerun pushes nothing; refresh on main's new tip; behind checkout still bases on tip; in-sync closes the PR; unreadable file= opens nothing; branch==base exits 2. check-sync-action.test.ts (8 tests) still passes after moving its helpers to .github/actions/shared/mdcode.mjs."
       ]
     },
     "source:.bumpy/agent-skill.md": {
@@ -92,11 +92,11 @@
       ]
     },
     "source:TESTING.md": {
-      "fingerprint": "9030c5b4778438eba7d65740bc0edcb86434669a165a2b2e8517326c7cfbe4e2",
+      "fingerprint": "680e4a4d43cd4572bd9ec1c70ca508df660053cf59e1be891ce9ebf761e0982b",
       "snapshot": {
-        "TESTING.md": "278678c85357a4f689d31fbe46192c687051aa0250c54922d5a4d8ed8669f26d"
+        "TESTING.md": "87b36c71f041671f105a4a9cca8ad35996e38994c83bc728bcc69daf0b803528"
       },
-      "head": "96c394e80f4b69ee75e1d0d0456218a62ffac326",
+      "head": "778a87a0e1ae7a33fd71ee5cbb9adf13869544d5",
       "outcome": "out-of-scope",
       "reason": "Contributor test-layout doc; lists the new action test.",
       "evidence": [
@@ -176,15 +176,15 @@
       ]
     },
     "source:.github/actions/check-sync/check-sync.mjs": {
-      "fingerprint": "ed3e9eb0b0a2dd4053d6f44c3b386aed80b18b2daed1211e88a39ad93b8ac304",
+      "fingerprint": "e97c4c84e100765da8af88f7e18366f8915919473be3e52d255e567189e0596f",
       "snapshot": {
-        ".github/actions/check-sync/check-sync.mjs": "315525933185c979d643900e854d21279e0cc68d6866d2c56a01f7aacf0466b5"
+        ".github/actions/check-sync/check-sync.mjs": "cd8d334364e28378b2cc3b852cbb97df8f570ae4ea321574a96ac76b5ddeb76f"
       },
-      "head": "96c394e80f4b69ee75e1d0d0456218a62ffac326",
+      "head": "778a87a0e1ae7a33fd71ee5cbb9adf13869544d5",
       "outcome": "out-of-scope",
-      "reason": "The consumer check-sync action and this repo's CI dogfood step. The action is documented in the package README, not in the skill, which covers the mdcode CLI and library.",
+      "reason": "Consumer GitHub Action code (update-readme, and check-sync's helpers moved to a shared module); documented in the package README, not the skill.",
       "evidence": [
-        "extract.test.ts 'extract: check' (6 tests) and region.test.ts round-trip test pass; check-sync-action.test.ts (8 tests) passes; `mdcode extract --check --force --ignore-anonymous` verified on a temp project: exit 0 in sync, exit 1 with per-block out_of_sync, files unchanged; dogfood: check-sync over this repo's 6 documents passes in both directions, and a real extract now leaves packages/mdcode/tests/examples/fibonacci/fibonacci.js unchanged."
+        "update-readme-action.test.ts (8 tests) passes against a local bare repository and a stand-in gh: PR holds only the two documents update wrote; sources untouched; caller checkout unchanged; rerun pushes nothing; refresh on main's new tip; behind checkout still bases on tip; in-sync closes the PR; unreadable file= opens nothing; branch==base exits 2. check-sync-action.test.ts (8 tests) still passes after moving its helpers to .github/actions/shared/mdcode.mjs."
       ]
     },
     "source:.github/workflows/ci_test.yml": {
@@ -233,6 +233,66 @@
       "reason": "Formatting-only lint fixes (chained-call line breaks, import order); no guidance affected.",
       "evidence": [
         "Changed: packages/usage/tests/check-sync-action.test.ts at 4fc4ec83eccda6aeb542cc6b552262701c8bdc16"
+      ]
+    },
+    "source:.bumpy/update-readme-action.md": {
+      "fingerprint": "7327c13e923d273071e55d1789d8f3abcb596a88fa0bbbfb3435c5de3146938f",
+      "snapshot": {
+        ".bumpy/update-readme-action.md": "d9c50c66442cf7645cda5900d6666f8ad359adf3f791766e2b8f2200c27804eb"
+      },
+      "head": "778a87a0e1ae7a33fd71ee5cbb9adf13869544d5",
+      "outcome": "out-of-scope",
+      "reason": "Changelog entry for the update-readme action.",
+      "evidence": [
+        "Minor bump file."
+      ]
+    },
+    "source:.github/actions/shared/mdcode.mjs": {
+      "fingerprint": "2aa44aa5e73e1e28d8acc5060ec641ebe72b44fe972436702d42307a00351ade",
+      "snapshot": {
+        ".github/actions/shared/mdcode.mjs": "3dacf99cc572c312a1e0227d4d067b3788a10be1e4da1faa392bd800327c3de7"
+      },
+      "head": "778a87a0e1ae7a33fd71ee5cbb9adf13869544d5",
+      "outcome": "out-of-scope",
+      "reason": "Consumer GitHub Action code (update-readme, and check-sync's helpers moved to a shared module); documented in the package README, not the skill.",
+      "evidence": [
+        "update-readme-action.test.ts (8 tests) passes against a local bare repository and a stand-in gh: PR holds only the two documents update wrote; sources untouched; caller checkout unchanged; rerun pushes nothing; refresh on main's new tip; behind checkout still bases on tip; in-sync closes the PR; unreadable file= opens nothing; branch==base exits 2. check-sync-action.test.ts (8 tests) still passes after moving its helpers to .github/actions/shared/mdcode.mjs."
+      ]
+    },
+    "source:.github/actions/update-readme/action.yml": {
+      "fingerprint": "f009588e84a1aec0d66156f3a42e5c1598e9245c5c33a97865ab56d7afa83161",
+      "snapshot": {
+        ".github/actions/update-readme/action.yml": "4b7c76787aa8df89915f8abfb5c56f9a7cc392985147afb816e72024a0d64503"
+      },
+      "head": "778a87a0e1ae7a33fd71ee5cbb9adf13869544d5",
+      "outcome": "out-of-scope",
+      "reason": "Consumer GitHub Action code (update-readme, and check-sync's helpers moved to a shared module); documented in the package README, not the skill.",
+      "evidence": [
+        "update-readme-action.test.ts (8 tests) passes against a local bare repository and a stand-in gh: PR holds only the two documents update wrote; sources untouched; caller checkout unchanged; rerun pushes nothing; refresh on main's new tip; behind checkout still bases on tip; in-sync closes the PR; unreadable file= opens nothing; branch==base exits 2. check-sync-action.test.ts (8 tests) still passes after moving its helpers to .github/actions/shared/mdcode.mjs."
+      ]
+    },
+    "source:.github/actions/update-readme/update-readme.mjs": {
+      "fingerprint": "1f6db015cbb035b89c1264382970d90b963788f956ecd1c84b28eabda1e63eee",
+      "snapshot": {
+        ".github/actions/update-readme/update-readme.mjs": "9db00951da5a94b6cd955ee502491a59a75808b879381764bf8f95e4cce24abc"
+      },
+      "head": "778a87a0e1ae7a33fd71ee5cbb9adf13869544d5",
+      "outcome": "out-of-scope",
+      "reason": "Consumer GitHub Action code (update-readme, and check-sync's helpers moved to a shared module); documented in the package README, not the skill.",
+      "evidence": [
+        "update-readme-action.test.ts (8 tests) passes against a local bare repository and a stand-in gh: PR holds only the two documents update wrote; sources untouched; caller checkout unchanged; rerun pushes nothing; refresh on main's new tip; behind checkout still bases on tip; in-sync closes the PR; unreadable file= opens nothing; branch==base exits 2. check-sync-action.test.ts (8 tests) still passes after moving its helpers to .github/actions/shared/mdcode.mjs."
+      ]
+    },
+    "source:packages/usage/tests/update-readme-action.test.ts": {
+      "fingerprint": "a6e12e91559b6c5a00363ee37709ef74d5ccdee0b3cb49e17398e7a6eebc3bc4",
+      "snapshot": {
+        "packages/usage/tests/update-readme-action.test.ts": "b71e4314794dd384a4c7825afe07957e6bffab9619933bf590553dc3bb74e8c9"
+      },
+      "head": "778a87a0e1ae7a33fd71ee5cbb9adf13869544d5",
+      "outcome": "no-change",
+      "reason": "Tests for the consumer action; no skill guidance affected.",
+      "evidence": [
+        "update-readme-action.test.ts (8 tests) passes against a local bare repository and a stand-in gh: PR holds only the two documents update wrote; sources untouched; caller checkout unchanged; rerun pushes nothing; refresh on main's new tip; behind checkout still bases on tip; in-sync closes the PR; unreadable file= opens nothing; branch==base exits 2. check-sync-action.test.ts (8 tests) still passes after moving its helpers to .github/actions/shared/mdcode.mjs."
       ]
     }
   }
