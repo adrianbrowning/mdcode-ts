@@ -1,5 +1,0 @@
----
-mdcode-ts: minor
----
-
-Added `mdcode validate` (and `validate()`), which reports every block that `update` or `extract` would refuse, without writing anything. `--for extract` checks extract targets instead of update sources, and `--strict` requires `file=` on every selected block. **Behaviour changes:** `extract` checks every target before writing any. Blocks that share a file without each declaring their own `region=` in one language, identical whole-file blocks included, are refused as `ambiguous_target`, and broken markers in an existing target as `malformed_region`, `duplicate_region` or `region_language_mismatch`; nothing is written and it exits 1, where it used to skip that file with exit 2. `update` refuses a `region=` its file opens more than once instead of joining the bodies, and reports missing, unclosed or wrongly marked regions as `missing_region`, `malformed_region` or `region_language_mismatch` instead of `read_failed`. `update --apply --continue-on-error` no longer writes a document in which a block's `file=` or `region=` failed.
